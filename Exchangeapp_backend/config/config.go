@@ -1,6 +1,7 @@
 package config
 
 import (
+	"exchangeapp/utils"
 	"log"
 
 	"github.com/spf13/viper"
@@ -12,13 +13,13 @@ type Config struct {
 		Port string
 	}
 	Database struct {
-		Dsn string
+		Dsn          string
 		MaxIdleConns int
 		MaxOpenConns int
 	}
-	Redis struct{
-		Addr string
-		DB int
+	Redis struct {
+		Addr     string
+		DB       int
 		Password string
 	}
 }
@@ -30,16 +31,18 @@ func InitConfig() {
 	viper.SetConfigType("yml")
 	viper.AddConfigPath("./config")
 
-	if err := viper.ReadInConfig(); err !=nil{
+	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalf("Error reading config file: %v", err)
 	}
 
 	AppConfig = &Config{}
 
-	if err:= viper.Unmarshal(AppConfig); err !=nil{
+	if err := viper.Unmarshal(AppConfig); err != nil {
 		log.Fatalf("Unable to decode into struct: %v", err)
 	}
 
 	initDB()
 	initRedis()
+
+	utils.NewLogger() //初始化log
 }

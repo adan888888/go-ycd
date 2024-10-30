@@ -2,7 +2,7 @@
   <div class="auth-container">  
     <el-form :model="form" class="auth-form" @submit.prevent="login">  
       <el-form-item label="用户名" label-width="80px">  
-        <el-input v-model="form.username" placeholder="请输入用户名" />  
+        <el-input v-model="form.username" placeholder="请输入用户名" />
       </el-form-item>  
       <el-form-item label="密码" label-width="80px">  
         <el-input v-model="form.password" type="password" placeholder="请输入密码" />  

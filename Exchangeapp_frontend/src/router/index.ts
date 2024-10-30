@@ -20,4 +20,4 @@ const router = createRouter({
   routes,
 });
 
-export default router;
+export default router;//向外暴露路由好引用
