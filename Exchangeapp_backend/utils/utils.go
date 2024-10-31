@@ -5,6 +5,8 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/bcrypt"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -59,4 +61,17 @@ func ParseJWT(tokenString string) (string, error) {
 func CheckPassword(password string, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
+}
+
+// 去掉转义字符
+func RemoveEscapeChars(s string) string {
+	return regexp.MustCompile(`\\(.)`).ReplaceAllStringFunc(s, func(m string) string {
+		return string([]byte(m)[1:])
+	})
+}
+
+// 去掉转义字符
+func RemoveEscapeChars1(s string) string {
+	Logger.Errorf("测试 %t", strings.Contains(s, "\\"))
+	return strings.ReplaceAll(s, "\\", "") // \"ID\":9 变成 "ID":9
 }

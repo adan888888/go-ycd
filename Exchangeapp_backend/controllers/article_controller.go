@@ -5,6 +5,7 @@ import (
 	"errors"
 	"exchangeapp/global"
 	"exchangeapp/models"
+	"exchangeapp/utils"
 	"net/http"
 	"time"
 
@@ -80,6 +81,7 @@ func GetArticles(ctx *gin.Context) {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+		utils.Logger.Errorf("=%+v", utils.RemoveEscapeChars1(cachedData))
 		ctx.JSON(http.StatusOK, articles)
 	}
 }
