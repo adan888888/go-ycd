@@ -1,0 +1,130 @@
+basePath: /api/v1
+definitions:
+  models.Article:
+    properties:
+      content:
+        description: 没有指定的默认是longtext类型
+        type: string
+      createdAt:
+        type: string
+      deletedAt:
+        type: string
+      id:
+        type: integer
+      preview:
+        type: string
+      title:
+        description: 类型是varchar  gorm:"size:255" 长度是255个字符 gorm:"size:10" 类型是varchar
+          长度是10
+        type: string
+      updatedAt:
+        type: string
+    required:
+    - content
+    - preview
+    - title
+    type: object
+  models.User:
+    properties:
+      createdAt:
+        type: string
+      deletedAt:
+        type: string
+      id:
+        type: integer
+      password:
+        type: string
+      updatedAt:
+        type: string
+      username:
+        type: string
+    type: object
+host: 192.168.9.109:3000
+info:
+  contact:
+    email: support@swagger.io
+    name: Like API
+  title: Swagger Example API
+  version: "1.0"
+paths:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: query
+        name: createdAt
+        type: string
+      - in: query
+        name: deletedAt
+        type: string
+      - in: query
+        name: id
+        type: integer
+      - in: query
+        name: password
+        type: string
+      - in: query
+        name: updatedAt
+        type: string
+      - in: query
+        name: username
+        type: string
+      - description: json参数
+        in: body
+        name: login
+        schema:
+          $ref: '#/definitions/models.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+      summary: 登录
+      tags:
+      - 接口文档
+  /api/exchangeRates/articles:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Article'
+            type: array
+      summary: 获取文章列表
+      tags:
+      - 接口文档
+  /api/exchangeRates/articles/{id}:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Article'
+      summary: 获取列表
+      tags:
+      - 接口文档
+swagger: "2.0"

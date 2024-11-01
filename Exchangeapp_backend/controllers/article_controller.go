@@ -42,6 +42,13 @@ func CreateArticle(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, article)
 }
 
+// @Summary      获取文章列表
+// @Tags         接口文档
+// @Accept       json
+// @Produce      json
+// @Param        id query int true "ID"
+// @Success      200  {object}  []models.Article
+// @Router       /api/exchangeRates/articles [get]
 func GetArticles(ctx *gin.Context) {
 
 	cachedData, err := global.RedisDB.Get(cacheKey).Result()
@@ -86,6 +93,13 @@ func GetArticles(ctx *gin.Context) {
 	}
 }
 
+// @Summary      获取列表
+// @Tags         接口文档
+// @Accept       json
+// @Produce      json
+// @Param        id query int true "ID"
+// @Success      200  {object}  models.Article
+// @Router       /api/exchangeRates/articles/{id} [get]
 func GetArticleByID(ctx *gin.Context) {
 	id := ctx.Param("id")
 

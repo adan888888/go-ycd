@@ -4,7 +4,6 @@ import (
 	"context"
 	"exchangeapp/config"
 	"exchangeapp/router"
-	"exchangeapp/utils"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -12,13 +11,14 @@ import (
 	"time"
 )
 
+// @title           Swagger Example API
+// @version         1.0
+// @contact.name   Like API
+// @contact.email  support@swagger.io
+// @host      192.168.9.109:3000
+// @BasePath  /api/v1
 func main() {
 	config.InitConfig()
-	//log.Println("config配置--")
-	//log.Panicf("Panicf类型--") //程序会退出
-	//log.Fatalf("Fatalf类型--") //程序会退出
-	//log.Errorf("[error]ret:%+v", "ret")
-	utils.Logger.Errorf("[error]ret:%+v", "测试测试测试测试测试！！！！")
 	r := router.SetupRouter()
 
 	port := config.AppConfig.App.Port

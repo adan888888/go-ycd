@@ -46,6 +46,21 @@ func Register(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"token": token})
 }
 
+/*
+// Tags         json  //放在哪个类里面
+// Accept       json  //接收
+// Produce      json //返回
+*/
+
+// @Summary      登录
+// 不要描述 // @Description  描述
+// @Tags         接口文档
+// @Accept       json
+// @Produce      json
+// @Param        username query models.User true "用户名"
+// @Param        login body models.User false "json参数"
+// @Success      200  {object}  models.User
+// @Router       /api/auth/login [post]
 func Login(ctx *gin.Context) {
 	var input struct {
 		Username string `json:"username"`

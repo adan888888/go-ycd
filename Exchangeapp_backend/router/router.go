@@ -2,9 +2,12 @@ package router
 
 import (
 	"exchangeapp/controllers"
+	_ "exchangeapp/docs" //引用docs.go
 	"exchangeapp/middlewares"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"time"
 )
 
@@ -19,6 +22,8 @@ func SetupRouter() *gin.Engine {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler)) //swagger
 
 	auth := r.Group("/api/auth")
 	{
