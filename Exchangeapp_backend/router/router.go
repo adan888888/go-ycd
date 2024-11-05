@@ -13,6 +13,10 @@ import (
 
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
+	//参数1：其实就是路由访问的地址，如果你监听的 /assets那你就访问这个地址，后面可以跟你具体的那个路径所存在的路径是多少。
+	//如：http://127.0.0.1:3000/assets/img1/img2.jpeg,实际，img2文件夹是没有监听的他是动态生成的这个文件。所以可以直接动态访问。
+	//参数2：其实就是你监听的是哪个文件夹的名字，以及那个文件夹所在的路径。
+	r.Static("/assets", "./assets") //图片访问
 
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},

@@ -93,7 +93,7 @@ func GetArticles(ctx *gin.Context) {
 	}
 }
 
-// @Summary      获取列表
+// @Summary      根据ID获取新闻
 // @Tags         接口文档
 // @Accept       json
 // @Produce      json

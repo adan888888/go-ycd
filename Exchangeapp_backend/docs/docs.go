@@ -112,6 +112,37 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "接口文档"
+                ],
+                "summary": "注册",
+                "parameters": [
+                    {
+                        "description": "传json数据",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.User"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.User"
+                        }
+                    }
+                }
             }
         },
         "/api/exchangeRates/articles/{id}": {
@@ -125,7 +156,7 @@ const docTemplate = `{
                 "tags": [
                     "接口文档"
                 ],
-                "summary": "获取列表",
+                "summary": "根据ID获取新闻",
                 "parameters": [
                     {
                         "type": "integer",
@@ -147,6 +178,17 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "controllers.User": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Article": {
             "type": "object",
             "required": [

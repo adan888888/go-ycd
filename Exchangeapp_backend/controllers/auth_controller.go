@@ -4,19 +4,37 @@ import (
 	"exchangeapp/global"
 	"exchangeapp/models"
 	"exchangeapp/utils"
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
+type User struct {
+	Username string
+	Password string
+}
+
+// @Summary      注册
+// @Tags         接口文档
+// @Accept       json
+// @Produce      json
+// @Param        data body User true "传json数据"
+// @Success      200  {object}  models.User
+// @Router       /api/exchangeRates/articles [post]
 func Register(ctx *gin.Context) {
+	var user1 User
 	var user models.User
 
 	if err := ctx.ShouldBindJSON(&user); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
+	//先查询是否注册过
+	global.Db.Debug().Where("username = ?", user.Username).First(&user1)
+	if len(user1.Username) != 0 || user1.Username != "" {
+		utils.Logger.Errorln("Username is already taken:", user1)
+		ctx.JSON(http.StatusNotImplemented, gin.H{"error": "该用户已注册过"})
+		return
+	}
 	hashedPwd, err := utils.HashPassword(user.Password)
 
 	if err != nil {
@@ -25,7 +43,7 @@ func Register(ctx *gin.Context) {
 	}
 
 	user.Password = hashedPwd
-
+	user.Uid = utils.GetUid() //雪花算法
 	token, err := utils.GenerateJWT(user.Username)
 
 	if err != nil {

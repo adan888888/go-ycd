@@ -1,5 +1,12 @@
 basePath: /api/v1
 definitions:
+  controllers.User:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
   models.Article:
     properties:
       content:
@@ -107,6 +114,26 @@ paths:
       summary: 获取文章列表
       tags:
       - 接口文档
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 传json数据
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+      summary: 注册
+      tags:
+      - 接口文档
   /api/exchangeRates/articles/{id}:
     get:
       consumes:
@@ -124,7 +151,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/models.Article'
-      summary: 获取列表
+      summary: 根据ID获取新闻
       tags:
       - 接口文档
 swagger: "2.0"
