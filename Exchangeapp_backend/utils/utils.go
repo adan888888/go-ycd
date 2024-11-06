@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/bcrypt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -74,4 +75,8 @@ func RemoveEscapeChars(s string) string {
 func RemoveEscapeChars1(s string) string {
 	Logger.Errorf("测试 %t", strings.Contains(s, "\\"))
 	return strings.ReplaceAll(s, "\\", "") // \"ID\":9 变成 "ID":9
+}
+func IsNumber(s string) bool {
+	_, err := strconv.Atoi(s)
+	return err == nil
 }

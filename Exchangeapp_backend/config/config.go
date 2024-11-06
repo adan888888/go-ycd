@@ -2,9 +2,8 @@ package config
 
 import (
 	"exchangeapp/utils"
-	"log"
-
 	"github.com/spf13/viper"
+	"log"
 )
 
 type Config struct {
@@ -21,6 +20,9 @@ type Config struct {
 		Addr     string
 		DB       int
 		Password string
+	}
+	TgBot struct {
+		Token string
 	}
 }
 
@@ -41,8 +43,9 @@ func InitConfig() {
 		log.Fatalf("Unable to decode into struct: %v", err)
 	}
 
+	utils.NewLogger() //初始化log
 	initDB()
 	initRedis()
-
-	utils.NewLogger() //初始化log
+	go initTgBot() //初始化机器人
+	go utils.Countdown()
 }

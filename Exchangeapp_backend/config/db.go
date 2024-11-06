@@ -9,11 +9,11 @@ import (
 	"gorm.io/gorm"
 )
 
-func initDB(){
+func initDB() {
 	dsn := AppConfig.Database.Dsn
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
-  
-	if err!=nil{
+
+	if err != nil {
 		log.Fatalf("Failed to initialize database, got error: %v", err)
 	}
 
@@ -23,7 +23,7 @@ func initDB(){
 	sqlDB.SetMaxOpenConns(AppConfig.Database.MaxOpenConns)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	if err !=nil{
+	if err != nil {
 		log.Fatalf("Failed to configure database, got error: %v", err)
 	}
 

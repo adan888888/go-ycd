@@ -31,6 +31,7 @@
                     },
                     {
                         "type": "string",
+                        "description": "`gorm:\"index\"`",
                         "name": "deletedAt",
                         "in": "query"
                     },
@@ -42,6 +43,11 @@
                     {
                         "type": "string",
                         "name": "password",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "name": "uid",
                         "in": "query"
                     },
                     {
@@ -68,6 +74,31 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/models.User"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/banners": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "接口文档"
+                ],
+                "summary": "获取Banner图列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -168,6 +199,31 @@
                     }
                 }
             }
+        },
+        "/api/hotgames": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "接口文档"
+                ],
+                "summary": "获取热门图列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -222,6 +278,7 @@
                     "type": "string"
                 },
                 "deletedAt": {
+                    "description": "`gorm:\"index\"`",
                     "type": "string"
                 },
                 "id": {
@@ -229,6 +286,9 @@
                 },
                 "password": {
                     "type": "string"
+                },
+                "uid": {
+                    "type": "integer"
                 },
                 "updatedAt": {
                     "type": "string"

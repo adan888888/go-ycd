@@ -3,7 +3,6 @@ package router
 import (
 	"exchangeapp/controllers"
 	_ "exchangeapp/docs" //引用docs.go
-	"exchangeapp/middlewares"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -38,7 +37,7 @@ func SetupRouter() *gin.Engine {
 
 	api := r.Group("/api")
 	api.GET("/exchangeRates", controllers.GetExchangeRates)
-	api.Use(middlewares.AuthMiddleWare())
+	//api.Use(middlewares.AuthMiddleWare())
 	{
 		api.POST("/exchangeRates", controllers.CreateExchangeRate)
 		api.POST("/articles", controllers.CreateArticle)
@@ -47,6 +46,8 @@ func SetupRouter() *gin.Engine {
 
 		api.POST("/articles/:id/like", controllers.LikeArticle)
 		api.GET("/articles/:id/like", controllers.GetArticleLikes)
+		api.GET("/banners", controllers.GetBanners)
+		api.GET("/hotgames", controllers.GetHotgames)
 	}
 	return r
 }

@@ -36,11 +36,14 @@ definitions:
       createdAt:
         type: string
       deletedAt:
+        description: '`gorm:"index"`'
         type: string
       id:
         type: integer
       password:
         type: string
+      uid:
+        type: integer
       updatedAt:
         type: string
       username:
@@ -62,7 +65,8 @@ paths:
       - in: query
         name: createdAt
         type: string
-      - in: query
+      - description: '`gorm:"index"`'
+        in: query
         name: deletedAt
         type: string
       - in: query
@@ -71,6 +75,9 @@ paths:
       - in: query
         name: password
         type: string
+      - in: query
+        name: uid
+        type: integer
       - in: query
         name: updatedAt
         type: string
@@ -90,6 +97,22 @@ paths:
           schema:
             $ref: '#/definitions/models.User'
       summary: 登录
+      tags:
+      - 接口文档
+  /api/banners:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      summary: 获取Banner图列表
       tags:
       - 接口文档
   /api/exchangeRates/articles:
@@ -152,6 +175,22 @@ paths:
           schema:
             $ref: '#/definitions/models.Article'
       summary: 根据ID获取新闻
+      tags:
+      - 接口文档
+  /api/hotgames:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      summary: 获取热门图列表
       tags:
       - 接口文档
 swagger: "2.0"

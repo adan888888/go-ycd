@@ -38,6 +38,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "` + "`" + `gorm:\"index\"` + "`" + `",
                         "name": "deletedAt",
                         "in": "query"
                     },
@@ -49,6 +50,11 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "name": "password",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "name": "uid",
                         "in": "query"
                     },
                     {
@@ -75,6 +81,31 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/models.User"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/banners": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "接口文档"
+                ],
+                "summary": "获取Banner图列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -175,6 +206,31 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/hotgames": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "接口文档"
+                ],
+                "summary": "获取热门图列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -229,6 +285,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "deletedAt": {
+                    "description": "` + "`" + `gorm:\"index\"` + "`" + `",
                     "type": "string"
                 },
                 "id": {
@@ -236,6 +293,9 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string"
+                },
+                "uid": {
+                    "type": "integer"
                 },
                 "updatedAt": {
                     "type": "string"
