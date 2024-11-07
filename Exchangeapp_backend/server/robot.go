@@ -48,7 +48,7 @@ func TgRobot() {
 			msg := tgbotapi.NewMessage(global.AppConfig.TgBot.ChatID, responseText)
 			switch update.Message.Command() {
 			case "start":
-				msg.Text = "Hello! I am your friendly Telegram bot."
+				msg.Text = "请输入1到100之间的数字 \n例如输入 /1"
 			case "help":
 				msg.Text = "You can control me by sending these commands:\n/start - to start the bot\n/help - to get this help message"
 			default:
@@ -59,7 +59,7 @@ func TgRobot() {
 						hour := duration / time.Hour
 						mine := duration / time.Minute % 60
 						second := duration / time.Second % 60
-						msg.Text = fmt.Sprintf("下班倒计时: %d小时%d分钟%d秒", hour, mine, second)
+						msg.Text = fmt.Sprintf("下班倒计时: 还剩%d小时%d分钟%d秒", hour, mine, second)
 					} else {
 						msg.Text = "数字太大，我还在学习"
 					}
