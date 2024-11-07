@@ -17,3 +17,7 @@ redis:
 
 tgbot:
   Token: "7384710909:AAEGcRFtwuMnoqaCOLA_vRvDE2zcN7ISblI"
+  chatID: -4500054486
+  hour: 18
+  min: 40
+

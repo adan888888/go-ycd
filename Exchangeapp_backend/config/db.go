@@ -10,7 +10,7 @@ import (
 )
 
 func initDB() {
-	dsn := AppConfig.Database.Dsn
+	dsn := global.AppConfig.Database.Dsn
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 	if err != nil {
@@ -19,8 +19,8 @@ func initDB() {
 
 	sqlDB, err := db.DB()
 
-	sqlDB.SetMaxIdleConns(AppConfig.Database.MaxIdleConns)
-	sqlDB.SetMaxOpenConns(AppConfig.Database.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(global.AppConfig.Database.MaxIdleConns)
+	sqlDB.SetMaxOpenConns(global.AppConfig.Database.MaxOpenConns)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	if err != nil {

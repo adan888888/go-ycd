@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"exchangeapp/config"
+	"exchangeapp/global"
 	"exchangeapp/router"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -21,7 +22,7 @@ func main() {
 	config.InitConfig()
 	r := router.SetupRouter()
 
-	port := config.AppConfig.App.Port
+	port := global.AppConfig.App.Port
 
 	if port == "" {
 		port = ":8080"
