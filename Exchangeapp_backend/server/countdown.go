@@ -9,7 +9,7 @@ import (
 )
 
 func Countdown(TgBot *tgbotapi.BotAPI) {
-	duration := utils.GetDuration(global.AppConfig.TgBot.Hour, global.AppConfig.TgBot.Min)
+	duration := utils.GetDuration(global.AppConfig.TgBot.Hour, global.AppConfig.TgBot.Min, global.AppConfig.TgBot.Sec)
 	// 使用一个无限循环进行倒计时
 	for {
 		hour := duration / time.Hour
@@ -31,7 +31,7 @@ func Countdown(TgBot *tgbotapi.BotAPI) {
 		// 当倒计时结束时退出循环
 		if duration <= 0 {
 			fmt.Println("下班倒计时结束！")
-			TgBot.Send(tgbotapi.NewMessage(global.AppConfig.TgBot.ChatID, "下班时间到，全体起立，离开工位"))
+			TgBot.Send(tgbotapi.NewMessage(global.AppConfig.TgBot.ChatID, "@all 下班时间到，全体起立，离开工位"))
 			Countdown(TgBot)
 			break
 		}

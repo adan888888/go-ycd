@@ -81,12 +81,12 @@ func IsNumber(s string) bool {
 	return err == nil
 }
 
-func GetDuration(Hour int, Min int) time.Duration {
+func GetDuration(Hour int, Min int, Sec int) time.Duration {
 	// 获取当前时间
 	now := time.Now()
 	Logger.Println("现在时间", now)
 	// 计算今天20点的时间
-	target := time.Date(now.Year(), now.Month(), now.Day(), Hour, Min, 0, 0, now.Location())
+	target := time.Date(now.Year(), now.Month(), now.Day(), Hour, Min, Sec, 0, now.Location())
 	Logger.Println("计算今天6点的时间", target)
 	// 如果当前时间已经是下午6点之后，则计算明天6点
 	if now.After(target) {

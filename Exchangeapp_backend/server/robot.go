@@ -19,11 +19,10 @@ func TgRobot() {
 	//bot.Debug = true
 	msg := tgbotapi.NewMessage(global.AppConfig.TgBot.ChatID, "大佬们好，我是下班倒计时机器人")
 	// 发送消息
-	_, err = bot.Send(msg)
-	log.Printf("Message sent to chat ID %d", global.AppConfig.TgBot.ChatID)
-	if err != nil {
-		panic(err)
-	}
+	//_, err = bot.Send(msg)
+	//if err != nil {
+	//	panic(err)
+	//}
 	// 设置更新配置
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -38,9 +37,9 @@ func TgRobot() {
 			continue
 		}
 		// 打印收到的消息
-		log.Printf("收到消息==>[%s] %s", update.Message.From.UserName, update.Message.Text)
+		log.Printf("收到消息==>[%s] %s %v ", update.Message.From.UserName, update.Message.Text, update.Message.Chat.ID)
 
-		// 检查消息是否提到了机器人
+		// 检查消息是否提到了机器人 或者是命令
 		if update.Message.IsCommand() || strings.Contains(update.Message.Text, "@"+bot.Self.UserName) {
 			//if strings.HasPrefix(update.Message.Text, "@bx_xia_Bot") {
 			// 回复消息
@@ -56,7 +55,7 @@ func TgRobot() {
 				if utils.IsNumber(update.Message.Command()) {
 					number, _ := strconv.Atoi(update.Message.Command())
 					if number >= 1 && number <= 100 {
-						duration := utils.GetDuration(global.AppConfig.TgBot.Hour, global.AppConfig.TgBot.Min)
+						duration := utils.GetDuration(global.AppConfig.TgBot.Hour, global.AppConfig.TgBot.Min, global.AppConfig.TgBot.Sec)
 						hour := duration / time.Hour
 						mine := duration / time.Minute % 60
 						second := duration / time.Second % 60
@@ -65,7 +64,7 @@ func TgRobot() {
 						msg.Text = "数字太大，我还在学习"
 					}
 				} else {
-					if strings.Contains(update.Message.Text, "@bx_xia_Bot ") {
+					if strings.Contains(update.Message.Text, "@bx_xia_Bot ") { //@我的(机器人)
 						msg.Text = "不要@我，我很忙..."
 					} else {
 						msg.Text = "请重新输入..."
@@ -75,6 +74,12 @@ func TgRobot() {
 			//msg.ReplyToMessageID = update.Message.MessageID  加这个是回复消息
 			// 发送回复消息
 			bot.Send(msg)
+		} else {
+			//如果是#号开头，就是我要发到群里的消息
+			if strings.HasPrefix(update.Message.Text, "#") {
+				msg.Text = update.Message.Text
+				bot.Send(msg)
+			}
 		}
 	}
 

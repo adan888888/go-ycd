@@ -17,7 +17,8 @@ redis:
 
 tgbot:
   Token: "7384710909:AAEGcRFtwuMnoqaCOLA_vRvDE2zcN7ISblI"
-  chatID: -4500054486
-  hour: 18
-  min: 40
+  chatID: -1002421880670  # app群chatID: -4102331731   测试Rebot群 ：-1002421880670
+  hour: 18                # 晚上6点
+  min: 38                 # 38分
+  sec: 30                 # 30秒
 

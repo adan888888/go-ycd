@@ -19,6 +19,7 @@ type Config struct {
 		Token  string
 		Hour   int
 		Min    int
+		Sec    int
 		ChatID int64
 	}
 }
