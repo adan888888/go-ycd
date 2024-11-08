@@ -8,20 +8,15 @@ import (
 	"net/http"
 )
 
-type User struct {
-	Username string
-	Password string
-}
-
 // @Summary      注册
 // @Tags         接口文档
 // @Accept       json
 // @Produce      json
-// @Param        data body User true "传json数据"
+// @Param        data body models.UserBody true "传json数据"
 // @Success      200  {object}  models.User
 // @Router       /api/exchangeRates/articles [post]
 func Register(ctx *gin.Context) {
-	var user1 User
+	var user1 models.UserBody
 	var user models.User
 
 	if err := ctx.ShouldBindJSON(&user); err != nil {
@@ -69,15 +64,13 @@ func Register(ctx *gin.Context) {
 // Accept       json  //接收
 // Produce      json //返回
 */
-
 // @Summary      登录
 // 不要描述 // @Description  描述
 // @Tags         接口文档
 // @Accept       json
 // @Produce      json
-// @Param        username query models.User true "用户名"
-// @Param        login body models.User false "json参数"
-// @Success      200  {object}  models.User
+// @Param        data body models.UserBody true "json"  #models.UserBody里面的字段一定要大写 要不然生成不了
+// @Success      200  {object} models.JSONResult{data=models.User} "成功响应"
 // @Router       /api/auth/login [post]
 func Login(ctx *gin.Context) {
 	var input struct {
@@ -109,5 +102,11 @@ func Login(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"token": token})
+	//ctx.JSON(http.StatusOK, gin.H{"token": token})
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Msg:    "登录成功",
+		Code:   10000,
+		Data:   gin.H{"token": token, "Uid": user.Uid, "Username": user.Username},
+	})
 }

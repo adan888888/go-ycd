@@ -17,7 +17,7 @@ import (
 // @contact.name   Like API
 // @contact.email  support@swagger.io
 // @host      192.168.9.109:3000
-// @BasePath  /api/v1
+// @BasePath
 func main() {
 	config.InitConfig()
 	r := router.SetupRouter()

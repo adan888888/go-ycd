@@ -1,12 +1,4 @@
-basePath: /api/v1
 definitions:
-  controllers.User:
-    properties:
-      password:
-        type: string
-      username:
-        type: string
-    type: object
   models.Article:
     properties:
       content:
@@ -31,6 +23,26 @@ definitions:
     - preview
     - title
     type: object
+  models.Banner:
+    properties:
+      url:
+        type: string
+    type: object
+  models.Banners:
+    properties:
+      bannerx:
+        items:
+          $ref: '#/definitions/models.Banner'
+        type: array
+    type: object
+  models.JSONResult:
+    properties:
+      code:
+        type: integer
+      data: {}
+      msg:
+        type: string
+    type: object
   models.User:
     properties:
       createdAt:
@@ -42,12 +54,32 @@ definitions:
         type: integer
       password:
         type: string
+      token:
+        type: string
       uid:
         type: integer
       updatedAt:
         type: string
       username:
         type: string
+    type: object
+  models.UserBody:
+    properties:
+      age:
+        description: 用户年龄（可选）
+        example: 25
+        type: integer
+      password:
+        description: 用户年龄（必填）
+        example: "123"
+        type: string
+      username:
+        description: 用户名（必填）
+        example: admin
+        type: string
+    required:
+    - password
+    - username
     type: object
 host: 192.168.9.109:3000
 info:
@@ -62,40 +94,24 @@ paths:
       consumes:
       - application/json
       parameters:
-      - in: query
-        name: createdAt
-        type: string
-      - description: '`gorm:"index"`'
-        in: query
-        name: deletedAt
-        type: string
-      - in: query
-        name: id
-        type: integer
-      - in: query
-        name: password
-        type: string
-      - in: query
-        name: uid
-        type: integer
-      - in: query
-        name: updatedAt
-        type: string
-      - in: query
-        name: username
-        type: string
-      - description: json参数
+      - description: json
         in: body
-        name: login
+        name: data
+        required: true
         schema:
-          $ref: '#/definitions/models.User'
+          $ref: '#/definitions/models.UserBody'
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功响应
           schema:
-            $ref: '#/definitions/models.User'
+            allOf:
+            - $ref: '#/definitions/models.JSONResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.User'
+              type: object
       summary: 登录
       tags:
       - 接口文档
@@ -107,11 +123,21 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功响应
           schema:
-            items:
-              type: string
-            type: array
+            allOf:
+            - $ref: '#/definitions/models.JSONResult'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/models.Banners'
+                  - properties:
+                      bannerx:
+                        items:
+                          $ref: '#/definitions/models.Banner'
+                        type: array
+                    type: object
+              type: object
       summary: 获取Banner图列表
       tags:
       - 接口文档
@@ -146,7 +172,7 @@ paths:
         name: data
         required: true
         schema:
-          $ref: '#/definitions/controllers.User'
+          $ref: '#/definitions/models.UserBody'
       produces:
       - application/json
       responses:

@@ -32,55 +32,32 @@ const docTemplate = `{
                 "summary": "登录",
                 "parameters": [
                     {
-                        "type": "string",
-                        "name": "createdAt",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "` + "`" + `gorm:\"index\"` + "`" + `",
-                        "name": "deletedAt",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "name": "id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "name": "password",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "name": "uid",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "name": "updatedAt",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "name": "username",
-                        "in": "query"
-                    },
-                    {
-                        "description": "json参数",
-                        "name": "login",
+                        "description": "json",
+                        "name": "data",
                         "in": "body",
+                        "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.User"
+                            "$ref": "#/definitions/models.UserBody"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "成功响应",
                         "schema": {
-                            "$ref": "#/definitions/models.User"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.JSONResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.User"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -100,12 +77,36 @@ const docTemplate = `{
                 "summary": "获取Banner图列表",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "成功响应",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.JSONResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/definitions/models.Banners"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "bannerx": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "$ref": "#/definitions/models.Banner"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -162,7 +163,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/controllers.User"
+                            "$ref": "#/definitions/models.UserBody"
                         }
                     }
                 ],
@@ -234,17 +235,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "controllers.User": {
-            "type": "object",
-            "properties": {
-                "password": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
         "models.Article": {
             "type": "object",
             "required": [
@@ -278,6 +268,37 @@ const docTemplate = `{
                 }
             }
         },
+        "models.Banner": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Banners": {
+            "type": "object",
+            "properties": {
+                "bannerx": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Banner"
+                    }
+                }
+            }
+        },
+        "models.JSONResult": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "msg": {
+                    "type": "string"
+                }
+            }
+        },
         "models.User": {
             "type": "object",
             "properties": {
@@ -294,6 +315,9 @@ const docTemplate = `{
                 "password": {
                     "type": "string"
                 },
+                "token": {
+                    "type": "string"
+                },
                 "uid": {
                     "type": "integer"
                 },
@@ -304,6 +328,30 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "models.UserBody": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "age": {
+                    "description": "用户年龄（可选）",
+                    "type": "integer",
+                    "example": 25
+                },
+                "password": {
+                    "description": "用户年龄（必填）",
+                    "type": "string",
+                    "example": "123"
+                },
+                "username": {
+                    "description": "用户名（必填）",
+                    "type": "string",
+                    "example": "admin"
+                }
+            }
         }
     }
 }`
@@ -312,7 +360,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "192.168.9.109:3000",
-	BasePath:         "/api/v1",
+	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "Swagger Example API",
 	Description:      "",

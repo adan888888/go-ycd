@@ -42,11 +42,12 @@ func GetArticleLikes(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"likes": likes})
 }
 
+// 多层嵌套
 // @Summary      获取Banner图列表
 // @Tags         接口文档
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  []string
+// @Success      200  {object} models.JSONResult{data=models.Banners{bannerx=[]models.Banner}} "成功响应"
 // @Router       /api/banners [get]
 func GetBanners(ctx *gin.Context) {
 	var banners []models.Banner
@@ -60,12 +61,28 @@ func GetBanners(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	var banners1 []string
-	for _, banner := range banners {
-		banners1 = append(banners1, banner.Url)
+	var banners1 []models.Banner
+	for _, url := range banners {
+		banners1 = append(banners1, models.Banner{Url: url.Url})
 	}
+	/*
+		ctx.JSON(http.StatusOK,
+		gin.H{
+			"code": 200,
+			"msg":  "查询成功",
+			"data": gin.H{
+				"banners": banners1,
+			},
+		})*/
 
-	ctx.JSON(http.StatusOK, gin.H{"banners": banners1})
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK, //不传话主不会返回给客户端 因为有  `json:"-"`  这个标签
+		Code:   10000,
+		Msg:    "查询成功",
+		Data: models.Banners{
+			Bannerx: banners1,
+		},
+	})
 }
 
 // @Summary      获取热门图列表
@@ -76,7 +93,7 @@ func GetBanners(ctx *gin.Context) {
 // @Router       /api/hotgames [get]
 func GetHotgames(ctx *gin.Context) {
 	var hotgames = []string{
-		"https: //9f.com/images/game/551201.jpg",
+		"https://9f.com/images/game/551201.jpg",
 		"https://9f.com/images/game/551205.jpg",
 		"https://9f.com/images/game/551206.jpg",
 		"https://9f.com/images/game/551208.jpg",
@@ -88,5 +105,13 @@ func GetHotgames(ctx *gin.Context) {
 		"https://9f.com/images/game/551338.jpg",
 		"https://9f.com/images/game/551339.jpg",
 	}
-	ctx.JSON(http.StatusOK, gin.H{"hotgames": hotgames})
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK, //不传话主不会返回给客户端 因为有  `json:"-"`  这个标签
+		Code:   10000,
+		Msg:    "查询成功",
+		Data: map[string]any{
+			"hotgames": hotgames,
+		},
+	})
 }
