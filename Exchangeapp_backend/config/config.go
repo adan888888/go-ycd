@@ -3,7 +3,6 @@ package config
 import (
 	"exchangeapp/global"
 	"exchangeapp/models"
-	"exchangeapp/server"
 	"exchangeapp/utils"
 	"github.com/spf13/viper"
 	"log"
@@ -27,5 +26,6 @@ func InitConfig() {
 	utils.NewLogger() //初始化log
 	initDB()
 	initRedis()
-	go server.TgRobot() //初始化机器人
+	/*已迁移致新的服务myserver*/
+	//go server.TgRobot() //初始化机器人
 }
