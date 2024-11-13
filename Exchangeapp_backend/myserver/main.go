@@ -14,7 +14,7 @@ func main() {
 	config.AppConfig = &config.Config{}
 	viper.SetConfigName("config")
 	viper.SetConfigType("yml")
-	viper.AddConfigPath("../config") //./表示main所在的文件夹 ../main上一层的文件夹
+	viper.AddConfigPath("./config") //./表示main所在的文件夹 ../main上一层的文件夹
 
 	//读取配置
 	if err := viper.ReadInConfig(); err != nil {
