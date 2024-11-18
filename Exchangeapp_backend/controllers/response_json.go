@@ -7,9 +7,9 @@ import (
 )
 
 type ResponseJson struct {
-	Status int    `json:"-"`              //是忽略的 (系统的状态码)
-	Code   int    `json:"code,omitempty"` //omitempty 如果不存在就不返回给前端  例如返回
-	Msg    string `json:"msg,omitempty"`  //描述
+	Status int    `json:"-"`             //是忽略的 (系统的状态码)
+	Code   int    `json:"code"`          //`json:"code,omitempty"` omitempty 如果不存在就不返回给前端  假如设置为o，这个字段不会返回给前端
+	Msg    string `json:"msg,omitempty"` //描述
 	Data   any    `json:"data,omitempty"`
 }
 
