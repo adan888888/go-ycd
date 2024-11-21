@@ -120,4 +120,8 @@ func Login(ctx *gin.Context) {
 		Msg:    "登录成功",
 		Data:   gin.H{"token": token, "Uid": user.Uid, "Username": user.Username},
 	})
+	ctx.SetCookie(
+		"token", user.Username,
+		3600, //3600秒=1小时
+		"/api/auth/", "", true, false)
 }

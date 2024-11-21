@@ -61,9 +61,9 @@ func GetBanners(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	var banners1 []models.Banner
+	var banners1 []string
 	for _, url := range banners {
-		banners1 = append(banners1, models.Banner{Url: url.Url})
+		banners1 = append(banners1, url.Url)
 	}
 	/*
 		ctx.JSON(http.StatusOK,
@@ -79,8 +79,8 @@ func GetBanners(ctx *gin.Context) {
 		Status: http.StatusOK, //不传话主不会返回给客户端 因为有  `json:"-"`  这个标签
 		Code:   10000,
 		Msg:    "查询成功",
-		Data: models.Banners{
-			Bannerx: banners1,
+		Data: map[string]any{
+			"banners": banners1,
 		},
 	})
 }

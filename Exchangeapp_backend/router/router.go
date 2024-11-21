@@ -3,6 +3,7 @@ package router
 import (
 	"exchangeapp/controllers"
 	_ "exchangeapp/docs" //引用docs.go
+	"exchangeapp/middlewares"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -49,5 +50,14 @@ func SetupRouter() *gin.Engine {
 		api.GET("/banners", controllers.GetBanners)
 		api.GET("/hotgames", controllers.GetHotgames)
 	}
+	//cookie
+	index := r.Group("/index")
+	index.Use(middlewares.CheckUser)
+	{
+		index.GET("/test", func(context *gin.Context) {
+			context.JSON(200, gin.H{"msg": "成功！"})
+		})
+	}
 	return r
+
 }
