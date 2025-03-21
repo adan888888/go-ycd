@@ -76,7 +76,7 @@ func GetArticles(ctx *gin.Context) {
 			return
 		}
 
-		Ok(ctx, ResponseJson{Code: 1, Msg: "查询成功", Status: http.StatusOK, Data: articles})
+		Ok(ctx, ResponseJson{Code: 0, Msg: "查询成功", Status: http.StatusOK, Data: articles})
 
 	} else if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -89,7 +89,7 @@ func GetArticles(ctx *gin.Context) {
 			return
 		}
 		utils.Logger.Errorf("=%+v", utils.RemoveEscapeChars1(cachedData))
-		Ok(ctx, ResponseJson{Code: 1, Msg: "查询成功", Status: http.StatusOK, Data: articles})
+		Ok(ctx, ResponseJson{Code: 0, Msg: "查询成功", Status: http.StatusOK, Data: articles})
 	}
 }
 

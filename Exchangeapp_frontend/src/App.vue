@@ -26,16 +26,20 @@ const route = useRoute();
 const authStore = useAuthStore();
 const activeIndex = ref(route.name?.toString() || 'home');
 
+//保证亮度状态和页面是一致的
 watch(route, (newRoute) => {
   activeIndex.value = newRoute.name?.toString() || 'home';
+  console.log(activeIndex.value)
 });
 
+//当用户在下拉框中选择一个选项时，handleSelect 方法会被调用，并将选中的值作为参数传递进去
 const handleSelect = (key: string) => {
+  console.log('测试',activeIndex.value, key)
   if ( key === 'logout') {
     authStore.logout();
     router.push({ name: 'Home' });
   } else {
-    router.push({ name:  key.charAt(0).toUpperCase() +  key.slice(1) });
+    router.push({ name:  key.charAt(0).toUpperCase() +  key.slice(1) }); //Name后面要变成大写
   }
 };
 </script>

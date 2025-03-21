@@ -46,6 +46,7 @@
   
   const fetchCurrencies = async () => {
     try{
+      console.log('==========', '开始访问')
       const response = await axios.get<ExchangeRate[]>('/exchangeRates');
       rates.value = response.data;
       currencies.value = [...new Set(response.data.map((rate: ExchangeRate) => [rate.fromCurrency, rate.toCurrency]).flat())];
@@ -72,10 +73,10 @@
   <style scoped>
   .exchange-form {  
   width: 100%;  
-  max-width: 600px;  
+  max-width: 600px;
   margin: 20px auto;  
   padding: 20px;  
-  background-color: #f5f5f5;  
+  background-color: #f5f5f5;
   border-radius: 4px;  
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  
 }  

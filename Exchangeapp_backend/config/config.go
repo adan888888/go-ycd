@@ -23,6 +23,7 @@ func InitConfig() {
 		log.Fatalf("Unable to decode into struct: %v", err)
 	}
 
+	//InitRabbitMQ()
 	utils.NewLogger() //初始化log
 	initDB()
 	initRedis()

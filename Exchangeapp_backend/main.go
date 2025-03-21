@@ -16,7 +16,7 @@ import (
 // @version         1.0
 // @contact.name   Like API
 // @contact.email  support@swagger.io
-// @host      192.168.9.109:3000
+// @host      192.168.100.133:3000
 // @BasePath
 func main() {
 	config.InitConfig()

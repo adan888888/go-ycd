@@ -49,6 +49,7 @@ func SetupRouter() *gin.Engine {
 		api.GET("/articles/:id/like", controllers.GetArticleLikes)
 		api.GET("/banners", controllers.GetBanners)
 		api.GET("/hotgames", controllers.GetHotgames)
+		api.GET("/testmq/:msg", controllers.SendRabbitMsg) //http://localhost:3000/api/testmq/你好
 	}
 	//cookie
 	index := r.Group("/index")
@@ -57,6 +58,16 @@ func SetupRouter() *gin.Engine {
 		index.GET("/test", func(context *gin.Context) {
 			context.JSON(200, gin.H{"msg": "成功！"})
 		})
+	}
+
+	//统计胜率
+	{
+		api.GET("/ycd/table1", controllers.GetTable1)
+		api.GET("/ycd/table2", controllers.GetTable2)
+		api.PUT("/ycd/inserttable1", controllers.InsertTable1)
+		api.PUT("/ycd/inserttable2", controllers.InsertTable2)
+		api.DELETE("/ycd/deletelast", controllers.DeleteLast)
+		api.POST("/ycd/restart", controllers.Restart)
 	}
 	return r
 
