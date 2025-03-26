@@ -5,7 +5,7 @@ import (
 )
 
 type TableYanchendao2 struct {
-	ID                int       `gorm:"primaryKey;autoIncrement" json:"table2Id"`
+	ID                int       `gorm:"primaryKey;autoIncrement" json:"table2Id" binding:"required"`
 	ColumnXiazhujine  string    `gorm:"type:varchar(255);not null;comment:'下注的金额'" json:"column_xiazhujine"`
 	ColmunShuyingzhi  string    `gorm:"type:varchar(255);not null;comment:'输赢值'" json:"colmun_shuyingzhi"`
 	ColmunShuyingzhiD string    `gorm:"type:varchar(255);not null;comment:'消数后的输赢值'" json:"colmun_shuyingzhi_d"`

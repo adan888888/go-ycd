@@ -22,10 +22,10 @@ func initDB() {
 	sqlDB.SetMaxIdleConns(global.AppConfig.Database.MaxIdleConns)
 	sqlDB.SetMaxOpenConns(global.AppConfig.Database.MaxOpenConns)
 	sqlDB.SetConnMaxLifetime(time.Hour)
-
 	if err != nil {
 		log.Fatalf("Failed to configure database, got error: %v", err)
 	}
-
+	//开启打印日志
+	db = db.Debug()
 	global.Db = db
 }

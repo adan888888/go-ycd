@@ -62,12 +62,16 @@ func SetupRouter() *gin.Engine {
 
 	//统计胜率
 	{
+		api.POST("/ycd/createtable", controllers.CreateTables)
 		api.GET("/ycd/table1", controllers.GetTable1)
 		api.GET("/ycd/table2", controllers.GetTable2)
 		api.PUT("/ycd/inserttable1", controllers.InsertTable1)
 		api.PUT("/ycd/inserttable2", controllers.InsertTable2)
 		api.DELETE("/ycd/deletelast", controllers.DeleteLast)
 		api.POST("/ycd/restart", controllers.Restart)
+		api.POST("/ycd/sortxiaoshu", controllers.SortXiaoShu)
+		api.POST("/ycd/xiaoshu", controllers.Xiaoshu)
+		api.DELETE("/ycd/deleteall", controllers.DeleteAll)
 	}
 	return r
 
