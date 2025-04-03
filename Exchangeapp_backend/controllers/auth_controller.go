@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
+	"strconv"
 )
 
 // @Summary      注册
@@ -88,7 +89,7 @@ func Login(ctx *gin.Context) {
 	var user models.User
 
 	if err := global.Db.Where("username = ?", input.Username).First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) || user == (models.User{}) {
+		if errors.Is(err, gorm.ErrRecordNotFound) /*|| user == (models.User{})*/ {
 			Fail(ctx, ResponseJson{
 				Status: http.StatusUnauthorized,
 				Code:   0,
@@ -116,9 +117,9 @@ func Login(ctx *gin.Context) {
 	//ctx.JSON(http.StatusOK, gin.H{"token": token})
 	Ok(ctx, ResponseJson{
 		Status: http.StatusOK,
-		Code:   1,
+		Code:   0,
 		Msg:    "登录成功",
-		Data:   gin.H{"token": token, "Uid": user.Uid, "Username": user.Username},
+		Data:   gin.H{"token": token, "userId": strconv.FormatInt(user.Uid, 10), "nickname": user.Username},
 	})
 	ctx.SetCookie(
 		"token", user.Username,

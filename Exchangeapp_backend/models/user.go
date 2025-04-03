@@ -4,15 +4,21 @@ import (
 	"time"
 )
 
+/*
+*
+references 通常用于指定外键引用的是源表的主键字段，是一种标准的外键关联方式。
+AssociationForeignKey 允许你指定源表中用于关联的非主键字段，提供了更灵活的关联方式。
+*/
 type User struct {
-	ID        uint  `gorm:"primarykey"`
-	Uid       int64 `gorm:"colmun:uid;default:NULL"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt time.Time /*`gorm:"index"`*/
-	Username  string    `gorm:"unique"`
-	Password  string
-	Token     string
+	ID                uint  `gorm:"primaryKey;unique;autoIncrement"`
+	Uid               int64 `gorm:"column:uid;unique;default:NULL"`
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	Username          string `gorm:"unique"`
+	Password          string
+	Token             string
+	TableYanchendao1s []TableYanchendao1 `gorm:"foreignKey:Uid;references:Uid"`    // 一个用户可以有多个表1数据
+	TableYanchendao2s []TableYanchendao2 `gorm:"foreignKey:UserID;references:Uid"` // foreignKey:UserID 是外键
 }
 
 type UserBody struct {

@@ -60,7 +60,7 @@ func SetupRouter() *gin.Engine {
 		})
 	}
 
-	//统计胜率
+	//统计数据
 	{
 		api.POST("/ycd/createtable", controllers.CreateTables)
 		api.GET("/ycd/table1", controllers.GetTable1)
@@ -72,6 +72,11 @@ func SetupRouter() *gin.Engine {
 		api.POST("/ycd/sortxiaoshu", controllers.SortXiaoShu)
 		api.POST("/ycd/xiaoshu", controllers.Xiaoshu)
 		api.DELETE("/ycd/deleteall", controllers.DeleteAll)
+		api.POST("/ycd/resetliushui", controllers.ResetLiushui)
+		api.POST("/ycd/updateqiwangvalue", controllers.Updateqiwangvalue)
+		api.POST("/ycd/updateodds", controllers.UpdateOdds)
+		api.POST("/ycd/updatebenjin", controllers.UpdateBenjin)
+		api.GET("/ycd/getusers", controllers.Getusers)
 	}
 	return r
 
