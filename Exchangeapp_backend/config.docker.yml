@@ -1,0 +1,40 @@
+# github.com/flipped-aurora/gin-vue-admin/server Global Configuration
+app:
+  name: CurrencyExchangeApp
+  port: :3000
+
+# jwt configuration
+jwt:
+  signing-key: gogofly.cn
+  expires-time: 7d
+  buffer-time: 1d
+  issuer: qmPlus
+
+
+# redis configuration
+redis:
+  db: 0
+  addr: localhost:6379
+  password: ""
+
+
+# system configuration
+system:
+  env: public  # Change to "develop" to skip authentication for development mode
+  addr: 5888
+  db-type: mysql
+  oss-type: local    # 控制oss选择走本地还是 七牛等其他仓 自行增加其他oss仓可以在 server/utils/upload/upload.go 中 NewOss函数配置
+  use-redis: false     # 使用redis
+  use-mongo: false     # 使用mongo
+  use-multipoint: false
+  # IP限制次数 一个小时15000次
+  iplimit-count: 15000
+  #  IP限制一个小时
+  iplimit-time: 3600
+
+
+database:
+  dsn: root:mima123@tcp(localhost:3306)/test?charset=utf8mb4&parseTime=True&loc=Local
+  MaxIdleConns: 11
+  MaxOpenCons: 114
+

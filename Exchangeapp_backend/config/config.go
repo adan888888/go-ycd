@@ -9,16 +9,16 @@ import (
 )
 
 func InitConfig() {
-	viper.SetConfigName("config")
+	viper.SetConfigName("config.docker")
 	viper.SetConfigType("yml")
-	viper.AddConfigPath("./config")
-
+	viper.AddConfigPath(".")
+	//尝试读取配置文件。如果找到指定名称和类型的配置文件，viper 会将其内容加载到内存中。
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalf("Error reading config file: %v", err)
 	}
-
+	//初始化全局配置结构体
 	global.AppConfig = &models.Config{}
-
+	//将配置信息解析到结构体中
 	if err := viper.Unmarshal(global.AppConfig); err != nil {
 		log.Fatalf("Unable to decode into struct: %v", err)
 	}

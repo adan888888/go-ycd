@@ -3,7 +3,7 @@ app:
   port: :3000
 
 database:
-  dsn: root:mima123@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local
+  dsn: root:mima1233@tcp(localhost:3306)/test?charset=utf8mb4&parseTime=True&loc=Local
   MaxIdleConns: 11
   MaxOpenCons: 114
 

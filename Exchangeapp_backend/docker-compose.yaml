@@ -1,0 +1,19 @@
+services:
+  laowang-api:
+    image: centos:7
+    working_dir: /opt
+    container_name: laowang-api    #自定义
+    #command: "./laowang-api -c ./config/config.yaml"
+    command: "./laowang-api -c docker.compose.yml" #指定程序跑的配置文件
+#    network_mode: "host"      # 共享宿主机网络配置 容器中程序可访问其他容器端口服务
+    ports:
+      - "5000:5000"      #
+    volumes:
+      - ./:/opt
+    environment:
+      - TZ=Asia/Shanghai
+    dns:
+      - 223.5.5.5
+      - 8.8.8.8
+      - 114.114.114.114
+# Kompose 转换 docker-compose 文件为k8s 资源 部署文件   默认版本为3
