@@ -1,0 +1,24 @@
+app:
+  name: CurrencyExchangeApp
+  port: :3000
+
+database:
+  dsn: root:mima123@tcp(192.168.100.122:3306)/test?charset=utf8mb4&parseTime=True&loc=Local #在容器中运行要把连接地址改成容器名字mysql-test（改成容器名也不行），再改成具体ip才行
+  MaxIdleConns: 11
+  MaxOpenCons: 114
+
+jwt:
+  signingKey: gogofly.cn #签名使用的key
+
+redis:
+  addr: 192.168.100.122:6379
+  DB: 0
+  Password: ""
+
+#tgbot:
+#  Token: "7384710909:AAEGcRFtwuMnoqaCOLA_vRvDE2zcN7ISblI"
+#  chatID: -4102331731     # app群chatID: -4102331731   测试Rebot群 ：-1002421880670
+#  hour: 18                   # 晚上6点
+#  min: 39                    # 39分
+#  sec: 10                    # 10秒
+

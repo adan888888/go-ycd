@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// @title           Swagger Example API
+// @title           Swagger Example API  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
 // @version         1.0
 // @contact.name   Like API
 // @contact.email  support@swagger.io

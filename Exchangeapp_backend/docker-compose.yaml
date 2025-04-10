@@ -1,19 +1,32 @@
+name: MyYcd #这个名字是docker-compose容器的名字
 services:
-  laowang-api:
-    image: centos:7
-    working_dir: /opt
-    container_name: laowang-api    #自定义
-    #command: "./laowang-api -c ./config/config.yaml"
-    command: "./laowang-api -c docker.compose.yml" #指定程序跑的配置文件
-#    network_mode: "host"      # 共享宿主机网络配置 容器中程序可访问其他容器端口服务
-    ports:
-      - "5000:5000"      #
+  #放可执行文件不是目录
+  app:
+    build: . #Docker Compose 会在当前目录下查找 Dockerfile 文件，并且依据该文件来构建一个新的镜像。 .表示当前目录
+    #command: ["/app/main"] #它表示在容器启动时，会执行 /app/main 这个可执行文件（dockerfile里面写的有这里可以注释掉）
+    image: ycd:v1.0 # 指定镜像名称和标签
+    container_name: ycd # 指定容器名称
     volumes:
-      - ./:/opt
-    environment:
-      - TZ=Asia/Shanghai
-    dns:
-      - 223.5.5.5
-      - 8.8.8.8
-      - 114.114.114.114
-# Kompose 转换 docker-compose 文件为k8s 资源 部署文件   默认版本为3
+      - /etc/localtime:/etc/localtime:ro  # 挂载主机的时间配置文件
+    ports:
+      - "3000:3000"
+
+#services:
+#  laowang-api:
+#    image: centos:7
+#    working_dir: /opt
+#    container_name: laowang-api    #自定义
+#    #command: "./laowang-api -c ./config/config.yaml"
+#    command: "./laowang-api -c docker.compose.yml" #指定程序跑的配置文件
+##    network_mode: "host"      # 共享宿主机网络配置 容器中程序可访问其他容器端口服务
+#    ports:
+#      - "5000:5000"      #
+#    volumes:
+#      - ./:/opt
+#    environment:
+#      - TZ=Asia/Shanghai
+#    dns:
+#      - 223.5.5.5
+#      - 8.8.8.8
+#      - 114.114.114.114
+## Kompose 转换 docker-compose 文件为k8s 资源 部署文件   默认版本为3

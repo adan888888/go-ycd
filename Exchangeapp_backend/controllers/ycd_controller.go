@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strconv"
 	"sync"
-	"time"
 )
 
 func CreateTables(ctx *gin.Context) {
@@ -319,7 +318,7 @@ func DeleteAll(ctx *gin.Context) {
 		panic(err)
 	}*/
 
-	time.Sleep(2 * time.Second)
+	//time.Sleep(2 * time.Second)
 	CreateTables(ctx)
 }
 

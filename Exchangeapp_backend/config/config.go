@@ -9,7 +9,7 @@ import (
 )
 
 func InitConfig() {
-	viper.SetConfigName("config.docker")
+	viper.SetConfigName("config")
 	viper.SetConfigType("yml")
 	viper.AddConfigPath(".")
 	//尝试读取配置文件。如果找到指定名称和类型的配置文件，viper 会将其内容加载到内存中。
