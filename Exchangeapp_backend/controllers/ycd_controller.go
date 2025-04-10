@@ -154,12 +154,12 @@ func DeleteLast(ctx *gin.Context) {
 
 // 重启系统（需要记录重启的位置（行））
 func Restart(ctx *gin.Context) {
+	uid := ctx.GetHeader("UserId")
 	var tableYanchendao1 models.TableYanchendao1
 	var tableYanchendao2 models.TableYanchendao2
 	// 重启时，清除消数列数据（colmun_shuyingzhi_d=""）
 	// 将所有记录的 colmun_shuyingzhi_d 列清空, 必须要加 Where("1 = 1")这个条件
 	result := global.Db.Model(&tableYanchendao2).Where("1 = 1").Update("colmun_shuyingzhi_d", "")
-	global.Db.Create("ffd")
 	global.Db.Find(&tableYanchendao1)
 	if result.Error != nil {
 		Fail(ctx, ResponseJson{
@@ -170,15 +170,15 @@ func Restart(ctx *gin.Context) {
 		})
 		return
 	}
-	if err := global.Db.Last(&tableYanchendao1).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    err.Error(),
-			Data:   gin.H{},
-		})
-		return
-	}
+	//if err := global.Db.Last(&tableYanchendao1).Error; err != nil {
+	//	Fail(ctx, ResponseJson{
+	//		Status: http.StatusInternalServerError,
+	//		Code:   1,
+	//		Msg:    err.Error(),
+	//		Data:   gin.H{},
+	//	})
+	//	return
+	//}
 	// 从上下文中绑定 JSON 数据
 	//var value ValueX
 	//if err := ctx.ShouldBindJSON(&value); err != nil {
@@ -194,18 +194,29 @@ func Restart(ctx *gin.Context) {
 		fmt.Println("Failed to count rows:", err)
 		return
 	}
-	tableYanchendao1.ColumnRestartIdx = strconv.FormatInt(count, 10)
-	tableYanchendao1.ID = tableYanchendao1.ID + 1
-	if err := global.Db.Create(&tableYanchendao1).Error; err != nil {
+	//tableYanchendao1.ColumnRestartIdx = strconv.FormatInt(count, 10)
+	//tableYanchendao1.ID = tableYanchendao1.ID + 1
+	//if err := global.Db.Create(&tableYanchendao1).Error; err != nil {
+	//	Fail(ctx, ResponseJson{
+	//		Status: http.StatusInternalServerError,
+	//		Code:   1,
+	//		Msg:    err.Error(),
+	//		Data:   gin.H{},
+	//	})
+	//	return
+	//}
+	//E := global.Db.Model(&tableYanchendao1).Where("uid = ?", uid).Update("column_restart_index", strconv.FormatInt(count, 10)) //这个后面后带一个ID的条件， UPDATE `table_yanchendao1` SET `column_restart_index`='739' WHERE uid = '1852251920824012800' AND `id` = 1
+	E := global.Db.Table("table_yanchendao1").Where("uid = ?", uid).Updates(map[string]interface{}{"column_restart_index": strconv.FormatInt(count-1, 10)})
+	if E.Error != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
 			Code:   1,
-			Msg:    err.Error(),
+			Msg:    E.Error.Error(),
 			Data:   gin.H{},
 		})
 		return
 	}
-	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "删除数据成功", Data: tableYanchendao1})
+	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "重启成功", Data: tableYanchendao1})
 }
 
 // 对消数列进行排序

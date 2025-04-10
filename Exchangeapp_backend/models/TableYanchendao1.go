@@ -5,7 +5,7 @@ import (
 )
 
 type TableYanchendao1 struct {
-	ID               int       `gorm:"primaryKey;autoIncrement" json:"-"`
+	ID               int       `gorm:"primaryKey;autoIncrement" json:"id"` //json:"-"
 	ColumnBenjin     string    `gorm:"type:varchar(255);not null;comment:'本金'" json:"column_benjin"`
 	ColumnYongJin    string    `gorm:"column:column_yongjin;type:varchar(255);not null;comment:'俑金'" json:"column_yongJin"`
 	ColumnMean       string    `gorm:"type:varchar(255);not null;comment:'数学期望'" json:"column_mean"`
