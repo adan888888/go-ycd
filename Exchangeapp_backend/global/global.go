@@ -10,4 +10,5 @@ var (
 	Db        *gorm.DB
 	RedisDB   *redis.Client
 	AppConfig *models.Config
+	//CurrentTempIndex int
 )

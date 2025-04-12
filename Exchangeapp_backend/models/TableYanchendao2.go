@@ -14,7 +14,7 @@ type TableYanchendao2 struct {
 	ColmunRemark      string    `gorm:"type:varchar(255);comment:'输赢标记备注'" json:"colmun_remark"`
 	ColumnCurrentJin  string    `gorm:"type:varchar(255);not null;comment:'当前的钱'" json:"column_current_jin"`
 	ColumnRefresh     bool      `gorm:"default:false;comment:'用来刷新用'" json:"-"`
-	CreatedAt         time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP;comment:'创建时间'" json:"-"`
+	CreatedAt         time.Time `gorm:"type:timestamp(3);default:CURRENT_TIMESTAMP;comment:'创建时间'" json:"-"`
 	UserID            int64     `gorm:"column:user_id"`
 }
 

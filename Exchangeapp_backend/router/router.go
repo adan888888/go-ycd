@@ -77,6 +77,8 @@ func SetupRouter() *gin.Engine {
 		api.POST("/ycd/updateodds", controllers.UpdateOdds)
 		api.POST("/ycd/updatebenjin", controllers.UpdateBenjin)
 		api.GET("/ycd/getusers", controllers.Getusers)
+		api.GET("/ycd/loadmore", controllers.LoadMore) //加载更多历史数据 //http://localhost:3000/api/ycd/loadMore?last_value=836
+		api.GET("/ycd/getStatisticalAreasData", controllers.GetStatisticalAreasData)
 	}
 	return r
 
