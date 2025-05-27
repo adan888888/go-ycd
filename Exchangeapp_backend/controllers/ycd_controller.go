@@ -82,10 +82,6 @@ func GetTable2(ctx *gin.Context) {
 		}
 		return
 	}
-	//手机上是从零开始的，所以减掉1
-	//for i, tableYanchendao2 := range tableYanchendao2s {
-	//	tableYanchendao2s[i].ID = tableYanchendao2.ID - 1
-	//}
 	//time.Sleep(100 * time.Millisecond)
 	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "查询成功", Data: tableYanchendao2s})
 }
@@ -126,8 +122,6 @@ func InsertTable2(ctx *gin.Context) {
 		})
 		return
 	}
-	//手机上是从零开始计算的，所以减掉1
-	//tableYanchendao2.ID = tableYanchendao2.ID - 1
 	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "插入数据成功", Data: tableYanchendao2})
 }
 
@@ -297,7 +291,7 @@ func Xiaoshu(ctx *gin.Context) {
 		return
 	}
 	if tableYanchendao2.ColmunShuyingzhiD == "" && tableYanchendao2.ColumnXiazhujine != "" {
-		// 更新数据库中的数据
+		// 只更新colmun_shuyingzhi_d这一列，传入的是空字符串""也会起效
 		global.Db.Model(&tableYanchendao2).Select("colmun_shuyingzhi_d").Where("id=?", tableYanchendao2.ID).Updates(tableYanchendao2)
 		Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "更新数据成功", Data: gin.H{}})
 	}
@@ -361,7 +355,7 @@ func ResetLiushui(ctx *gin.Context) {
 		}
 	}
 	tableYanchendao1.ColumnLiushuiIdx = strconv.Itoa(*temp.ResetIndex)
-	tx := global.Db.Save(&tableYanchendao1)
+	tx := global.Db.Save(&tableYanchendao1) //Save 会保存所有的字段，即使字段是零值.必须要保证有主键id，否则是新增数据
 	if tx.Error != nil {
 		panic(tx.Error)
 	}
@@ -518,15 +512,19 @@ func LoadMore(ctx *gin.Context) {
 		Data:   tableYanchendao2s,
 	})
 }
+
+var CurrentTempIndex int64
+
 func GetStatisticalAreasData(ctx *gin.Context) {
-	var CurrentTempIndex int64
 	var restartIndex int64
 	a, err := strconv.ParseInt(ctx.Query("tempIndex"), 10, 64)
 	if err != nil {
 		println("解释错误", err.Error())
 	}
-	CurrentTempIndex = a
-	var tableYanchendao1 models.TableYanchendao1
+	if a != -2 {
+		CurrentTempIndex = a
+	}
+	var tableYanchendao1 = models.TableYanchendao1{}
 	var tableYanchendao2s []models.TableYanchendao2
 	statisticalAreas := make([]string, 32) // 定义一个空的字符串切片，类似于 Dart 中的空字符串列表
 	UserId := ctx.GetHeader("UserId")
@@ -604,7 +602,11 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	statisticalAreas[5] = strconv.Itoa(zt_y)
 	//胜
-	statisticalAreas[9] = fmt.Sprintf("%.2f%%", float64(zt_y)/float64(len(tableYanchendao2s))*100) //胜率 ,保留两位小数点. %%两个表示一个
+	if len(tableYanchendao2s) == 0 {
+		statisticalAreas[9] = ""
+	} else {
+		statisticalAreas[9] = fmt.Sprintf("%.2f%%", float64(zt_y)/float64(len(tableYanchendao2s))*100) //胜率 ,保留两位小数点. %%两个表示一个
+	}
 	//winRate := float64(jb_y) / float64(jb_count) * 100
 
 	statisticalAreas[13] = fmt.Sprintf("%d", intAbs(zt_y)-intAbs(zt_s)) //净胜~须多少手回到50%
@@ -638,11 +640,11 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	} else {
 		if zt_syz < 0 {
 			value := (math.Abs(zt_syz) + d) / float64(p)
-			formattedValue := strconv.FormatFloat(value, 'f', 1, 64)
+			formattedValue := strconv.FormatFloat(value, 'f', 2, 64)
 			result = fmt.Sprintf("须%sx%d", formattedValue, p)
 		} else {
 			value := (math.Abs(zt_syz) - d) / float64(p)
-			formattedValue := strconv.FormatFloat(value, 'f', 1, 64)
+			formattedValue := strconv.FormatFloat(value, 'f', 2, 64)
 			result = fmt.Sprintf("可负%sx%d", formattedValue, p)
 		}
 	}
@@ -663,14 +665,16 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		statisticalAreas[4] = strconv.FormatFloat(result, 'f', 2, 64)
 	}
 
-	//局部
+	// 局部
 	// 计算重启位置
-	if CurrentTempIndex == -1 { //-1时说明没有传tempIndex
-		if a, _ := strconv.ParseInt(tableYanchendao1.ColumnRestartIdx, 10, 64); err == nil {
-			restartIndex = a
-		}
-	} else {
+
+	//局部平衡是必须是>2的数，如果是重启传过来是-1，每次下注计算是-2（防止打一手就把局部平衡破坏了）
+	if CurrentTempIndex > 2 {
 		restartIndex = CurrentTempIndex
+	} else {
+		if restartIdx, err := strconv.ParseInt(tableYanchendao1.ColumnRestartIdx, 10, 64); err == nil {
+			restartIndex = restartIdx
+		}
 	}
 
 	jb_y := 0
@@ -679,7 +683,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	jb_count := 0
 	// 遍历 table2List 计算局部数据
 	for i := 0; i < len(tableYanchendao2s); i++ {
-		if CurrentTempIndex == -1 {
+		if CurrentTempIndex == -1 || CurrentTempIndex == -2 {
 			if tableYanchendao2s[i].ID > int(restartIndex) { //重启的时候，要从下一行计算
 				jb_count++
 				shuyingzhiStr := fmt.Sprintf("%v", tableYanchendao2s[i].ColmunShuyingzhi)
@@ -716,7 +720,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		winRate := float64(jb_y) / float64(jb_count) * 100
 		statisticalAreas[10] = fmt.Sprintf("%.2f%%", winRate)
 	}
-	statisticalAreas[14] = strconv.Itoa(jb_y - jb_s)
+	statisticalAreas[14] = strconv.Itoa(jb_y - intAbs(jb_s))
 	statisticalAreas[18] = fmt.Sprintf("%.3f", jb_syz)
 	if statisticalAreas[14] == "0" {
 		statisticalAreas[22] = "-"
@@ -792,6 +796,25 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		Code:   0,
 		Msg:    "统计数据",
 		Data:   statisticalAreas,
+	})
+}
+
+// 折线图数据
+func LinechartData(ctx *gin.Context) {
+	var arr [60]string
+	uid, _ := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64) //第二个参数 10 表示字符串是十进制格式。第三个参数 64 表示转换结果的类型为 int64。
+	global.Db.Model(&models.TableYanchendao2{}).Where("user_id=?", uid).Order("id DESC").Limit(60).Pluck("column_current_jin", &arr)
+
+	//// 反转切片
+	//reversedArr := make([]string, len(arr))
+	//for i, j := 0, len(arr)-1; i < len(arr); i, j = i+1, j-1 {
+	//	reversedArr[i] = arr[j]
+	//}
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "折线图数据",
+		Data:   arr,
 	})
 }
 
