@@ -70,7 +70,7 @@ func SetupRouter() *gin.Engine {
 		api.DELETE("/ycd/deletelast", controllers.DeleteLast)
 		api.POST("/ycd/restart", controllers.Restart)
 		api.POST("/ycd/sortxiaoshu", controllers.SortXiaoShu)
-		api.POST("/ycd/xiaoshu", controllers.Xiaoshu)
+		api.POST("/ycd/xiaoshu", controllers.Xiaoshu) //消数
 		api.DELETE("/ycd/deleteall", controllers.DeleteAll)
 		api.POST("/ycd/resetliushui", controllers.ResetLiushui)
 		api.POST("/ycd/updateqiwangvalue", controllers.Updateqiwangvalue)

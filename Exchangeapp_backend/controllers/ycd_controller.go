@@ -801,9 +801,9 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 
 // 折线图数据
 func LinechartData(ctx *gin.Context) {
-	var arr [60]string
+	var arr [75]string
 	uid, _ := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64) //第二个参数 10 表示字符串是十进制格式。第三个参数 64 表示转换结果的类型为 int64。
-	global.Db.Model(&models.TableYanchendao2{}).Where("user_id=?", uid).Order("id DESC").Limit(60).Pluck("column_current_jin", &arr)
+	global.Db.Model(&models.TableYanchendao2{}).Where("user_id=?", uid).Order("id DESC").Limit(75).Pluck("column_current_jin", &arr)
 
 	//// 反转切片
 	//reversedArr := make([]string, len(arr))
