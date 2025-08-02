@@ -4,12 +4,12 @@ import (
 	"errors"
 	"exchangeapp/global"
 	"exchangeapp/models"
+	. "exchangeapp/utils"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"math"
 	"net/http"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -269,7 +269,7 @@ func SortXiaoShu(ctx *gin.Context) {
 	//global.Db.Save(&tableYanchendao2s[0])// 总体测试下来，是需要自动生成的id才可以更新
 }
 
-// 消数
+// 消数（单个）
 func Xiaoshu(ctx *gin.Context) {
 	//if ctx.Request.ContentLength == 0 { //ShouldBindJSON如果不传这里也不会报错，1.所以要加这个判断， 2.另外加binding:"required"
 	//	Fail(ctx, ResponseJson{
@@ -368,7 +368,7 @@ func ResetLiushui(ctx *gin.Context) {
 }
 
 // 修改期望值
-func Updateqiwangvalue(ctx *gin.Context) {
+func UpdateQiWangValue(ctx *gin.Context) {
 	type TempValuse struct {
 		//* 表示该字段是指针类型；不加 * 则表示该字段是值类型
 		Mean *string `json:"mean"` //ResetIndex一定要大写要不然赋不了值
@@ -609,7 +609,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	//winRate := float64(jb_y) / float64(jb_count) * 100
 
-	statisticalAreas[13] = fmt.Sprintf("%d", intAbs(zt_y)-intAbs(zt_s)) //净胜~须多少手回到50%
+	statisticalAreas[13] = fmt.Sprintf("%d", IntAbs(zt_y)-IntAbs(zt_s)) //净胜~须多少手回到50%
 	statisticalAreas[17] = fmt.Sprintf("%.2f", zt_syz)                  //一共输赢多少钱
 
 	//计算平均赢
@@ -617,7 +617,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		statisticalAreas[21] = "-"
 	} else {
 		// 移除中文字符
-		numStr := removeChineseCharacters(statisticalAreas[13])
+		numStr := RemoveChineseCharacters(statisticalAreas[13])
 		// 将字符串转换为浮点数
 		num, err := strconv.ParseFloat(numStr, 64)
 		if err != nil {
@@ -633,7 +633,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		return
 	}
 	d := float64(len(tableYanchendao2s)+1) * f //期望一共的值
-	p := intAbs(intAbs(zt_y) - intAbs(zt_s))
+	p := IntAbs(IntAbs(zt_y) - IntAbs(zt_s))
 	var result string
 	if statisticalAreas[13] == "0" {
 		result = "-"
@@ -656,7 +656,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	// 处理流水索引
 	statisticalAreas[8] = tableYanchendao1.ColumnLiushuiIdx
 	// 处理本金使用
-	statisticalAreas[12] = strconv.Itoa(intAbs(benUse1))
+	statisticalAreas[12] = strconv.Itoa(IntAbs(benUse1))
 	// 清空索引 16 的值
 	statisticalAreas[16] = ""
 	// 处理当前金额
@@ -720,12 +720,12 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		winRate := float64(jb_y) / float64(jb_count) * 100
 		statisticalAreas[10] = fmt.Sprintf("%.2f%%", winRate)
 	}
-	statisticalAreas[14] = strconv.Itoa(jb_y - intAbs(jb_s))
+	statisticalAreas[14] = strconv.Itoa(jb_y - IntAbs(jb_s))
 	statisticalAreas[18] = fmt.Sprintf("%.3f", jb_syz)
 	if statisticalAreas[14] == "0" {
 		statisticalAreas[22] = "-"
 	} else {
-		parseStr := removeChineseCharacters(statisticalAreas[14])
+		parseStr := RemoveChineseCharacters(statisticalAreas[14])
 		parse, _ := strconv.ParseFloat(parseStr, 64)
 		statisticalAreas[22] = fmt.Sprintf("%.3f", jb_syz/parse)
 	}
@@ -765,7 +765,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	} else if statisticalAreas[21] == "-" {
 		statisticalAreas[27] = ""
 	} else {
-		parts := strings.Split(removeChineseCharacters(statisticalAreas[25]), "x")
+		parts := strings.Split(RemoveChineseCharacters(statisticalAreas[25]), "x")
 		if len(parts) > 0 {
 			num25, _ := strconv.ParseFloat(parts[0], 64)
 			num23, _ := strconv.ParseFloat(statisticalAreas[23], 64)
@@ -777,7 +777,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	} else if statisticalAreas[22] == "-" {
 		statisticalAreas[31] = ""
 	} else {
-		parts := strings.Split(removeChineseCharacters(statisticalAreas[26]), "x")
+		parts := strings.Split(RemoveChineseCharacters(statisticalAreas[26]), "x")
 		if len(parts) > 0 {
 			num26, _ := strconv.ParseFloat(parts[0], 64)
 			num23, _ := strconv.ParseFloat(statisticalAreas[23], 64)
@@ -815,6 +815,23 @@ func LinechartData(ctx *gin.Context) {
 		Code:   0,
 		Msg:    "折线图数据",
 		Data:   arr,
+	})
+}
+
+// 清除数据（消数列数据全部清除）
+func CleanDataD(ctx *gin.Context) {
+	UserId := ctx.GetHeader("UserId")
+	result := global.Db.Model(&models.TableYanchendao2{}).Where("user_id = ?", UserId).Update("colmun_shuyingzhi_d", "")
+	if result.Error != nil {
+		return
+	}
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "清除数据成功",
+		//Data:   [...]int64{result.RowsAffected},
+		Data: [1]int64{result.RowsAffected},
+		//Data: result.RowsAffected,
 	})
 }
 
@@ -858,18 +875,4 @@ func Getusers(ctx *gin.Context) {
 		Msg:    "查询成功",
 		Data:   user,
 	})
-}
-
-// intAbs 自定义函数，用于求整数的绝对值
-func intAbs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
-// removeChineseCharacters 移除字符串中的中文字符
-func removeChineseCharacters(s string) string {
-	re := regexp.MustCompile(`[\p{Han}]+`)
-	return re.ReplaceAllString(s, "")
 }

@@ -73,13 +73,14 @@ func SetupRouter() *gin.Engine {
 		api.POST("/ycd/xiaoshu", controllers.Xiaoshu) //消数
 		api.DELETE("/ycd/deleteall", controllers.DeleteAll)
 		api.POST("/ycd/resetliushui", controllers.ResetLiushui)
-		api.POST("/ycd/updateqiwangvalue", controllers.Updateqiwangvalue)
+		api.POST("/ycd/updateqiwangvalue", controllers.UpdateQiWangValue)
 		api.POST("/ycd/updateodds", controllers.UpdateOdds)
 		api.POST("/ycd/updatebenjin", controllers.UpdateBenjin)
 		api.GET("/ycd/getusers", controllers.Getusers)
 		api.GET("/ycd/loadmore", controllers.LoadMore) //加载更多历史数据 //http://localhost:3000/api/ycd/loadMore?last_value=836
 		api.GET("/ycd/getStatisticalAreasData", controllers.GetStatisticalAreasData)
 		api.GET("/ycd/linechartData", controllers.LinechartData) //折线图数据
+		api.POST("/ycd/cleanDataD", controllers.CleanDataD)      //清除数据（消数列数据全部清除）
 	}
 	return r
 

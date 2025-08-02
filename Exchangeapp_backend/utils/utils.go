@@ -98,3 +98,17 @@ func GetDuration(Hour int, Min int, Sec int) time.Duration {
 	Logger.Println("时间差是：", duration)
 	return duration
 }
+
+// IntAbs 自定义函数，用于求整数的绝对值
+func IntAbs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+// removeChineseCharacters 移除字符串中的中文字符
+func RemoveChineseCharacters(s string) string {
+	re := regexp.MustCompile(`[\p{Han}]+`)
+	return re.ReplaceAllString(s, "")
+}
