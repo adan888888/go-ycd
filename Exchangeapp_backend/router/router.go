@@ -19,9 +19,20 @@ func SetupRouter() *gin.Engine {
 	r.Static("/assets", "./assets") //图片访问
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
-		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		// 修改这里 - 允许前端应用访问
+		AllowOrigins: []string{"*"}, // 允许所有源访问,
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{
+			"Origin",
+			"Content-Type",
+			"Authorization",
+			"X-Device-Type",
+			"X-Device-Id",
+			"X-Lang",
+			"X-Platform-Id",
+			"X-App-Terminal-Id",
+			"UserId",
+		},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -29,28 +40,54 @@ func SetupRouter() *gin.Engine {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler)) //swagger
 
+	// 第1组：不需要认证
 	auth := r.Group("/api/auth")
 	{
 		auth.POST("/login", controllers.Login)
-
 		auth.POST("/register", controllers.Register)
 	}
 
+	// 第2组：不需要认证
 	api := r.Group("/api")
-	api.GET("/exchangeRates", controllers.GetExchangeRates)
-	//api.Use(middlewares.AuthMiddleWare())
 	{
+		//汇率换算 部分
+		api.GET("/exchangeRates", controllers.GetExchangeRates)
 		api.POST("/exchangeRates", controllers.CreateExchangeRate)
 		api.POST("/articles", controllers.CreateArticle)
 		api.GET("/articles", controllers.GetArticles)
 		api.GET("/articles/:id", controllers.GetArticleByID)
-
 		api.POST("/articles/:id/like", controllers.LikeArticle)
 		api.GET("/articles/:id/like", controllers.GetArticleLikes)
 		api.GET("/banners", controllers.GetBanners)
 		api.GET("/hotgames", controllers.GetHotgames)
 		api.GET("/testmq/:msg", controllers.SendRabbitMsg) //http://localhost:3000/api/testmq/你好
 	}
+	// 第3组：需要认证
+	ycd := r.Group("/api/ycd")
+	api.Use(middlewares.AuthMiddleWare()) // 添加认证中间件
+	{
+		//ycd 部分
+		ycd.POST("/createtable", controllers.CreateTables)
+		ycd.GET("/table1", controllers.GetTable1)
+		ycd.GET("/table2", controllers.GetTable2)
+		ycd.PUT("/inserttable1", controllers.InsertTable1)
+		ycd.PUT("/inserttable2", controllers.InsertTable2)
+		ycd.DELETE("/deletelast", controllers.DeleteLast)
+		ycd.POST("/restart", controllers.Restart)
+		ycd.POST("/sortxiaoshu", controllers.SortXiaoShu)
+		ycd.POST("/xiaoshu", controllers.Xiaoshu) //消数
+		ycd.DELETE("/deleteall", controllers.DeleteAll)
+		ycd.POST("/resetliushui", controllers.ResetLiushui)
+		ycd.POST("/updateqiwangvalue", controllers.UpdateQiWangValue)
+		ycd.POST("/updateodds", controllers.UpdateOdds)
+		ycd.POST("/updatebenjin", controllers.UpdateBenjin)
+		ycd.GET("/getusers", controllers.Getusers)
+		ycd.GET("/loadmore", controllers.LoadMore) //加载更多历史数据 //http://localhost:3000/api/ycd/loadMore?last_value=836
+		ycd.GET("/getStatisticalAreasData", controllers.GetStatisticalAreasData)
+		ycd.GET("/linechartData", controllers.LinechartData) //折线图数据
+		ycd.POST("/cleanDataD", controllers.CleanDataD)      //清除数据（消数列数据全部清除）
+	}
+
 	//cookie
 	index := r.Group("/index")
 	index.Use(middlewares.CheckUser)
@@ -60,28 +97,6 @@ func SetupRouter() *gin.Engine {
 		})
 	}
 
-	//统计数据
-	{
-		api.POST("/ycd/createtable", controllers.CreateTables)
-		api.GET("/ycd/table1", controllers.GetTable1)
-		api.GET("/ycd/table2", controllers.GetTable2)
-		api.PUT("/ycd/inserttable1", controllers.InsertTable1)
-		api.PUT("/ycd/inserttable2", controllers.InsertTable2)
-		api.DELETE("/ycd/deletelast", controllers.DeleteLast)
-		api.POST("/ycd/restart", controllers.Restart)
-		api.POST("/ycd/sortxiaoshu", controllers.SortXiaoShu)
-		api.POST("/ycd/xiaoshu", controllers.Xiaoshu) //消数
-		api.DELETE("/ycd/deleteall", controllers.DeleteAll)
-		api.POST("/ycd/resetliushui", controllers.ResetLiushui)
-		api.POST("/ycd/updateqiwangvalue", controllers.UpdateQiWangValue)
-		api.POST("/ycd/updateodds", controllers.UpdateOdds)
-		api.POST("/ycd/updatebenjin", controllers.UpdateBenjin)
-		api.GET("/ycd/getusers", controllers.Getusers)
-		api.GET("/ycd/loadmore", controllers.LoadMore) //加载更多历史数据 //http://localhost:3000/api/ycd/loadMore?last_value=836
-		api.GET("/ycd/getStatisticalAreasData", controllers.GetStatisticalAreasData)
-		api.GET("/ycd/linechartData", controllers.LinechartData) //折线图数据
-		api.POST("/ycd/cleanDataD", controllers.CleanDataD)      //清除数据（消数列数据全部清除）
-	}
 	return r
 
 }

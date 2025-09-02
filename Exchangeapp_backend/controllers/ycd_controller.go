@@ -223,7 +223,7 @@ func Restart(ctx *gin.Context) {
 // 对消数列进行排序
 func SortXiaoShu(ctx *gin.Context) {
 	var tableYanchendao2s []models.TableYanchendao2
-	if err := global.Db.Find(&tableYanchendao2s).Error; err != nil {
+	if err := global.Db.Where("user_id=?", ctx.GetHeader("UserId")).Find(&tableYanchendao2s).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			Fail(ctx, ResponseJson{Code: 1, Status: http.StatusNotFound, Msg: err.Error(), Data: gin.H{}})
 			return
@@ -293,7 +293,7 @@ func Xiaoshu(ctx *gin.Context) {
 	if tableYanchendao2.ColmunShuyingzhiD == "" && tableYanchendao2.ColumnXiazhujine != "" {
 		// 只更新colmun_shuyingzhi_d这一列，传入的是空字符串""也会起效
 		global.Db.Model(&tableYanchendao2).Select("colmun_shuyingzhi_d").Where("id=?", tableYanchendao2.ID).Updates(tableYanchendao2)
-		Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "更新数据成功", Data: gin.H{}})
+		Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "消数据成功", Data: gin.H{}})
 	}
 
 }
@@ -651,12 +651,11 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	statisticalAreas[25] = result //还需要多少 加到50%的时候
 	// 处理重启位置
 	if len(tableYanchendao2s) > 0 {
-		statisticalAreas[29] = tableYanchendao1.ColumnRestartIdx
+		//statisticalAreas[29] = tableYanchendao1.ColumnRestartIdx
+		statisticalAreas[29] = "" //不要这个值了吧
 	}
-	// 处理流水索引
-	statisticalAreas[8] = tableYanchendao1.ColumnLiushuiIdx
 	// 处理本金使用
-	statisticalAreas[12] = strconv.Itoa(IntAbs(benUse1))
+	statisticalAreas[8] = strconv.Itoa(IntAbs(benUse1))
 	// 清空索引 16 的值
 	statisticalAreas[16] = ""
 	// 处理当前金额
@@ -754,7 +753,9 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	if len(tableYanchendao2s) > 0 {
 		statisticalAreas[7] = fmt.Sprintf("均利%.2f", zt_syz/float64(len(tableYanchendao2s)))
 	}
-	statisticalAreas[11] = fmt.Sprintf("连胜负%d", countLianShengFu)
+	//连胜负
+	statisticalAreas[11] = fmt.Sprintf("%d", countLianShengFu)
+
 	num1, _ := strconv.Atoi(statisticalAreas[1])
 	statisticalAreas[15] = fmt.Sprintf("%d/%d", zCount, num1)
 	if len(tableYanchendao2s) > 0 {
@@ -791,6 +792,14 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	//	statisticalAreas[20] = pVal1(tableYanchendao1)
 	//	statisticalAreas[24] = pVal2()
 	//}
+	change1 := statisticalAreas[31]
+	change2 := statisticalAreas[27]
+	change3 := statisticalAreas[23]
+
+	statisticalAreas[31] = change3 //佣金
+	statisticalAreas[27] = change1
+	statisticalAreas[23] = change2 //期望值
+
 	Ok(ctx, ResponseJson{
 		Status: http.StatusOK,
 		Code:   0,

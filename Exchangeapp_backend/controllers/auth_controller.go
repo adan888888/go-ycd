@@ -5,6 +5,7 @@ import (
 	"exchangeapp/global"
 	"exchangeapp/models"
 	"exchangeapp/utils"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
@@ -88,7 +89,18 @@ func Login(ctx *gin.Context) {
 
 	var user models.User
 
+	//验证“用户名”
 	if err := global.Db.Where("username = ?", input.Username).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrInvalidDB) {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusUnauthorized,
+				Code:   0,
+				Msg:    fmt.Errorf("数据库连接失败: %w", err).Error(),
+				Data:   gin.H{},
+			})
+			return
+		}
+
 		if errors.Is(err, gorm.ErrRecordNotFound) /*|| user == (models.User{})*/ {
 			Fail(ctx, ResponseJson{
 				Status: http.StatusUnauthorized,
@@ -98,14 +110,22 @@ func Login(ctx *gin.Context) {
 			})
 			return
 		}
+
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err})
 		return
 	}
 
+	//验证“密码” --用户传过来的密码和数据库查询的该用户的密码的加密值对比
 	if !utils.CheckPassword(input.Password, user.Password) {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "wrong credentials"})
+		Fail(ctx, ResponseJson{
+			Status: http.StatusUnauthorized,
+			Code:   0,
+			Msg:    "密码错误！",
+			Data:   gin.H{},
+		})
 		return
 	}
+
 	//生成token
 	token, err := utils.GenerateJWT(user.Username)
 
@@ -114,7 +134,6 @@ func Login(ctx *gin.Context) {
 		return
 	}
 
-	//ctx.JSON(http.StatusOK, gin.H{"token": token})
 	Ok(ctx, ResponseJson{
 		Status: http.StatusOK,
 		Code:   0,
