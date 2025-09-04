@@ -4,11 +4,12 @@ import (
 	"exchangeapp/controllers"
 	_ "exchangeapp/docs" //引用docs.go
 	"exchangeapp/middlewares"
+	"time"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"time"
 )
 
 func SetupRouter() *gin.Engine {
@@ -86,6 +87,13 @@ func SetupRouter() *gin.Engine {
 		ycd.GET("/getStatisticalAreasData", controllers.GetStatisticalAreasData)
 		ycd.GET("/linechartData", controllers.LinechartData) //折线图数据
 		ycd.POST("/cleanDataD", controllers.CleanDataD)      //清除数据（消数列数据全部清除）
+	}
+
+	// 第4组：买币记录管理（无需认证）
+	buyRecords := r.Group("/api/buyRecords")
+	{
+		buyRecords.GET("", controllers.GetBuyRecords)                       // 获取买币记录列表
+		buyRecords.DELETE("/:id", controllers.DeleteBuyRecord)              // 删除买币记录
 	}
 
 	//cookie
