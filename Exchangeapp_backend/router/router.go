@@ -92,8 +92,19 @@ func SetupRouter() *gin.Engine {
 	// 第4组：买币记录管理（无需认证）
 	buyRecords := r.Group("/api/buyRecords")
 	{
-		buyRecords.GET("", controllers.GetBuyRecords)                       // 获取买币记录列表
-		buyRecords.DELETE("/:id", controllers.DeleteBuyRecord)              // 删除买币记录
+		buyRecords.GET("", controllers.GetBuyRecords)          // 获取买币记录列表
+		buyRecords.DELETE("/:id", controllers.DeleteBuyRecord) // 删除买币记录
+	}
+
+	// 第5组：密码本管理（无需认证）
+	passwordBook := r.Group("/api/password-book")
+	{
+		passwordBook.POST("", controllers.CreatePasswordItem)                    // 创建密码项
+		passwordBook.GET("", controllers.GetPasswordItems)                       // 获取密码列表
+		passwordBook.GET("/:id", controllers.GetPasswordItem)                    // 获取单个密码项
+		passwordBook.PUT("/:id", controllers.UpdatePasswordItem)                 // 更新密码项
+		passwordBook.DELETE("/:id", controllers.DeletePasswordItem)              // 删除密码项
+		passwordBook.POST("/batch-delete", controllers.BatchDeletePasswordItems) // 批量删除密码项
 	}
 
 	//cookie

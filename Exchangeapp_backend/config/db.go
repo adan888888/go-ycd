@@ -66,7 +66,8 @@ func initDB() {
 		&models.Banner{},
 		&models.TableYanchendao1{},
 		&models.TableYanchendao2{},*/
-		&models.BuyRecord{}, // 添加买币记录表的自动迁移
+		&models.BuyRecord{},     // 添加买币记录表的自动迁移
+		&models.PasswordItem{},  // 添加密码本表的自动迁移
 	)
 	if err != nil {
 		log.Fatal("数据库表迁移失败:", err)
