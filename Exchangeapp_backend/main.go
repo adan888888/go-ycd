@@ -5,11 +5,12 @@ import (
 	"exchangeapp/config"
 	"exchangeapp/global"
 	"exchangeapp/router"
-	log "github.com/sirupsen/logrus"
+	"exchangeapp/utils"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+	log "github.com/sirupsen/logrus"
 )
 
 // @title           Swagger Example API  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
@@ -28,6 +29,11 @@ func main() {
 		port = ":8080"
 	}
 
+	// 启动定时备份任务
+	backupScheduler := utils.NewScheduler()
+	go backupScheduler.StartWeeklyBackup()
+	log.Info("定时备份任务已启动，每周执行一次")
+
 	//服务器实例
 	srv := &http.Server{
 		Addr:    port,
@@ -42,9 +48,14 @@ func main() {
 	}()
 
 	quit := make(chan os.Signal, 1)   //申明一个类型为 信号 的通道
-	signal.Notify(quit, os.Interrupt) //假如发送一个 ctrl+c这样的一个信号 到通道中
+	signal.Notify(quit, os.Interrupt) //当系统发送 os.Interrupt （Ctrl+C）信号时，将其转发到 quit 通道中（监听中断信号）
 	<-quit                            //还没能写入消息的时候，通道入一个阻塞,后面代码不会执行,一旦接收到信号 ，程序就会往下走
 	log.Println("Shutdown 服务 ...")    //打印消息服务器正在关闭
+
+	 // ✅ 添加这部分：停止定时备份任务
+	 log.Info("正在停止定时备份任务...")
+	 backupScheduler.Stop()
+	 log.Info("定时备份任务已停止")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //创建一个带有5秒钟超时 可取消的上下文，5秒内的不管有没有处理好，都停止进程
 	defer cancel()                                                          //取消上下文。这里延迟调用，确保函数在返回前取消上下文释放资源

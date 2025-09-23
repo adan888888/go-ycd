@@ -107,6 +107,16 @@ func SetupRouter() *gin.Engine {
 		passwordBook.POST("/batch-delete", controllers.BatchDeletePasswordItems) // 批量删除密码项
 	}
 
+	// 第6组：数据库备份管理（无需认证）
+	backupController := controllers.NewBackupController()
+	backup := r.Group("/api/backup")
+	{
+		backup.POST("/manual", backupController.ManualBackup)        // 手动触发备份
+		backup.GET("/list", backupController.GetBackupList)         // 获取备份文件列表
+		backup.GET("/status", backupController.GetBackupStatus)     // 获取备份状态
+		backup.DELETE("/clean", backupController.CleanOldBackups)   // 清理旧备份
+	}
+
 	//cookie
 	index := r.Group("/index")
 	index.Use(middlewares.CheckUser)

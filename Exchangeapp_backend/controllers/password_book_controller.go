@@ -3,11 +3,10 @@ package controllers
 import (
 	"exchangeapp/global"
 	"exchangeapp/models"
-	"net/http"
-	"strconv"
-
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"net/http"
+	"strconv"
 )
 
 // 全局数据库实例，从 global 包获取
@@ -102,7 +101,6 @@ func GetPasswordItems(c *gin.Context) {
 	for _, item := range passwordItems {
 		items = append(items, models.PasswordItemResponse(item))
 	}
-
 	Ok(c, ResponseJson{
 		Status: 200,
 		Code:   0,
