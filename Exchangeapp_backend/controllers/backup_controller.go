@@ -24,17 +24,21 @@ func (bc *BackupController) ManualBackup(c *gin.Context) {
 	
 	if err := utils.BackupDatabase(); err != nil {
 		log.Errorf("手动备份失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "备份失败: " + err.Error(),
+		ServerFail(c, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "备份失败: " + err.Error(),
 		})
 		return
 	}
 	
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "数据库备份完成",
-		"time":    time.Now().Format("2006-01-02 15:04:05"),
+	Ok(c, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "数据库备份完成",
+		Data: gin.H{
+			"time": time.Now().Format("2006-01-02 15:04:05"),
+		},
 	})
 }
 
