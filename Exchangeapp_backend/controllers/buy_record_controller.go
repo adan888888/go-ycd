@@ -29,7 +29,7 @@ func GetBuyRecords(ctx *gin.Context) {
 
 	// 查询所有数据
 	var buyRecords []models.BuyRecord
-	if err := query.Order("created_at DESC").Find(&buyRecords).Error; err != nil {
+	if err := query.Order("created_at ASC").Find(&buyRecords).Error; err != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
 			Code:   0,

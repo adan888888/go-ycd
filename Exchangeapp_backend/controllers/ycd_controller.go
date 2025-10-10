@@ -513,16 +513,17 @@ func LoadMore(ctx *gin.Context) {
 	})
 }
 
+// CurrentTempIndex 这个全局变量主要是用来区分有没有点局部平衡
 var CurrentTempIndex int64
 
 func GetStatisticalAreasData(ctx *gin.Context) {
 	var restartIndex int64
-	a, err := strconv.ParseInt(ctx.Query("tempIndex"), 10, 64)
+	tempIndex, err := strconv.ParseInt(ctx.Query("tempIndex"), 10, 64)
 	if err != nil {
 		println("解释错误", err.Error())
 	}
-	if a != -2 {
-		CurrentTempIndex = a
+	if tempIndex != -2 { //过滤掉-2（每次下注点击四个按钮时，或者app退出再进来时要传-2，要不然会计算多一行）保持原来的还有的局部平衡的值，假如原来还有一个>2的值...
+		CurrentTempIndex = tempIndex
 	}
 	var tableYanchendao1 = models.TableYanchendao1{}
 	var tableYanchendao2s []models.TableYanchendao2
@@ -640,11 +641,11 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	} else {
 		if zt_syz < 0 {
 			value := (math.Abs(zt_syz) + d) / float64(p)
-			formattedValue := strconv.FormatFloat(value, 'f', 2, 64)
+			formattedValue := strconv.FormatFloat(value, 'f', 0, 64)
 			result = fmt.Sprintf("须%sx%d", formattedValue, p)
 		} else {
 			value := (math.Abs(zt_syz) - d) / float64(p)
-			formattedValue := strconv.FormatFloat(value, 'f', 2, 64)
+			formattedValue := strconv.FormatFloat(value, 'f', 0, 64)
 			result = fmt.Sprintf("可负%sx%d", formattedValue, p)
 		}
 	}
@@ -682,8 +683,9 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	jb_count := 0
 	// 遍历 table2List 计算局部数据
 	for i := 0; i < len(tableYanchendao2s); i++ {
-		if CurrentTempIndex == -1 || CurrentTempIndex == -2 {
-			if tableYanchendao2s[i].ID > int(restartIndex) { //重启的时候，要从下一行计算
+		if CurrentTempIndex == -1 {
+			///不是局部平衡的时候，要从重启的位置的下一行计算
+			if tableYanchendao2s[i].ID > int(restartIndex) {
 				jb_count++
 				shuyingzhiStr := fmt.Sprintf("%v", tableYanchendao2s[i].ColmunShuyingzhi)
 				shuyingzhi, _ := strconv.ParseFloat(shuyingzhiStr, 64)
@@ -695,7 +697,8 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 				}
 			}
 		} else {
-			if tableYanchendao2s[i].ID >= int(restartIndex) { //点某一行的时候，要从当前行计算
+			///有局部平衡标志的时候（点某一行的时候）要从当前行计算
+			if tableYanchendao2s[i].ID >= int(restartIndex) {
 				jb_count++
 				shuyingzhiStr := fmt.Sprintf("%v", tableYanchendao2s[i].ColmunShuyingzhi)
 				shuyingzhi, _ := strconv.ParseFloat(shuyingzhiStr, 64)
@@ -800,6 +803,9 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	statisticalAreas[27] = change1
 	statisticalAreas[23] = change2 //期望值
 
+	if CurrentTempIndex > 2 {
+		statisticalAreas[30] = fmt.Sprintf("%d", CurrentTempIndex)
+	}
 	Ok(ctx, ResponseJson{
 		Status: http.StatusOK,
 		Code:   0,

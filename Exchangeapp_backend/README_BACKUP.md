@@ -167,3 +167,17 @@ INFO[2024-01-15T14:30:30+08:00] 数据库备份完成: ./backups/backup_20240115
 
 ### 4. 备份验证
 可以添加备份文件完整性验证功能。
+
+### 5. 使用SQL语句创建数据库
+```sql
+-- 删除数据库（如果存在）
+DROP DATABASE IF EXISTS [数据库名字];
+
+-- 创建数据库
+CREATE DATABASE [数据库名字]
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+-- 使用数据库
+USE [数据库名字];
+```
