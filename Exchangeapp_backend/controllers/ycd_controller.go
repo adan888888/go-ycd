@@ -152,13 +152,13 @@ func DeleteLast(ctx *gin.Context) {
 
 // 重启系统（需要记录重启的位置（行））
 func Restart(ctx *gin.Context) {
-	uid := ctx.GetHeader("UserId")
+	uid, _ := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64)
 	var tableYanchendao1 models.TableYanchendao1
 	var tableYanchendao2 models.TableYanchendao2
 	// 重启时，清除消数列数据（colmun_shuyingzhi_d=""）
 	// 将所有记录的 colmun_shuyingzhi_d 列清空, 必须要加 Where("1 = 1")这个条件
 	result := global.Db.Model(&tableYanchendao2).Where("1 = 1").Update("colmun_shuyingzhi_d", "")
-	global.Db.Find(&tableYanchendao1)
+	global.Db.Last(&tableYanchendao1).Where("uid=?", uid)
 	if result.Error != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
@@ -168,46 +168,12 @@ func Restart(ctx *gin.Context) {
 		})
 		return
 	}
-	//if err := global.Db.Last(&tableYanchendao1).Error; err != nil {
-	//	Fail(ctx, ResponseJson{
-	//		Status: http.StatusInternalServerError,
-	//		Code:   1,
-	//		Msg:    err.Error(),
-	//		Data:   gin.H{},
-	//	})
-	//	return
-	//}
-	// 从上下文中绑定 JSON 数据
-	//var value ValueX
-	//if err := ctx.ShouldBindJSON(&value); err != nil {
-	//	ctx.JSON(400, gin.H{"error": "Invalid JSON format"})
-	//	return
-	//}
-	//tableYanchendao1.ColumnRestartIdx = value.Index //这个又一直传过来的是空值（这个还要看一下原因）
-	//tableYanchendao1.ColumnRestartIdx = strconv.FormatInt(result.RowsAffected, 10) //假如本来就是空串，不会有影响行数
-
-	// 查询表格总行数
-	var count int64
-	if err := global.Db.Model(&tableYanchendao2).Count(&count).Error; err != nil {
-		fmt.Println("Failed to count rows:", err)
-		return
-	}
-	//tableYanchendao1.ColumnRestartIdx = strconv.FormatInt(count, 10)
-	//tableYanchendao1.ID = tableYanchendao1.ID + 1
-	//if err := global.Db.Create(&tableYanchendao1).Error; err != nil {
-	//	Fail(ctx, ResponseJson{
-	//		Status: http.StatusInternalServerError,
-	//		Code:   1,
-	//		Msg:    err.Error(),
-	//		Data:   gin.H{},
-	//	})
-	//	return
-	//}
-	//E := global.Db.Model(&tableYanchendao1).Where("uid = ?", uid).Update("column_restart_index", strconv.FormatInt(count, 10)) //这个后面后带一个ID的条件， UPDATE `table_yanchendao1` SET `column_restart_index`='739' WHERE uid = '1852251920824012800' AND `id` = 1
-	//E := global.Db.Table("table_yanchendao1").Where("uid = ?", uid).Updates(map[string]interface{}{"column_restart_index": (tableYanchendao2)})
-
 	global.Db.Last(&tableYanchendao2)
-	E := global.Db.Table("table_yanchendao1").Where("uid = ?", uid).Updates(map[string]interface{}{"column_restart_index": tableYanchendao2.ID})
+	//E := global.Db.Table("table_yanchendao1").Where("uid = ?", uid).Updates(map[string]interface{}{"column_restart_index": tableYanchendao2.ID})
+	//改变需求，要存起来，不是修改，将来要看的见重启的历史
+	tableYanchendao1.Uid = uid
+	tableYanchendao1.ColumnRestartIdx = strconv.Itoa(tableYanchendao2.ID)
+	E := global.Db.Table("table_yanchendao1").Omit("id").Create(tableYanchendao1) //.Omit忽略id插入数据
 	if E.Error != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
@@ -529,7 +495,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	var tableYanchendao2s []models.TableYanchendao2
 	statisticalAreas := make([]string, 32) // 定义一个空的字符串切片，类似于 Dart 中的空字符串列表
 	UserId := ctx.GetHeader("UserId")
-	if tx := global.Db.Where("uid=?", UserId).First(&tableYanchendao1); tx.Error != nil {
+	if tx := global.Db.Where("uid=?", UserId).Last(&tableYanchendao1); tx.Error != nil {
 		println(tx.Error)
 		return
 	}
