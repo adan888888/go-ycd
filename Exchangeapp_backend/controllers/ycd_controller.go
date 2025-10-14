@@ -528,7 +528,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	var zt_syz = 0.0
 	var runningWater = 0.0
 	var countLianShengFu = 1
-	var zCount = 0
+	var zhuangCount = 0
 	var benUse1 = 0
 	for index, element := range tableYanchendao2s {
 		// 累加输赢值
@@ -564,7 +564,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 
 		// 庄个数统计
 		if element.ColmunZX == "庄" {
-			zCount++
+			zhuangCount++
 		}
 	}
 	statisticalAreas[5] = strconv.Itoa(zt_y)
@@ -608,11 +608,11 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		if zt_syz < 0 {
 			value := (math.Abs(zt_syz) + d) / float64(p)
 			formattedValue := strconv.FormatFloat(value, 'f', 0, 64)
-			result = fmt.Sprintf("须%sx%d", formattedValue, p)
+			result = fmt.Sprintf(" 须%sx%d ", formattedValue, p)
 		} else {
 			value := (math.Abs(zt_syz) - d) / float64(p)
 			formattedValue := strconv.FormatFloat(value, 'f', 0, 64)
-			result = fmt.Sprintf("可负%sx%d", formattedValue, p)
+			result = fmt.Sprintf(" 可负%sx%d ", formattedValue, p)
 		}
 	}
 	statisticalAreas[25] = result //还需要多少 加到50%的时候
@@ -708,13 +708,13 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		if parse == 0 {
 			statisticalAreas[26] = ""
 		} else {
-			statisticalAreas[26] = fmt.Sprintf("须%.1fx%d", (jb_syz*-1+dJ)/float64(parse), parse)
+			statisticalAreas[26] = fmt.Sprintf(" 须%.1fx%d ", (jb_syz*-1+dJ)/float64(parse), parse)
 		}
 	} else {
 		if parse == 0 {
 			statisticalAreas[26] = ""
 		} else {
-			statisticalAreas[26] = fmt.Sprintf("可负%.1fx%d", (jb_syz-dJ)/float64(parse), parse)
+			statisticalAreas[26] = fmt.Sprintf(" 可负%.1fx%d ", (jb_syz-dJ)/float64(parse), parse)
 		}
 	}
 	// 填充第四列数据
@@ -724,9 +724,8 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	//连胜负
 	statisticalAreas[11] = fmt.Sprintf("%d", countLianShengFu)
-
-	num1, _ := strconv.Atoi(statisticalAreas[1])
-	statisticalAreas[15] = fmt.Sprintf("%d/%d", zCount, num1)
+	xianCount := len(tableYanchendao2s) - zhuangCount
+	statisticalAreas[15] = fmt.Sprintf("%d/%d/%d", zhuangCount, xianCount, zhuangCount-xianCount) //统计庄闲差
 	if len(tableYanchendao2s) > 0 {
 		statisticalAreas[23] = tableYanchendao1.ColumnYongJin
 	}
