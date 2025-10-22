@@ -109,6 +109,7 @@ func IntAbs(x int) int {
 
 // removeChineseCharacters 移除字符串中的中文字符
 func RemoveChineseCharacters(s string) string {
+	s = strings.TrimSpace(s)
 	re := regexp.MustCompile(`[\p{Han}]+`)
 	return re.ReplaceAllString(s, "")
 }

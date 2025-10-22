@@ -230,7 +230,7 @@ func SortXiaoShu(ctx *gin.Context) {
 		global.Db.Model(&models.TableYanchendao2{}).Select("colmun_shuyingzhi_d").Where("id=?", v.ID).Updates(v) //要使用Select指定，空值才会更新
 		//global.Db .Save(&v) //，这个方法不稳，感觉还是key造成的 或者数据太多操作的太快 底层判断不过来要加事务，Save 方法会更新结构体的所有字段 如果key相同就是update如果没有就是插入数据
 	}
-	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "更新数据成功", Data: gin.H{}})
+	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "排序成功", Data: gin.H{}})
 	//tableYanchendao2s[0].ColmunShuyingzhiD = "测试"
 	//global.Db.Save(&tableYanchendao2s[0])// 总体测试下来，是需要自动生成的id才可以更新
 }
@@ -727,7 +727,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	xianCount := len(tableYanchendao2s) - zhuangCount
 	statisticalAreas[15] = fmt.Sprintf("%d/%d/%d", zhuangCount, xianCount, zhuangCount-xianCount) //统计庄闲差
 	if len(tableYanchendao2s) > 0 {
-		statisticalAreas[23] = tableYanchendao1.ColumnYongJin
+		statisticalAreas[23] = tableYanchendao1.ColumnYongJin //扣水（庄扣5%）
 	}
 	if statisticalAreas[14] == "0" {
 		statisticalAreas[27] = ""
