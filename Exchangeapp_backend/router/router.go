@@ -87,6 +87,7 @@ func SetupRouter() *gin.Engine {
 		ycd.GET("/getStatisticalAreasData", controllers.GetStatisticalAreasData)
 		ycd.GET("/linechartData", controllers.LinechartData) //折线图数据
 		ycd.POST("/cleanDataD", controllers.CleanDataD)      //清除数据（消数列数据全部清除）
+		ycd.GET("/randomBankerPlayer", controllers.GetRandomBankerPlayer) //随机庄闲接口
 	}
 
 	// 第4组：买币记录管理（无需认证）

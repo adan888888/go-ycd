@@ -7,6 +7,9 @@ database:
   MaxIdleConns: 11
   MaxOpenCons: 114
 
+random:
+  v: 50 #值越大庄越多  50是50%庄 60是60%庄 80是80%庄...
+
 jwt:
   signingKey: gogofly.cn #签名使用的key
 

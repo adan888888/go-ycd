@@ -6,14 +6,17 @@ import (
 	"exchangeapp/models"
 	. "exchangeapp/utils"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"math"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
+	"gorm.io/gorm"
 )
 
 func CreateTables(ctx *gin.Context) {
@@ -854,5 +857,36 @@ func Getusers(ctx *gin.Context) {
 		Code:   0,
 		Msg:    "查询成功",
 		Data:   user,
+	})
+}
+
+// 随机庄闲接口
+func GetRandomBankerPlayer(ctx *gin.Context) {
+	// 使用工具类生成1-100之间的随机数 >=0. <=100
+	randomValue := GenerateRandomValue(1, 100)
+	// 根据偏向值判断结果
+	// 如果随机数 <= 偏向值，则为庄；否则为闲
+	var result string
+	var resultValue int
+	if randomValue <= viper.GetInt("random.v") {
+		result = "庄"
+		resultValue = 0
+	} else {
+		result = "闲"
+		resultValue = 1
+	}
+	fmt.Println(result, viper.GetInt("random.v"))
+	// 返回结果
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "获取随机庄闲成功",
+		Data: gin.H{
+			"result":      result,
+			"value":       resultValue,
+			"randomValue": randomValue,              // 实际随机数
+			"biasValue":   viper.GetInt("random.v"), // 配置的偏向值
+			"timestamp":   time.Now().Unix(),
+		},
 	})
 }

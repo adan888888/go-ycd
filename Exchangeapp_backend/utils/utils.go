@@ -2,13 +2,15 @@ package utils
 
 import (
 	"errors"
-	"github.com/golang-jwt/jwt"
-	"github.com/spf13/viper"
-	"golang.org/x/crypto/bcrypt"
+	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/golang-jwt/jwt"
+	"github.com/spf13/viper"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func HashPassword(pwd string) (string, error) {
@@ -112,4 +114,12 @@ func RemoveChineseCharacters(s string) string {
 	s = strings.TrimSpace(s)
 	re := regexp.MustCompile(`[\p{Han}]+`)
 	return re.ReplaceAllString(s, "")
+}
+
+// GenerateRandomValue 生成指定范围内的随机数
+// min: 最小值（包含）
+// max: 最大值（包含）
+func GenerateRandomValue(min, max int) int {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return r.Intn(max-min+1) + min
 }
