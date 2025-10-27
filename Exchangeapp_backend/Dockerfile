@@ -40,10 +40,5 @@ COPY config.yml .
 
 # 复制构建的二进制文件到最终镜像
 COPY --from=builder /build/main /app
-# 暴露端口
-EXPOSE 5000
 # 启动应用
 CMD ["./main"]
-
-# 设置容器启动时运行的命令 /放可执行文件不是目录
-ENTRYPOINT ["/app/main"]

@@ -11,6 +11,7 @@ type TableYanchendao1 struct {
 	ColumnMean       string    `gorm:"type:varchar(255);not null;comment:'数学期望'" json:"column_mean"`
 	ColumnRestartIdx string    `gorm:"column:column_restart_index;type:varchar(255);not null;comment:'重起位置'" json:"column_restart_index"`
 	ColumnLiushuiIdx string    `gorm:"column:column_liushui_index;type:varchar(255);not null;comment:'流水的位置'" json:"column_liushui_index"`
+	TempIndex        string    `gorm:"column:temp_index;type:varchar(255)" json:"temp_index"`
 	CreatedAt        time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP;comment:'创建时间'" json:"-"`
 	Uid              int64     `gorm:"column:uid"`
 }
