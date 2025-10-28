@@ -33,6 +33,10 @@ RUN go build -o main
 #scratch基础镜像  FROM alpine这里千百不能写 FROM alpine scratch 害了我几天
 FROM alpine
 WORKDIR /app
+
+# 安装 MySQL 客户端（包含 mysqldump）
+RUN apk add --no-cache mysql-client
+
 #拷贝settings.yaml文件到.(当前目录就是app下) COPY用于将本地的 settings.yaml 文件复制到 Docker 镜像的工作目录
 COPY config.yml .
 

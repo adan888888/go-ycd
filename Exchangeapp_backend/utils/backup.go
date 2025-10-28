@@ -1,13 +1,14 @@
 package utils
 
 import (
+	"exchangeapp/global"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
-	"exchangeapp/global"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -25,11 +26,11 @@ func BackupDatabase() error {
 
 	// 从DSN中解析数据库连接信息
 	dsn := global.AppConfig.Database.Dsn
-	host, user, password, database := parseDSN(dsn)
+	_, user, password, database := parseDSN(dsn)
 
-	// 构建mysqldump命令
-	cmd := exec.Command("mysqldump",
-		"-h", host,
+	// 构建Docker外部备份命令
+	cmd := exec.Command("docker", "exec", "mysql-test",
+		"mysqldump",
 		"-u", user,
 		"-p"+password,
 		"--single-transaction",

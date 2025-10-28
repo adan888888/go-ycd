@@ -161,11 +161,65 @@ docker-compose up -d --build
 └── Docker笔记.md           # 本文档
 ```
 
-## 8. 总结
+## 8. 端口映射详解
+
+### 端口映射格式
+```yaml
+ports:
+  - "宿主机端口:容器端口"
+```
+
+### 实际例子
+```yaml
+ports:
+  - "3000:3000"  # 宿主机3000 → 容器3000
+  - "8080:3000"  # 宿主机8080 → 容器3000
+  - "9000:80"    # 宿主机9000 → 容器80
+```
+
+### Go 应用端口配置
+**重要：Go 应用应该监听容器端口（第二个端口）**
+
+```go
+// main.go
+port := global.AppConfig.App.Port  // 从配置文件读取
+srv := &http.Server{
+    Addr:    port,  // 监听容器端口
+    Handler: r,
+}
+```
+
+```yaml
+# config.yml
+app:
+  port: :3000  # Go 应用监听容器3000端口
+```
+
+### 端口映射原理
+```
+浏览器 → localhost:宿主机端口 → 宿主机端口 → 容器端口 → Go应用
+```
+
+### 为什么 Go 应用写容器端口？
+- ✅ Go 应用运行在容器内部
+- ✅ 容器有自己的网络空间
+- ✅ Docker 负责端口转发
+- ✅ 应用不需要知道宿主机端口
+- ✅ 更解耦、更灵活
+
+### 访问方式
+- 宿主机访问：`http://localhost:宿主机端口`
+- 容器内访问：`http://localhost:容器端口`
+
+### 记忆口诀
+> Go 应用写容器端口，Docker 负责端口转发！
+
+## 9. 总结
 
 - **Dockerfile** 和 **docker-compose.yaml** 都是必需的
 - **Dockerfile** 负责构建镜像
 - **docker-compose.yaml** 负责运行容器
+- **端口映射**：Go 应用监听容器端口，Docker 负责转发
 - 两者配合使用，实现完整的容器化部署
 - 开发时使用 `docker-compose` 统一管理，避免命令混乱
 
