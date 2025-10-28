@@ -482,10 +482,8 @@ func LoadMore(ctx *gin.Context) {
 	})
 }
 
-// CurrentTempIndex 这个全局变量主要是用来区分有没有点局部平衡
-var CurrentTempIndex int64
-
 func GetStatisticalAreasData(ctx *gin.Context) {
+	var CurrentTempIndex int64             //  这个全局变量主要是用来区分有没有点局部平衡
 	statisticalAreas := make([]string, 32) // 定义一个空的字符串切片，类似于 Dart 中的空字符串列表
 	var restartIndex int64
 	var tableYanchendao1 = models.TableYanchendao1{}
@@ -508,7 +506,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		parseInt, _ := strconv.ParseInt(tableYanchendao1.TempIndex, 10, 64)
 		tempIndex = parseInt
 	}
-	if tempIndex != -2 { //过滤掉-2（每次下注点击四个按钮时，或者app退出再进来时要传-2，要不然会计算多一行）保持原来的还有的局部平衡的值，假如原来还有一个>2的值...
+	if tempIndex != -2 { //过滤掉-2（每次下注点击四个按钮时，把原来的局部平衡的值会变成-2，导致又走的是重启的位置索引)
 		CurrentTempIndex = tempIndex
 	}
 	//需要把这个值也存起来
