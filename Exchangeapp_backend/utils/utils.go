@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"regexp"
 	"strconv"
@@ -12,17 +13,23 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/bcrypt"
 )
-
-func HashPassword(pwd string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(pwd), 12 /** bcrypt.MinCost 为对字符串进行哈希的次数*/) //使用bcrypt对密码进行加密
-	return string(hash), err
-}
-
 const (
 	TOKEN_NAME   = "Authorization"
 	TOKEN_PREFIX = "Bearer "
 )
+//对用户传过来的密码进行加密 
+func HashPassword(pwd string) (string, error) {
+	//用于对密码做不可逆哈希（带随机盐，不能解密）
+	hash, err := bcrypt.GenerateFromPassword([]byte(pwd), 12 /** bcrypt.MinCost 为对字符串进行哈希的次数*/) //使用bcrypt对密码进行加密
+	return string(hash), err
+}
+//对用户传过来的密码进行校验
+func CheckPassword(password string, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
 
+//JWT：用于生成带签名的访问令牌，客户端携带，服务端验签与校验过期，无需存会话。
 func GenerateJWT(username string) (string, error) {
 
 	jwtCustomClaims := jwt.MapClaims{
@@ -36,34 +43,50 @@ func GenerateJWT(username string) (string, error) {
 	return TOKEN_PREFIX + signedToken, err
 }
 
+// ParseJWT 解析并校验 JWT：
+// 1) 去掉 Bearer 前缀；2) 验签；3) 校验标准声明（exp/nbf/iat）；4) 返回 username
 func ParseJWT(tokenString string) (string, error) {
-	if len(tokenString) > 7 && tokenString[:7] == TOKEN_PREFIX {
-		tokenString = tokenString[7:]
-	}
+    if len(tokenString) > 7 && tokenString[:7] == TOKEN_PREFIX {
+        tokenString = tokenString[7:]
+    }
 
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected Signing Method")
-		}
-		return []byte(viper.GetString("jwt.signingKey")), nil //这里的密钥一定要和加密的时候传的一样
-	})
-
-	if err != nil {
-		return "", err
-	}
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid { //Valid有效的
-		username, ok := claims["username"].(string) //解析出来拿到 username
-		if !ok {
-			return "", errors.New("username claim is not a string")
-		}
-		return username, nil
-	}
-
-	return "", err
-}
-func CheckPassword(password string, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
+    claims := jwt.MapClaims{}
+    token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+            return nil, errors.New("unexpected Signing Method")
+        }
+        return []byte(viper.GetString("jwt.signingKey")), nil // 签名密钥需与签发时一致
+    })
+    if err != nil {
+        return "", err
+    }
+	//token.Valid：只代表“签名方式正确、格式OK”。不一定检查到期时间。
+    if !token.Valid {
+        return "", errors.New("invalid token")
+    }
+	fmt.Printf("全部claims内容：%#v\n", claims) 
+    // 打印过期时间（如存在）
+    if expVal, ok := claims["exp"]; ok {
+        var expUnix int64
+        switch v := expVal.(type) {
+        case float64:
+            expUnix = int64(v)
+        case int64:
+            expUnix = v
+        }
+        if expUnix > 0 {
+			fmt.Println("token 过期时间:", time.Unix(expUnix, 0).Format(time.RFC3339))
+        }
+    }
+    // claims.Valid()：专门检查“时间相关”的有效性，比如是否过期(exp)、是否未到生效时间(nbf)、签发时间是否合理(iat)。
+    if err := claims.Valid(); err != nil {
+        return "", err
+    }
+    username, _ := claims["username"].(string)
+    if username == "" {
+        return "", errors.New("username claim is not a string")
+    }
+    return username, nil
 }
 
 // 去掉转义字符

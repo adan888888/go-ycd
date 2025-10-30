@@ -65,7 +65,7 @@ func SetupRouter() *gin.Engine {
 	}
 	// 第3组：需要认证
 	ycd := r.Group("/api/ycd")
-	api.Use(middlewares.AuthMiddleWare()) // 添加认证中间件
+	ycd.Use(middlewares.AuthMiddleWare()) // 添加认证中间件
 	{
 		//ycd 部分
 		ycd.POST("/createtable", controllers.CreateTables)
