@@ -6,8 +6,58 @@ services:
     #command: ["/app/main"] #它表示在容器启动时，会执行 /app/main 这个可执行文件（dockerfile里面写的有这里可以注释掉）
     image: ycd:v1.0 # 指定镜像名称和标签
     container_name: ycd # 指定容器名称
+    depends_on:
+      mysql:
+        condition: service_healthy # 等待 MySQL 健康检查通过后再启动
+      redis:
+        condition: service_started # 等待 Redis 启动后再启动
     volumes:
       - /etc/localtime:/etc/localtime:ro  # 挂载主机的时间配置文件
-      - ./config.yml:/app/config.yml  # 挂载配置文件 宿主机上的 config.yml 后，容器内的文件也会同步更新，但仍需重启服务 // ./ 表示当前目录 //宿主机文件 ↔ 容器内 /app/config.yml 实时同步
+      - ./config.yml:/app/config.yml  # 挂载配置文件 宿主机上的 config.yml 后，容器内的文件也会同步更新，但仍需重启服务 // ./ 表示当前目录 //宿主机文件(./config.yml) ↔ 容器内(/app/config.yml) 实时同步
     ports:
       - "3000:3000"
+    restart: unless-stopped # 如果启动失败会自动重启，等待 MySQL 就绪
+
+  mysql:
+    image: mysql:9.1
+    container_name: mysql-test
+    environment:
+      - MYSQL_ROOT_PASSWORD=mima123
+      # 自动清理 7 天前的 binlog
+      - MYSQL_INNODB_LOG_FILE_SIZE=128M
+    command: --binlog-expire-logs-seconds=604800 --max-binlog-size=100M
+    # MySQL 9.1 不再支持 --expire-logs-days，改用 --binlog-expire-logs-seconds
+    # 604800 秒 = 7 天
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql # 使用命名卷持久化MySQL数据
+    restart: unless-stopped
+    healthcheck: # 添加健康检查，确保 MySQL 完全启动
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pmima123" ]
+      interval: 5s # 每 5 秒检查一次
+      timeout: 3s # 超时时间 3 秒
+      retries: 10 # 重试 10 次，总共最多等待 50 秒
+      start_period: 10s # MySQL 启动需要一些时间，前 10 秒不检查
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped #除非手动停止，否则总是重启
+    healthcheck: # 添加健康检查
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  mysql_data:
+    external: true #表示"这个卷已经存在，直接用"
+    name: mysql_data  #使用名为 mysql_data 的卷
+  redis_data:
+    external: true      # 添加这一行
+    name: redis_data    # 添加这一行，使用固定名称

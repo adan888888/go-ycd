@@ -1,7 +1,10 @@
 # Docker 学习笔记
 
 ## 1. Dockerfile vs docker-compose.yaml
-
+### Docker Compose（编排工具）
+- 基于 Docker 的多容器管理工具
+- 通过配置文件管理多个容器
+- 简化多服务应用的部署，管理服务依赖关系，统一配置管理
 ### Dockerfile
 - **作用**：定义如何构建 Docker 镜像
 - **内容**：构建步骤、依赖安装、代码编译等
@@ -27,7 +30,7 @@ docker-compose up -d --build
 - 发现 `build: .` 配置
 - 在当前目录查找 `Dockerfile`
 - 使用 `Dockerfile` 构建镜像 `ycd:v1.0`
-
+- 可以加服务名，只操作某一个 （app，mysql，redis）
 ### 运行阶段
 ```bash
 docker-compose up -d
