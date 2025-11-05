@@ -176,7 +176,7 @@ func Restart(ctx *gin.Context) {
 	//改变需求，要存起来，不是修改，将来要看的见重启的历史
 	tableYanchendao1.Uid = uid
 	tableYanchendao1.ColumnRestartIdx = strconv.Itoa(tableYanchendao2.ID)
-	E := global.Db.Table("table_yanchendao1").Omit("id").Create(tableYanchendao1) //.Omit忽略id插入数据
+	E := global.Db.Table("table_yanchendao1").Omit("id", "temp_index").Create(tableYanchendao1) //.Omit忽略id插入数据
 	if E.Error != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
@@ -490,25 +490,26 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	var tableYanchendao2s []models.TableYanchendao2
 	UserId := ctx.GetHeader("UserId")
 
-	if tx := global.Db.Where("uid=?", UserId).Last(&tableYanchendao1); tx.Error != nil {
-		println(tx.Error)
-		return
-	}
-
 	//从app传过来的 tempIndex
 	tempIndex, err := strconv.ParseInt(ctx.Query("tempIndex"), 10, 64)
 	if err != nil {
 		println("解释错误", err.Error())
 	}
 
-	//如果app是第一次进来的时候，就从数据库取
-	if tempIndex == -10000 && tableYanchendao1.TempIndex != "" {
+	//查询
+	if tx := global.Db.Where("uid=?", UserId).Last(&tableYanchendao1); tx.Error != nil {
+		println(tx.Error)
+		return
+	}
+
+	// -10000(app退出应用再进来)
+	// -2（正常打）
+	if (tempIndex == -10000 && tableYanchendao1.TempIndex != "") || (tempIndex == -2 && tableYanchendao1.TempIndex != "") {
 		parseInt, _ := strconv.ParseInt(tableYanchendao1.TempIndex, 10, 64)
 		tempIndex = parseInt
 	}
-	if tempIndex != -2 { //过滤掉-2（每次下注点击四个按钮时，把原来的局部平衡的值会变成-2，导致又走的是重启的位置索引)
-		CurrentTempIndex = tempIndex
-	}
+	CurrentTempIndex = tempIndex
+
 	//需要把这个值也存起来
 	global.Db.Model(&tableYanchendao1).Update("temp_index", tempIndex)
 
@@ -655,6 +656,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 			restartIndex = restartIdx
 		}
 	}
+	fmt.Println("===========CurrentTempIndex", CurrentTempIndex)
 
 	jb_y := 0
 	jb_s := 0
@@ -662,7 +664,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	jb_count := 0
 	// 遍历 table2List 计算局部数据
 	for i := 0; i < len(tableYanchendao2s); i++ {
-		if CurrentTempIndex == -1 {
+		if CurrentTempIndex == -2 /*正常打*/ || CurrentTempIndex == -1 /*重启*/ {
 			///不是局部平衡的时候，要从重启的位置的下一行计算
 			if tableYanchendao2s[i].ID > int(restartIndex) {
 				jb_count++
