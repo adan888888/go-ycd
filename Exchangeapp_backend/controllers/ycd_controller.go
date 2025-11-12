@@ -19,22 +19,56 @@ import (
 	"gorm.io/gorm"
 )
 
+// 创建/初始化用户数据表
 func CreateTables(ctx *gin.Context) {
-	uid, _ := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64) //第二个参数 10 表示字符串是十进制格式。第三个参数 64 表示转换结果的类型为 int64。
-	var table1 = models.TableYanchendao1{ColumnBenjin: "5000", ColumnYongJin: "0.95", ColumnMean: "0.08", ColumnRestartIdx: "1", ColumnLiushuiIdx: "1", Uid: uid}
+	// 获取用户ID（添加错误处理）
+	uid, err := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64) //第二个参数 10 表示字符串是十进制格式。第三个参数 64 表示转换结果的类型为 int64。
+	if err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "无效的用户ID: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+	
+	var table1 = models.TableYanchendao1{
+		ColumnBenjin:     "5000",
+		ColumnYongJin:    "0.95",
+		ColumnMean:       "0.08",
+		ColumnRestartIdx: "1",
+		ColumnLiushuiIdx: "1",
+		Uid:              uid,
+	}
 	var table2 models.TableYanchendao2
-	//AutoMigrate自动迁移 没有这个的表的时候，用于自动创建数据库表或更新表的结构(不会插入数据)。
-	err := global.Db.AutoMigrate(&table1)
+	
+	// AutoMigrate自动迁移：没有这个表的时候，用于自动创建数据库表或更新表的结构(不会插入数据)
+	err = global.Db.AutoMigrate(&table1)
 	if err != nil {
 		panic("failed to migrate database：" + err.Error())
 	}
+	
+	// 检查该用户是否已有数据（包括已删除的记录）
+	// 使用 Unscoped() 查询包括已软删除的记录，避免重复创建
 	var count int64 = 0
-	global.Db.Model(&table1).Where("uid=?", uid).Count(&count)
+	global.Db.Unscoped().Model(&table1).Where("uid=?", uid).Count(&count)
 	if count <= 0 {
-		global.Db.Create(&table1)
+		global.Db.Create(&table1) //把初始数据插入到数据库中
 	}
-	global.Db.AutoMigrate(&table2)
-	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "删除本页数据成功", Data: table1})
+	
+	// 迁移 table2 表结构
+	err = global.Db.AutoMigrate(&table2)
+	if err != nil {
+		panic("failed to migrate table2：" + err.Error())
+	}
+	
+	Ok(ctx, ResponseJson{
+		Code:   0,
+		Status: http.StatusOK,
+		Msg:    "重置数据成功",
+		Data:   table1,
+	})
 }
 func GetTable1(ctx *gin.Context) {
 	var tableYanchendao1s []models.TableYanchendao1
@@ -268,39 +302,38 @@ func Xiaoshu(ctx *gin.Context) {
 
 }
 
-// 删除本页
+// 删除本页（清空用户所有数据并重新初始化）
 func DeleteAll(ctx *gin.Context) {
 	UserId := ctx.GetHeader("UserId")
-	// 调用 Delete 方法并传入一个空的 TableYanchendao1 结构体指针，这会删除 user 表中的所有记录。
-	//1. 删除 TableYanchendao1 表中的所有数据
-	result := global.Db.Where("uid=?", UserId).Delete(&models.TableYanchendao1{})
+	
+	// 物理删除：真正清空用户的所有数据（包括已软删除的记录）
+	// 使用 Unscoped() 跳过软删除机制，执行真正的 DELETE 操作
+	result := global.Db.Unscoped().Where("uid=?", UserId).Delete(&models.TableYanchendao1{})
 	if result.Error != nil {
-		panic(result.Error)
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "删除数据失败: " + result.Error.Error(),
+			Data:   gin.H{},
+		})
+		return
 	}
 
-	result1 := global.Db.Where("user_id=?", UserId).Delete(&models.TableYanchendao2{})
+	result1 := global.Db.Unscoped().Where("user_id=?", UserId).Delete(&models.TableYanchendao2{})
 	if result1.Error != nil {
-		panic(result1.Error)
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "删除数据失败: " + result1.Error.Error(),
+			Data:   gin.H{},
+		})
+		return
 	}
+	
 	// 输出受影响的行数
 	println("Deleted rows:", result.RowsAffected, result1.RowsAffected)
 
-	//2.使用sql语句
-	//result1 := global.Db.Exec("DELETE FROM table_yanchendao1")
-	//result2 := global.Db.Exec("DELETE FROM table_yanchendao2")
-	// 输出受影响的行数
-	//println("Deleted rows:", result1.RowsAffected)
-	//println("Deleted rows:", result2.RowsAffected)
-
-	//直接删除表
-	/*if err := global.Db.Migrator().DropTable(&models.TableYanchendao1{}); err != nil {
-		panic(err)
-	}
-	if err := global.Db.Migrator().DropTable(&models.TableYanchendao2{}); err != nil {
-		panic(err)
-	}*/
-
-	//time.Sleep(2 * time.Second)
+	// 重新初始化数据
 	CreateTables(ctx)
 }
 
