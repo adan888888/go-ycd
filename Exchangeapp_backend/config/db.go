@@ -60,12 +60,12 @@ func initDB() {
 
 	// 自动迁移数据库表结构
 	err = global.Db.AutoMigrate(
-		/*&models.User{},
+		&models.User{},
 		&models.Article{},
 		&models.ExchangeRate{},
 		&models.Banner{},
 		&models.TableYanchendao1{},
-		&models.TableYanchendao2{},*/
+		&models.TableYanchendao2{},
 		&models.BuyRecord{},     // 添加买币记录表的自动迁移
 		&models.PasswordItem{},  // 添加密码本表的自动迁移
 	)

@@ -159,8 +159,9 @@ func Restart(ctx *gin.Context) {
 	var tableYanchendao1 models.TableYanchendao1
 	var tableYanchendao2 models.TableYanchendao2
 	// 重启时，清除消数列数据（colmun_shuyingzhi_d=""）
-	// 将所有记录的 colmun_shuyingzhi_d 列清空, 必须要加 Where("1 = 1")这个条件
-	result := global.Db.Model(&tableYanchendao2).Where("1 = 1").Update("colmun_shuyingzhi_d", "")
+	// 将当前用户所有未删除记录的 colmun_shuyingzhi_d 列清空为空字符串
+	// GORM 会自动添加 deleted_at IS NULL 条件，无需手动添加
+	result := global.Db.Model(&tableYanchendao2).Where("user_id = ?", uid).Update("colmun_shuyingzhi_d", "")
 	global.Db.Last(&tableYanchendao1).Where("uid=?", uid)
 	if result.Error != nil {
 		Fail(ctx, ResponseJson{
@@ -452,7 +453,7 @@ func LoadMore(ctx *gin.Context) {
         FROM (
             SELECT *
             FROM table_yanchendao2
-            WHERE  user_id = ? 
+            WHERE user_id = ? AND deleted_at IS NULL
             ORDER BY created_at DESC
             LIMIT ?
         ) AS subquery
@@ -463,7 +464,7 @@ func LoadMore(ctx *gin.Context) {
         FROM (
             SELECT *
             FROM table_yanchendao2
-            WHERE id < ? AND user_id = ? 
+            WHERE id < ? AND user_id = ? AND deleted_at IS NULL
             ORDER BY created_at DESC
             LIMIT ?
         ) AS subquery
