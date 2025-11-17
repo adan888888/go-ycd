@@ -6,11 +6,11 @@ import (
 	"exchangeapp/global"
 	"exchangeapp/router"
 	"exchangeapp/utils"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
-	log "github.com/sirupsen/logrus"
 )
 
 // @title           Swagger Example API  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
@@ -52,10 +52,10 @@ func main() {
 	<-quit                            //还没能写入消息的时候，通道入一个阻塞,后面代码不会执行,一旦接收到信号 ，程序就会往下走
 	log.Println("Shutdown 服务 ...")    //打印消息服务器正在关闭
 
-	 // ✅ 添加这部分：停止定时备份任务
-	 log.Info("正在停止定时备份任务...")
-	 backupScheduler.Stop()
-	 log.Info("定时备份任务已停止")
+	// ✅ 添加这部分：停止定时备份任务
+	log.Info("正在停止定时备份任务...")
+	backupScheduler.Stop()
+	log.Info("定时备份任务已停止")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //创建一个带有5秒钟超时 可取消的上下文，5秒内的不管有没有处理好，都停止进程
 	defer cancel()                                                          //取消上下文。这里延迟调用，确保函数在返回前取消上下文释放资源

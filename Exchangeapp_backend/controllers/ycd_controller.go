@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -137,11 +136,13 @@ func InsertTable1(ctx *gin.Context) {
 	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "插入数据成功", Data: tableYanchendao1})
 }
 
-var mu sync.Mutex // 定义在函数外，作为全局锁
+// InsertTable2 插入Table2数据
+// 优化：移除了全局锁，依赖MySQL数据库的ACID特性和并发控制机制
+// MySQL的InnoDB引擎提供了行级锁和事务隔离，可以安全地处理并发插入
 func InsertTable2(ctx *gin.Context) {
 	var tableYanchendao2 models.TableYanchendao2
-	mu.Lock()                                                     // 加锁
-	defer mu.Unlock()                                             // 确保函数退出时解锁
+	
+	// JSON解析（不需要锁保护）
 	if err := ctx.ShouldBindJSON(&tableYanchendao2); err != nil { //移动端不传某个字段这里也不会报错，在结构体里需要加binding:"required"才会报错
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -150,7 +151,10 @@ func InsertTable2(ctx *gin.Context) {
 	tableYanchendao2.ID = 0 //解决运行的过程中会自动给赋值
 	//使用你提供的主键值，而不是数据库的自增值 Session(&gorm.Session{FullSaveAssociations: true})（gorm默认会忽略传的值），mysql数据库的特性也是下标从时1开始。 例如我删除一个，再插入一个值，这时候的主键自增的就会少一个值
 	//现在继续使用自增的（从数据里可以看出来删除了哪个数据）
-	if err := global.Db. /*.Session(&gorm.Session{FullSaveAssociations: true})*/ Create(&tableYanchendao2).Error; err != nil {
+	
+	// 直接执行数据库插入，依赖数据库的并发控制
+	// MySQL会自动处理并发插入，使用行级锁保证数据一致性
+	if err := global.Db.Create(&tableYanchendao2).Error; err != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
 			Code:   1,
