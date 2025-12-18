@@ -910,6 +910,162 @@ func Getusers(ctx *gin.Context) {
 	})
 }
 
+// 获取用户列表（所有用户，用于选择查询）
+// @Summary      获取用户列表
+// @Tags         ycd投注记录
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  ResponseJson{data=[]object}
+// @Router       /api/ycd/today/users [get]
+func GetTodayBettingUsers(ctx *gin.Context) {
+	// 查询所有用户列表
+	var users []models.User
+
+	// 使用User模型查询所有用户（包括软删除的记录）
+	if err := global.Db.Unscoped().Model(&models.User{}).
+		Where("uid IS NOT NULL").
+		Order("username ASC").
+		Find(&users).Error; err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   0,
+			Msg:    "查询用户列表失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	// 转换为响应格式，将user_id转换为字符串
+	// 手动构建完整的JSON响应，确保user_id是字符串类型，避免JavaScript大整数精度丢失
+	var jsonBuilder strings.Builder
+	jsonBuilder.WriteString(`{"code":1,"msg":"查询成功","data":[`)
+	for i, user := range users {
+		if i > 0 {
+			jsonBuilder.WriteString(",")
+		}
+		// 确保user_id是字符串（用引号包裹）
+		jsonBuilder.WriteString(fmt.Sprintf(`{"user_id":"%s","username":"%s"}`, 
+			strconv.FormatInt(user.Uid, 10), 
+			strings.ReplaceAll(user.Username, `"`, `\"`)))
+	}
+	jsonBuilder.WriteString("]}")
+	
+	// 调试日志
+	fmt.Printf("查询到 %d 个用户，JSON: %s\n", len(users), jsonBuilder.String())
+	
+	// 直接返回JSON字符串，避免gin的自动序列化
+	ctx.Data(http.StatusOK, "application/json; charset=utf-8", []byte(jsonBuilder.String()))
+}
+
+// 查询今天投注流水（总金额）
+// @Summary      查询今天投注流水
+// @Tags         ycd投注记录
+// @Accept       json
+// @Produce      json
+// @Param        user_id query int false "用户ID，不传则查询所有用户"
+// @Success      200  {object}  ResponseJson{data=object}
+// @Router       /api/ycd/today/amount [get]
+func GetTodayBettingAmount(ctx *gin.Context) {
+	// 获取今天的日期字符串，格式：2025-12-18
+	today := time.Now().Format("2006-01-02")
+
+	// 获取可选的用户ID参数
+	userIDStr := ctx.Query("user_id")
+	
+	// 查询今天的所有投注记录，计算下注金额总和
+	// 使用 DATE(created_at) 函数按日期比较，避免时区问题
+	// column_xiazhujine 是字符串类型，需要转换为数字后求和
+	query := global.Db.Where("DATE(created_at) = ?", today)
+	
+	// 如果提供了用户ID，则按用户筛选
+	if userIDStr != "" {
+		if userID, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
+			query = query.Where("user_id = ?", userID)
+		}
+	}
+	
+	var records []models.TableYanchendao2
+	if err := query.Find(&records).Error; err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   0,
+			Msg:    "查询今天流水失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	// 计算总金额（column_xiazhujine 是字符串，需要转换）
+	var totalAmount float64
+	for _, record := range records {
+		if amount, err := strconv.ParseFloat(record.ColumnXiazhujine, 64); err == nil {
+			totalAmount += amount
+		}
+	}
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "查询成功",
+		Data: gin.H{
+			"total_amount": totalAmount,
+			"date":         today,
+			"count":        len(records),
+			"user_id":      userIDStr,
+		},
+	})
+}
+
+// 查询今天下注次数
+// @Summary      查询今天下注次数
+// @Tags         ycd投注记录
+// @Accept       json
+// @Produce      json
+// @Param        user_id query int false "用户ID，不传则查询所有用户"
+// @Success      200  {object}  ResponseJson{data=object}
+// @Router       /api/ycd/today/count [get]
+func GetTodayBettingCount(ctx *gin.Context) {
+	// 获取今天的日期字符串，格式：2025-12-18
+	today := time.Now().Format("2006-01-02")
+
+	// 获取可选的用户ID参数
+	userIDStr := ctx.Query("user_id")
+	
+	// 查询今天的投注记录数量
+	// 使用 DATE(created_at) 函数按日期比较，避免时区问题
+	query := global.Db.Model(&models.TableYanchendao2{}).
+		Where("DATE(created_at) = ?", today)
+	
+	// 如果提供了用户ID，则按用户筛选
+	if userIDStr != "" {
+		if userID, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
+			query = query.Where("user_id = ?", userID)
+		}
+	}
+	
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   0,
+			Msg:    "查询今天下注次数失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "查询成功",
+		Data: gin.H{
+			"count":   count,
+			"date":    today,
+			"user_id": userIDStr,
+		},
+	})
+}
+
 // 随机庄闲接口
 func GetRandomBankerPlayer(ctx *gin.Context) {
 	// 使用工具类生成1-100之间的随机数 >=0. <=100

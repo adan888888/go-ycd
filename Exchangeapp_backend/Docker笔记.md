@@ -30,7 +30,7 @@ docker-compose up -d --build
 - 发现 `build: .` 配置
 - 在当前目录查找 `Dockerfile`
 - 使用 `Dockerfile` 构建镜像 `ycd:v1.0`
-- 可以加服务名，只操作某一个 （app，mysql，redis）
+- 可以在命令后加服务名，只操作某一个服务（详见下方"指定服务名操作单个服务"章节）
 ### 运行阶段
 ```bash
 docker-compose up -d
@@ -64,6 +64,48 @@ docker-compose ps
 # 查看日志
 docker-compose logs -f
 ```
+
+### 指定服务名操作单个服务
+
+在 `docker-compose.yaml` 中定义了多个服务（如 `app`、`mysql`、`redis`），可以在命令后指定服务名来只操作某个服务：
+
+```bash
+# 启动所有服务
+docker-compose up -d
+
+# 只启动 app 服务（会自动启动依赖的 mysql 和 redis）
+docker-compose up -d app
+
+# 只启动 mysql 服务
+docker-compose up -d mysql
+
+# 只启动 redis 服务
+docker-compose up -d redis
+
+# 停止所有服务
+docker-compose down
+
+# 只停止 app 服务（mysql 和 redis 继续运行）
+docker-compose stop app
+
+# 只重启 app 服务
+docker-compose restart app
+
+# 只重新构建 app 服务（不启动）
+docker-compose build app
+
+# 强制重新构建 app 服务（不使用缓存）
+docker-compose build --no-cache app
+
+# 只查看 app 服务的日志
+docker-compose logs -f app
+```
+
+**重要说明：**
+- 当指定服务名时（如 `docker-compose up -d app`），只会操作该服务
+- 如果该服务有依赖（`depends_on`），docker-compose 会自动先启动依赖的服务
+- 例如：`app` 依赖 `mysql` 和 `redis`，运行 `docker-compose up -d app` 时，如果 `mysql` 和 `redis` 未运行，会先启动它们
+- 这样可以只重启后端应用，而不影响数据库和 Redis
 
 ### Docker 命令
 ```bash

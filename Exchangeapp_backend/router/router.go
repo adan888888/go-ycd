@@ -90,6 +90,14 @@ func SetupRouter() *gin.Engine {
 		ycd.GET("/randomBankerPlayer", controllers.GetRandomBankerPlayer) //随机庄闲接口
 	}
 
+	// 第3.5组：ycd投注记录统计（无需认证）
+	ycdStats := r.Group("/api/ycd")
+	{
+		ycdStats.GET("/today/users", controllers.GetTodayBettingUsers)   // 获取今天有投注记录的用户列表
+		ycdStats.GET("/today/amount", controllers.GetTodayBettingAmount) // 查询今天流水
+		ycdStats.GET("/today/count", controllers.GetTodayBettingCount)   // 查询今天下注次数
+	}
+
 	// 第4组：买币记录管理（无需认证）
 	buyRecords := r.Group("/api/buyRecords")
 	{

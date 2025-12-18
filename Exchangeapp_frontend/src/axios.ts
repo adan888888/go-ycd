@@ -14,4 +14,62 @@ instance.interceptors.request.use(config => {
   return config;
 });
 
+// 响应拦截器：从原始响应文本中提取大整数，避免JSON解析时的精度丢失
+instance.interceptors.response.use(response => {
+  // 处理 /api/ycd/today/users 接口返回的数据
+  if (response.config.url?.includes('/ycd/today/users') && response.data?.data) {
+    if (Array.isArray(response.data.data)) {
+      // 尝试从原始响应文本中提取正确的user_id
+      // axios的response对象中，原始文本在response.request.responseText
+      const originalText = (response as any).request?.responseText || (response as any).data;
+      
+      if (originalText && typeof originalText === 'string') {
+        try {
+          // 使用正则表达式提取所有user_id，避免JSON.parse时的精度丢失
+          const userIdRegex = /"user_id"\s*:\s*(\d+)/g;
+          const userIds: string[] = [];
+          let match;
+          while ((match = userIdRegex.exec(originalText)) !== null) {
+            userIds.push(match[1]); // 提取原始字符串形式的user_id
+          }
+          
+          console.log('从原始响应提取的user_id:', userIds);
+          
+          // 将提取的user_id字符串替换到数据中
+          if (userIds.length === response.data.data.length) {
+            response.data.data = response.data.data.map((user: any, index: number) => ({
+              ...user,
+              user_id: userIds[index] // 使用从原始文本中提取的字符串
+            }));
+            console.log('已修复user_id精度问题:', response.data.data);
+            return response;
+          }
+        } catch (e) {
+          console.warn('无法从原始响应中提取user_id:', e);
+        }
+      }
+      
+      // 如果无法从原始文本提取，至少确保是字符串类型
+      // 但此时精度可能已经丢失
+      response.data.data = response.data.data.map((user: any) => {
+        const userId = user.user_id;
+        let userIdStr: string;
+        if (typeof userId === 'number') {
+          userIdStr = userId.toString();
+          console.warn('警告: user_id精度可能已丢失，无法恢复:', userIdStr);
+        } else {
+          userIdStr = String(userId);
+        }
+        return {
+          ...user,
+          user_id: userIdStr
+        };
+      });
+    }
+  }
+  return response;
+}, error => {
+  return Promise.reject(error);
+});
+
 export default instance;
