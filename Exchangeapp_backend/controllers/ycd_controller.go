@@ -928,7 +928,7 @@ func GetTodayBettingUsers(ctx *gin.Context) {
 		Find(&users).Error; err != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
-			Code:   0,
+			Code:   1,
 			Msg:    "查询用户列表失败: " + err.Error(),
 			Data:   gin.H{},
 		})
@@ -938,7 +938,7 @@ func GetTodayBettingUsers(ctx *gin.Context) {
 	// 转换为响应格式，将user_id转换为字符串
 	// 手动构建完整的JSON响应，确保user_id是字符串类型，避免JavaScript大整数精度丢失
 	var jsonBuilder strings.Builder
-	jsonBuilder.WriteString(`{"code":1,"msg":"查询成功","data":[`)
+	jsonBuilder.WriteString(`{"code":0,"msg":"查询成功","data":[`)
 	for i, user := range users {
 		if i > 0 {
 			jsonBuilder.WriteString(",")

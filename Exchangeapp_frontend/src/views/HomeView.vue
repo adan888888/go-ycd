@@ -1,7 +1,7 @@
 <template>  
   <el-container class="home-container">  
     <div class="content-wrapper">  
-      <h1 class="title">欢迎使用屌毛系统</h1>
+      <!-- <h1 class="title">欢迎使用屌毛系统</h1> -->
       
       <!-- 用户选择 -->
       <div class="user-selector">
@@ -111,7 +111,7 @@ const fetchUserList = async () => {
   try {
     const response = await axios.get('/ycd/today/users');
     console.log('用户列表响应:', response.data);
-    if (response.data.code === 1 && response.data.data) {
+    if (response.data.code === 0 && response.data.data) {
       // axios拦截器已经将user_id转换为字符串，这里直接使用
       const users = Array.isArray(response.data.data) ? response.data.data : [];
       userList.value = users;
@@ -149,13 +149,14 @@ const fetchTodayAmount = async () => {
     console.log('请求流水URL:', url, 'selectedUserId:', selectedUserId.value, '类型:', typeof selectedUserId.value);
     const response = await axios.get(url);
     console.log('流水响应:', response.data);
-    if (response.data.code === 1) {
+    if (response.data.code === 0) {
       const amount = response.data.data.total_amount;
       console.log('原始金额值:', amount, '类型:', typeof amount);
       todayAmount.value = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
       console.log('设置流水值:', todayAmount.value);
     } else {
       console.error('获取今天流水失败:', response.data.msg);
+      todayAmount.value = 0; // 失败时重置为0
     }
   } catch (error) {
     console.error('获取今天流水失败:', error);
@@ -184,13 +185,14 @@ const fetchTodayCount = async () => {
     console.log('请求次数URL:', url, 'selectedUserId:', selectedUserId.value, '类型:', typeof selectedUserId.value);
     const response = await axios.get(url);
     console.log('次数响应:', response.data);
-    if (response.data.code === 1) {
+    if (response.data.code === 0) {
       const count = response.data.data.count;
       console.log('原始次数值:', count, '类型:', typeof count);
       todayCount.value = typeof count === 'number' ? count : parseInt(count) || 0;
       console.log('设置次数值:', todayCount.value);
     } else {
       console.error('获取今天下注次数失败:', response.data.msg);
+      todayCount.value = 0; // 失败时重置为0
     }
   } catch (error) {
     console.error('获取今天下注次数失败:', error);
