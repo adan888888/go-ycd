@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 	"gorm.io/gorm"
 )
 
@@ -33,12 +32,13 @@ func CreateTables(ctx *gin.Context) {
 	}
 	
 	var table1 = models.TableYanchendao1{
-		ColumnBenjin:     "5000",
-		ColumnYongJin:    "0.95",
-		ColumnMean:       "0.08",
-		ColumnRestartIdx: "1",
-		ColumnLiushuiIdx: "1",
-		Uid:              uid,
+		ColumnBenjin:      "5000",
+		ColumnYongJin:     "0.95",
+		ColumnMean:        "0.08",
+		ColumnRestartIdx:  "1",
+		ColumnLiushuiIdx:  "1",
+		ColumnZhuangZhanBi: 50, // 默认庄占比50%
+		Uid:               uid,
 	}
 	var table2 models.TableYanchendao2
 	
@@ -200,7 +200,6 @@ func Restart(ctx *gin.Context) {
 	// 将当前用户所有未删除记录的 colmun_shuyingzhi_d 列清空为空字符串
 	// GORM 会自动添加 deleted_at IS NULL 条件，无需手动添加
 	result := global.Db.Model(&tableYanchendao2).Where("user_id = ?", uid).Update("colmun_shuyingzhi_d", "")
-	global.Db.Last(&tableYanchendao1).Where("uid=?", uid)
 	if result.Error != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
@@ -213,8 +212,17 @@ func Restart(ctx *gin.Context) {
 	global.Db.Last(&tableYanchendao2)
 	//E := global.Db.Table("table_yanchendao1").Where("uid = ?", uid).Updates(map[string]interface{}{"column_restart_index": tableYanchendao2.ID})
 	//改变需求，要存起来，不是修改，将来要看的见重启的历史
+	// 从现有记录复制所有字段值，确保新字段也有正确的值
+	if err := global.Db.Where("uid=?", uid).Last(&tableYanchendao1).Error; err != nil {
+		// 如果查询失败，使用默认值
+		tableYanchendao1.ColumnZhuangZhanBi = 50 // 默认庄占比50%
+	}
 	tableYanchendao1.Uid = uid
 	tableYanchendao1.ColumnRestartIdx = strconv.Itoa(tableYanchendao2.ID)
+	// 如果新字段是0（旧数据没有这个字段），使用默认值
+	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
+		tableYanchendao1.ColumnZhuangZhanBi = 50
+	}
 	E := global.Db.Table("table_yanchendao1").Omit("id", "temp_index").Create(tableYanchendao1) //.Omit忽略id插入数据
 	if E.Error != nil {
 		Fail(ctx, ResponseJson{
@@ -362,6 +370,10 @@ func ResetLiushui(ctx *gin.Context) {
 		}
 	}
 	tableYanchendao1.ColumnLiushuiIdx = strconv.Itoa(*temp.ResetIndex)
+	// 如果新字段是0（旧数据没有这个字段），使用默认值，避免覆盖
+	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
+		tableYanchendao1.ColumnZhuangZhanBi = 50
+	}
 	tx := global.Db.Save(&tableYanchendao1) //Save 会保存所有的字段，即使字段是零值.必须要保证有主键id，否则是新增数据
 	if tx.Error != nil {
 		panic(tx.Error)
@@ -395,6 +407,10 @@ func UpdateQiWangValue(ctx *gin.Context) {
 		}
 	}
 	tableYanchendao1.ColumnMean = *temp.Mean
+	// 如果新字段是0（旧数据没有这个字段），使用默认值，避免覆盖
+	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
+		tableYanchendao1.ColumnZhuangZhanBi = 50
+	}
 	/*UPDATE `table_yanchendao1` SET `column_benjin`='5000',`column_yongjin`='0.95',`column_mean`='1',`column_restart_index`='0',`column_liushui_index`='26',`created_at`='2025-03-26 15:11:32' WHERE `id` = 1*/
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
@@ -429,6 +445,10 @@ func UpdateOdds(ctx *gin.Context) {
 		}
 	}
 	tableYanchendao1.ColumnYongJin = *temp.Odds
+	// 如果新字段是0（旧数据没有这个字段），使用默认值，避免覆盖
+	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
+		tableYanchendao1.ColumnZhuangZhanBi = 50
+	}
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
 		panic(tx.Error)
@@ -462,6 +482,10 @@ func UpdateBenjin(ctx *gin.Context) {
 		}
 	}
 	tableYanchendao1.ColumnBenjin = *temp.Benjin
+	// 如果新字段是0（旧数据没有这个字段），使用默认值，避免覆盖
+	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
+		tableYanchendao1.ColumnZhuangZhanBi = 50
+	}
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
 		panic(tx.Error)
@@ -471,6 +495,231 @@ func UpdateBenjin(ctx *gin.Context) {
 		Code:   0,
 		Msg:    "修改本金成功",
 		Data:   tableYanchendao1,
+	})
+}
+
+// 修改庄占比
+func UpdateZhuangZhanBi(ctx *gin.Context) {
+	type TempValues struct {
+		ZhuangZhanBi *int `json:"zhuangZhanBi"` // 庄占比，范围0-100
+	}
+	var temp TempValues
+	if err := ctx.ShouldBindJSON(&temp); err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "参数错误: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+	if temp.ZhuangZhanBi == nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "庄占比不能为空",
+			Data:   gin.H{},
+		})
+		return
+	}
+	// 验证范围 0-100
+	if *temp.ZhuangZhanBi < 0 || *temp.ZhuangZhanBi > 100 {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "庄占比必须在0-100之间",
+			Data:   gin.H{},
+		})
+		return
+	}
+	var tableYanchendao1 models.TableYanchendao1
+	if err := global.Db.Where("uid=?", ctx.GetHeader("UserId")).Last(&tableYanchendao1).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusNotFound,
+				Code:   1,
+				Msg:    "未找到用户数据",
+				Data:   gin.H{},
+			})
+			return
+		}
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询用户数据失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+	tableYanchendao1.ColumnZhuangZhanBi = *temp.ZhuangZhanBi
+	tx := global.Db.Save(&tableYanchendao1)
+	if tx.Error != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "更新失败: " + tx.Error.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "修改庄占比成功",
+		Data:   gin.H{"zhuangZhanBi": tableYanchendao1.ColumnZhuangZhanBi},
+	})
+}
+
+// 获取用户庄占比（无需认证，通过user_id参数）
+// @Summary      获取用户庄占比
+// @Tags         ycd投注记录
+// @Accept       json
+// @Produce      json
+// @Param        user_id query string true "用户ID"
+// @Success      200  {object}  ResponseJson{data=object}
+// @Router       /api/ycd/zhuangzhanbi [get]
+func GetZhuangZhanBi(ctx *gin.Context) {
+	userIDStr := ctx.Query("user_id")
+	if userIDStr == "" {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "用户ID不能为空",
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	var tableYanchendao1 models.TableYanchendao1
+	if err := global.Db.Where("uid=?", userIDStr).Last(&tableYanchendao1).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusNotFound,
+				Code:   1,
+				Msg:    "未找到用户数据",
+				Data:   gin.H{},
+			})
+			return
+		}
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询用户数据失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	zhuangZhanBi := tableYanchendao1.ColumnZhuangZhanBi
+	if zhuangZhanBi == 0 {
+		zhuangZhanBi = 50 // 默认值
+	}
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "查询成功",
+		Data: gin.H{
+			"zhuangZhanBi": zhuangZhanBi,
+			"user_id":      userIDStr,
+		},
+	})
+}
+
+// 更新用户庄占比（无需认证，通过user_id参数）
+// @Summary      更新用户庄占比
+// @Tags         ycd投注记录
+// @Accept       json
+// @Produce      json
+// @Param        user_id query string true "用户ID"
+// @Param        zhuangZhanBi body int true "庄占比(0-100)"
+// @Success      200  {object}  ResponseJson{data=object}
+// @Router       /api/ycd/zhuangzhanbi [post]
+func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
+	userIDStr := ctx.Query("user_id")
+	if userIDStr == "" {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "用户ID不能为空",
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	type TempValues struct {
+		ZhuangZhanBi *int `json:"zhuangZhanBi"` // 庄占比，范围0-100
+	}
+	var temp TempValues
+	if err := ctx.ShouldBindJSON(&temp); err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "参数错误: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+	if temp.ZhuangZhanBi == nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "庄占比不能为空",
+			Data:   gin.H{},
+		})
+		return
+	}
+	// 验证范围 0-100
+	if *temp.ZhuangZhanBi < 0 || *temp.ZhuangZhanBi > 100 {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "庄占比必须在0-100之间",
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	var tableYanchendao1 models.TableYanchendao1
+	if err := global.Db.Where("uid=?", userIDStr).Last(&tableYanchendao1).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusNotFound,
+				Code:   1,
+				Msg:    "未找到用户数据",
+				Data:   gin.H{},
+			})
+			return
+		}
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询用户数据失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	tableYanchendao1.ColumnZhuangZhanBi = *temp.ZhuangZhanBi
+	tx := global.Db.Save(&tableYanchendao1)
+	if tx.Error != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "更新失败: " + tx.Error.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "修改庄占比成功",
+		Data: gin.H{
+			"zhuangZhanBi": tableYanchendao1.ColumnZhuangZhanBi,
+			"user_id":      userIDStr,
+		},
 	})
 }
 
@@ -1068,20 +1317,59 @@ func GetTodayBettingCount(ctx *gin.Context) {
 
 // 随机庄闲接口
 func GetRandomBankerPlayer(ctx *gin.Context) {
-	// 使用工具类生成1-100之间的随机数 >=0. <=100
+	// 获取用户ID
+	UserId := ctx.GetHeader("UserId")
+	if UserId == "" {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "用户ID不能为空",
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	// 查询用户的 tableYanchendao1 记录，获取庄占比
+	var tableYanchendao1 models.TableYanchendao1
+	if err := global.Db.Where("uid=?", UserId).Last(&tableYanchendao1).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusNotFound,
+				Code:   1,
+				Msg:    "未找到用户数据，请先初始化",
+				Data:   gin.H{},
+			})
+			return
+		}
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询用户数据失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	// 获取庄占比，如果为0则使用默认值50
+	zhuangZhanBi := tableYanchendao1.ColumnZhuangZhanBi
+	if zhuangZhanBi == 0 {
+		zhuangZhanBi = 50
+	}
+
+	// 使用工具类生成1-100之间的随机数 >=1. <=100
 	randomValue := GenerateRandomValue(1, 100)
-	// 根据偏向值判断结果
-	// 如果随机数 <= 偏向值，则为庄；否则为闲
+	// 根据庄占比判断结果
+	// 如果随机数 <= 庄占比，则为庄；否则为闲
 	var result string
 	var resultValue int
-	if randomValue <= viper.GetInt("random.v") {
+	if randomValue <= zhuangZhanBi {
 		result = "庄"
 		resultValue = 0
 	} else {
 		result = "闲"
 		resultValue = 1
 	}
-	fmt.Println(result, viper.GetInt("random.v"))
+	fmt.Println(result, zhuangZhanBi)
 	// 返回结果
 	Ok(ctx, ResponseJson{
 		Status: http.StatusOK,
@@ -1090,8 +1378,8 @@ func GetRandomBankerPlayer(ctx *gin.Context) {
 		Data: gin.H{
 			"result":      result,
 			"value":       resultValue,
-			"randomValue": randomValue,              // 实际随机数
-			"biasValue":   viper.GetInt("random.v"), // 配置的偏向值
+			"randomValue": randomValue,    // 实际随机数
+			"biasValue":   zhuangZhanBi,  // 庄占比（0-100）
 			"timestamp":   time.Now().Unix(),
 		},
 	})
