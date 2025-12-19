@@ -1,52 +1,86 @@
 <template>
-  <el-container class="home-container">
+  <div class="home-container">
     <div class="content-wrapper">
       <!-- <h1 class="title">欢迎使用屌毛系统</h1> -->
 
-      <!-- 用户选择 -->
-      <div class="user-selector">
-        <el-select v-model="selectedUserId" placeholder="请选择用户（不选则查询所有用户）" clearable @change="handleUserChange"
-          style="width: 300px;">
-          <el-option label="全部用户" value="" />
-          <el-option v-for="(user, index) in userList" :key="`user-${index}-${user.user_id}`"
-            :label="user.username || `用户 ${user.user_id}`" :value="String(user.user_id)" />
-        </el-select>
-      </div>
+      <!-- 筛选条件区域 -->
+      <el-card class="filter-card" shadow="never">
+        <div class="filter-section">
+          <div class="filter-item">
+            <label class="filter-label">用户选择</label>
+            <el-select v-model="selectedUserId" placeholder="请选择用户（不选则查询所有用户）" clearable @change="handleUserChange"
+              class="filter-select">
+              <el-option label="全部用户" value="" />
+              <el-option v-for="(user, index) in userList" :key="`user-${index}-${user.user_id}`"
+                :label="user.username || `用户 ${user.user_id}`" :value="String(user.user_id)" />
+            </el-select>
+          </div>
 
-      <!-- 庄占比设置 -->
-      <div class="zhuangzhanbi-container" v-if="selectedUserId && selectedUserId !== '' && selectedUserId !== null">
-        <el-card class="zhuangzhanbi-card" shadow="hover">
-          <template #header>
-            <div class="card-header">
-              <span>庄占比设置</span>
-            </div>
-          </template>
-          <div class="zhuangzhanbi-content">
-            <el-input-number v-model="zhuangZhanBi" :min="0" :max="100" :precision="0" :step="10"
-              :style="getZhuangZhanBiStyle()" style="width: 200px;" placeholder="请输入庄占比(0-100)" />
-            <el-button type="primary" @click="updateZhuangZhanBi" :loading="loadingZhuangZhanBi"
-              style="margin-left: 20px;">
-              保存
+          <div class="filter-item">
+            <label class="filter-label">日期范围</label>
+            <el-date-picker v-model="dateRange" type="daterange" range-separator="至" start-placeholder="开始日期"
+              end-placeholder="结束日期" format="YYYY年MM月DD日" value-format="YYYY-MM-DD" @change="handleDateChange"
+              class="filter-date-picker" />
+          </div>
+        </div>
+
+        <div class="quick-date-section">
+          <span class="quick-date-label">快捷选择：</span>
+          <div class="quick-date-buttons">
+            <el-button size="small" type="primary" :plain="activeQuickDate !== 'today'"
+              :class="{ 'quick-date-active': activeQuickDate === 'today' }" @click="selectQuickDate('today')">
+              今天
+            </el-button>
+            <el-button size="small" type="primary" :plain="activeQuickDate !== 'yesterday'"
+              :class="{ 'quick-date-active': activeQuickDate === 'yesterday' }" @click="selectQuickDate('yesterday')">
+              昨天
+            </el-button>
+            <el-button size="small" type="primary" :plain="activeQuickDate !== 'thisWeek'"
+              :class="{ 'quick-date-active': activeQuickDate === 'thisWeek' }" @click="selectQuickDate('thisWeek')">
+              本周
+            </el-button>
+            <el-button size="small" type="primary" :plain="activeQuickDate !== 'thisMonth'"
+              :class="{ 'quick-date-active': activeQuickDate === 'thisMonth' }" @click="selectQuickDate('thisMonth')">
+              本月
             </el-button>
           </div>
-        </el-card>
-      </div>
+        </div>
+      </el-card>
+
+      <!-- 庄占比设置 -->
+      <el-card class="zhuangzhanbi-card" shadow="hover"
+        v-if="selectedUserId && selectedUserId !== '' && selectedUserId !== null">
+        <template #header>
+          <div class="card-header">
+            <span class="card-title">庄占比设置</span>
+          </div>
+        </template>
+        <div class="zhuangzhanbi-content">
+          <div class="zhuangzhanbi-input-wrapper">
+            <el-input-number v-model="zhuangZhanBi" :min="0" :max="100" :precision="0" :step="10"
+              :style="getZhuangZhanBiStyle()" class="zhuangzhanbi-input" placeholder="请输入庄占比(0-100)" />
+            <span class="zhuangzhanbi-unit">%</span>
+          </div>
+          <el-button type="primary" @click="updateZhuangZhanBi" :loading="loadingZhuangZhanBi" class="save-button">
+            保存设置
+          </el-button>
+        </div>
+      </el-card>
 
       <!-- 提示信息：未选择用户时显示 -->
-      <div class="zhuangzhanbi-tip" v-if="!selectedUserId || selectedUserId === '' || selectedUserId === null">
-        <el-alert title="提示" type="info" :closable="false" show-icon>
-          <template #default>
-            请先选择一个用户，然后可以设置该用户的庄占比
-          </template>
-        </el-alert>
-      </div>
+      <el-alert v-if="!selectedUserId || selectedUserId === '' || selectedUserId === null" title="提示" type="info"
+        :closable="false" show-icon class="info-alert">
+        <template #default>
+          请先选择一个用户，然后可以设置该用户的庄占比
+        </template>
+      </el-alert>
 
       <!-- 统计卡片 -->
       <div class="stats-container">
         <el-card class="stat-card" shadow="hover">
           <template #header>
             <div class="card-header">
-              <span>今天流水</span>
+              <span>{{ getDateRangeLabel() }}流水</span>
               <el-button type="text" :icon="Refresh" @click="fetchTodayAmount" :loading="loadingAmount" circle />
             </div>
           </template>
@@ -57,14 +91,14 @@
             <div class="stat-value" v-else>
               <el-skeleton :rows="1" animated />
             </div>
-            <div class="stat-label">今日总金额</div>
+            <div class="stat-label">总金额</div>
           </div>
         </el-card>
 
         <el-card class="stat-card" shadow="hover">
           <template #header>
             <div class="card-header">
-              <span>今天下注次数</span>
+              <span>{{ getDateRangeLabel() }}下注次数</span>
               <el-button type="text" :icon="Refresh" @click="fetchTodayCount" :loading="loadingCount" circle />
             </div>
           </template>
@@ -75,12 +109,12 @@
             <div class="stat-value" v-else>
               <el-skeleton :rows="1" animated />
             </div>
-            <div class="stat-label">今日下注记录数</div>
+            <div class="stat-label">下注记录数</div>
           </div>
         </el-card>
       </div>
     </div>
-  </el-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -103,6 +137,8 @@ const loadingZhuangZhanBi = ref<boolean>(false);
 const userList = ref<UserInfo[]>([]);
 const selectedUserId = ref<string | null>(null);
 const zhuangZhanBi = ref<number>(50); // 默认庄占比50
+const dateRange = ref<[string, string] | null>(null); // 日期范围
+const activeQuickDate = ref<'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | null>(null); // 当前激活的快捷选择
 
 // 格式化金额
 const formatAmount = (amount: number): string => {
@@ -165,24 +201,26 @@ const fetchUserList = async () => {
   }
 };
 
-// 获取今天流水
+// 获取流水（支持日期范围）
 const fetchTodayAmount = async () => {
   loadingAmount.value = true;
   try {
-    let url = '/ycd/today/amount';
+    const params = new URLSearchParams();
+
+    // 添加用户ID参数
     if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
-      // 确保user_id作为字符串传递，避免精度丢失
-      // 如果selectedUserId是数字，需要特殊处理大整数
-      let userId: string;
-      if (typeof selectedUserId.value === 'number') {
-        // 对于大整数，使用toLocaleString避免精度丢失
-        userId = selectedUserId.value.toLocaleString('fullwide', { useGrouping: false });
-      } else {
-        userId = String(selectedUserId.value);
-      }
-      url = `/ycd/today/amount?user_id=${userId}`;
+      const userId = String(selectedUserId.value);
+      params.append('user_id', userId);
     }
-    console.log('请求流水URL:', url, 'selectedUserId:', selectedUserId.value, '类型:', typeof selectedUserId.value);
+
+    // 添加日期范围参数
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.append('start_date', dateRange.value[0]);
+      params.append('end_date', dateRange.value[1]);
+    }
+
+    const url = `/ycd/today/amount${params.toString() ? '?' + params.toString() : ''}`;
+    console.log('请求流水URL:', url);
     const response = await axios.get(url);
     console.log('流水响应:', response.data);
     if (response.data.code === 0) {
@@ -191,34 +229,36 @@ const fetchTodayAmount = async () => {
       todayAmount.value = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
       console.log('设置流水值:', todayAmount.value);
     } else {
-      console.error('获取今天流水失败:', response.data.msg);
+      console.error('获取流水失败:', response.data.msg);
       todayAmount.value = 0; // 失败时重置为0
     }
   } catch (error) {
-    console.error('获取今天流水失败:', error);
+    console.error('获取流水失败:', error);
   } finally {
     loadingAmount.value = false;
   }
 };
 
-// 获取今天下注次数
+// 获取下注次数（支持日期范围）
 const fetchTodayCount = async () => {
   loadingCount.value = true;
   try {
-    let url = '/ycd/today/count';
+    const params = new URLSearchParams();
+
+    // 添加用户ID参数
     if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
-      // 确保user_id作为字符串传递，避免精度丢失
-      // 如果selectedUserId是数字，需要特殊处理大整数
-      let userId: string;
-      if (typeof selectedUserId.value === 'number') {
-        // 对于大整数，使用toLocaleString避免精度丢失
-        userId = selectedUserId.value.toLocaleString('fullwide', { useGrouping: false });
-      } else {
-        userId = String(selectedUserId.value);
-      }
-      url = `/ycd/today/count?user_id=${userId}`;
+      const userId = String(selectedUserId.value);
+      params.append('user_id', userId);
     }
-    console.log('请求次数URL:', url, 'selectedUserId:', selectedUserId.value, '类型:', typeof selectedUserId.value);
+
+    // 添加日期范围参数
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.append('start_date', dateRange.value[0]);
+      params.append('end_date', dateRange.value[1]);
+    }
+
+    const url = `/ycd/today/count${params.toString() ? '?' + params.toString() : ''}`;
+    console.log('请求次数URL:', url);
     const response = await axios.get(url);
     console.log('次数响应:', response.data);
     if (response.data.code === 0) {
@@ -227,11 +267,11 @@ const fetchTodayCount = async () => {
       todayCount.value = typeof count === 'number' ? count : parseInt(count) || 0;
       console.log('设置次数值:', todayCount.value);
     } else {
-      console.error('获取今天下注次数失败:', response.data.msg);
+      console.error('获取下注次数失败:', response.data.msg);
       todayCount.value = 0; // 失败时重置为0
     }
   } catch (error) {
-    console.error('获取今天下注次数失败:', error);
+    console.error('获取下注次数失败:', error);
   } finally {
     loadingCount.value = false;
   }
@@ -289,6 +329,131 @@ const updateZhuangZhanBi = async () => {
   }
 };
 
+// 判断当前日期范围对应哪个快捷选项
+const detectQuickDate = (): 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | null => {
+  if (!dateRange.value || dateRange.value.length !== 2) {
+    return null;
+  }
+
+  const [start, end] = dateRange.value;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split('T')[0];
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  // 判断是否是今天
+  if (start === todayStr && end === todayStr) {
+    return 'today';
+  }
+
+  // 判断是否是昨天
+  if (start === yesterdayStr && end === yesterdayStr) {
+    return 'yesterday';
+  }
+
+  // 判断是否是本周
+  const dayOfWeek = today.getDay();
+  const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  const weekStart = new Date(today.getFullYear(), today.getMonth(), diff);
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  if (start === weekStartStr && end === todayStr) {
+    return 'thisWeek';
+  }
+
+  // 判断是否是本月
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthStartStr = monthStart.toISOString().split('T')[0];
+  if (start === monthStartStr && end === todayStr) {
+    return 'thisMonth';
+  }
+
+  return null;
+};
+
+// 日期选择改变时重新查询
+const handleDateChange = () => {
+  console.log('日期范围改变:', dateRange.value);
+  // 检测当前日期范围对应的快捷选项
+  activeQuickDate.value = detectQuickDate();
+  fetchTodayAmount();
+  fetchTodayCount();
+};
+
+// 快捷选择日期
+const selectQuickDate = (type: 'today' | 'yesterday' | 'thisWeek' | 'thisMonth') => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let startDate: Date;
+  let endDate: Date = new Date(today);
+
+  switch (type) {
+    case 'today':
+      startDate = new Date(today);
+      endDate = new Date(today);
+      break;
+    case 'yesterday':
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 1);
+      endDate = new Date(startDate);
+      break;
+    case 'thisWeek':
+      // 本周一
+      startDate = new Date(today);
+      const dayOfWeek = startDate.getDay();
+      const diff = startDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // 周一
+      startDate.setDate(diff);
+      endDate = new Date(today);
+      break;
+    case 'thisMonth':
+      // 本月第一天
+      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDate = new Date(today);
+      break;
+    default:
+      startDate = new Date(today);
+      endDate = new Date(today);
+  }
+
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  dateRange.value = [formatDate(startDate), formatDate(endDate)];
+  activeQuickDate.value = type; // 更新激活状态
+  fetchTodayAmount();
+  fetchTodayCount();
+};
+
+// 获取日期范围标签
+const getDateRangeLabel = (): string => {
+  if (!dateRange.value || dateRange.value.length !== 2) {
+    return '今天';
+  }
+
+  const [start, end] = dateRange.value;
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  if (start === today && end === today) {
+    return '今天';
+  } else if (start === yesterdayStr && end === yesterdayStr) {
+    return '昨天';
+  } else if (start === end) {
+    return start;
+  } else {
+    return `${start} 至 ${end}`;
+  }
+};
+
 // 用户选择改变时重新查询
 const handleUserChange = (value: string | null) => {
   console.log('用户选择改变:', value, '类型:', typeof value);
@@ -313,6 +478,11 @@ const handleUserChange = (value: string | null) => {
 
 // 组件挂载时自动加载数据
 onMounted(() => {
+  // 初始化日期为今天
+  const today = new Date().toISOString().split('T')[0];
+  dateRange.value = [today, today];
+  activeQuickDate.value = 'today'; // 默认选中"今天"
+
   fetchUserList();
   fetchTodayAmount();
   fetchTodayCount();
@@ -321,19 +491,13 @@ onMounted(() => {
 
 <style scoped>
 .home-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background-color: #f5f5f5;
-  padding: 20px;
-  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
 }
 
 .content-wrapper {
-  text-align: center;
-  max-width: 1200px;
   width: 100%;
+  max-width: 100%;
 }
 
 .title {
@@ -350,77 +514,182 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-.user-selector {
-  margin-bottom: 30px;
+/* 筛选条件卡片 */
+.filter-card {
+  margin-bottom: 20px;
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filter-section {
   display: flex;
-  justify-content: center;
+  gap: 24px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+  margin-bottom: 4px;
+}
+
+.filter-select {
+  width: 100%;
+}
+
+.filter-date-picker {
+  width: 100%;
+}
+
+.quick-date-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #ebeef5;
+  flex-wrap: wrap;
+}
+
+.quick-date-label {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.quick-date-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.quick-date-buttons :deep(.quick-date-active) {
+  background: #409eff !important;
+  border-color: #409eff !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.quick-date-buttons :deep(.quick-date-active:hover) {
+  background: #66b1ff !important;
+  border-color: #66b1ff !important;
+  color: #ffffff !important;
 }
 
 .stats-container {
-  display: flex;
-  gap: 20px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-top: 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
 }
 
 .stat-card {
-  min-width: 300px;
-  flex: 1;
-  max-width: 400px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-weight: bold;
+  font-weight: 600;
   font-size: 16px;
+  color: #303133;
+  padding: 0;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
 }
 
 .stat-content {
   text-align: center;
-  padding: 20px 0;
+  padding: 32px 20px;
 }
 
 .stat-value {
-  font-size: 32px;
-  font-weight: bold;
-  color: #409eff;
-  margin-bottom: 10px;
+  font-size: 36px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+  line-height: 1.2;
 }
 
 .stat-label {
   font-size: 14px;
   color: #909399;
-}
-
-.zhuangzhanbi-container {
-  margin-top: 30px;
-  display: flex;
-  justify-content: center;
+  font-weight: 500;
 }
 
 .zhuangzhanbi-card {
-  min-width: 600px;
-  max-width: 800px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.zhuangzhanbi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .zhuangzhanbi-content {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 20px 0;
+  gap: 20px;
+  padding: 24px 0;
 }
 
-
-.zhuangzhanbi-tip {
-  margin-top: 20px;
+.zhuangzhanbi-input-wrapper {
   display: flex;
-  justify-content: center;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.zhuangzhanbi-input {
+  width: 200px;
+}
+
+.zhuangzhanbi-unit {
+  font-size: 18px;
+  font-weight: 600;
+  color: #606266;
+}
+
+.save-button {
+  min-width: 120px;
+  height: 40px;
+  font-weight: 500;
+}
+
+.info-alert {
+  margin-bottom: 24px;
+  border-radius: 8px;
 }
 
 /* 庄占比渐变色样式 - 从绿色(0)到红色(100)的渐变 */

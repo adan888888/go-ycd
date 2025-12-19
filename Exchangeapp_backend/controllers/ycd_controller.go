@@ -1206,25 +1206,35 @@ func GetTodayBettingUsers(ctx *gin.Context) {
 	ctx.Data(http.StatusOK, "application/json; charset=utf-8", []byte(jsonBuilder.String()))
 }
 
-// 查询今天投注流水（总金额）
-// @Summary      查询今天投注流水
+// 查询投注流水（总金额）- 支持日期范围查询
+// @Summary      查询投注流水
 // @Tags         ycd投注记录
 // @Accept       json
 // @Produce      json
-// @Param        user_id query int false "用户ID，不传则查询所有用户"
+// @Param        user_id query string false "用户ID，不传则查询所有用户"
+// @Param        start_date query string false "开始日期，格式：YYYY-MM-DD，不传则默认为今天"
+// @Param        end_date query string false "结束日期，格式：YYYY-MM-DD，不传则默认为开始日期"
 // @Success      200  {object}  ResponseJson{data=object}
 // @Router       /api/ycd/today/amount [get]
 func GetTodayBettingAmount(ctx *gin.Context) {
-	// 获取今天的日期字符串，格式：2025-12-18
-	today := time.Now().Format("2006-01-02")
+	// 获取日期参数
+	startDateStr := ctx.Query("start_date")
+	endDateStr := ctx.Query("end_date")
+	
+	// 如果没有提供日期，默认使用今天
+	if startDateStr == "" {
+		startDateStr = time.Now().Format("2006-01-02")
+	}
+	if endDateStr == "" {
+		endDateStr = startDateStr
+	}
 
 	// 获取可选的用户ID参数
 	userIDStr := ctx.Query("user_id")
 	
-	// 查询今天的所有投注记录，计算下注金额总和
-	// 使用 DATE(created_at) 函数按日期比较，避免时区问题
-	// column_xiazhujine 是字符串类型，需要转换为数字后求和
-	query := global.Db.Where("DATE(created_at) = ?", today)
+	// 构建查询条件：日期范围
+	query := global.Db.Model(&models.TableYanchendao2{}).
+		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
 	
 	// 如果提供了用户ID，则按用户筛选
 	if userIDStr != "" {
@@ -1238,7 +1248,7 @@ func GetTodayBettingAmount(ctx *gin.Context) {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
 			Code:   0,
-			Msg:    "查询今天流水失败: " + err.Error(),
+			Msg:    "查询流水失败: " + err.Error(),
 			Data:   gin.H{},
 		})
 		return
@@ -1258,32 +1268,43 @@ func GetTodayBettingAmount(ctx *gin.Context) {
 		Msg:    "查询成功",
 		Data: gin.H{
 			"total_amount": totalAmount,
-			"date":         today,
+			"start_date":   startDateStr,
+			"end_date":     endDateStr,
 			"count":        len(records),
 			"user_id":      userIDStr,
 		},
 	})
 }
 
-// 查询今天下注次数
-// @Summary      查询今天下注次数
+// 查询下注次数 - 支持日期范围查询
+// @Summary      查询下注次数
 // @Tags         ycd投注记录
 // @Accept       json
 // @Produce      json
-// @Param        user_id query int false "用户ID，不传则查询所有用户"
+// @Param        user_id query string false "用户ID，不传则查询所有用户"
+// @Param        start_date query string false "开始日期，格式：YYYY-MM-DD，不传则默认为今天"
+// @Param        end_date query string false "结束日期，格式：YYYY-MM-DD，不传则默认为开始日期"
 // @Success      200  {object}  ResponseJson{data=object}
 // @Router       /api/ycd/today/count [get]
 func GetTodayBettingCount(ctx *gin.Context) {
-	// 获取今天的日期字符串，格式：2025-12-18
-	today := time.Now().Format("2006-01-02")
+	// 获取日期参数
+	startDateStr := ctx.Query("start_date")
+	endDateStr := ctx.Query("end_date")
+	
+	// 如果没有提供日期，默认使用今天
+	if startDateStr == "" {
+		startDateStr = time.Now().Format("2006-01-02")
+	}
+	if endDateStr == "" {
+		endDateStr = startDateStr
+	}
 
 	// 获取可选的用户ID参数
 	userIDStr := ctx.Query("user_id")
 	
-	// 查询今天的投注记录数量
-	// 使用 DATE(created_at) 函数按日期比较，避免时区问题
+	// 构建查询条件：日期范围
 	query := global.Db.Model(&models.TableYanchendao2{}).
-		Where("DATE(created_at) = ?", today)
+		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
 	
 	// 如果提供了用户ID，则按用户筛选
 	if userIDStr != "" {
@@ -1297,7 +1318,7 @@ func GetTodayBettingCount(ctx *gin.Context) {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
 			Code:   0,
-			Msg:    "查询今天下注次数失败: " + err.Error(),
+			Msg:    "查询下注次数失败: " + err.Error(),
 			Data:   gin.H{},
 		})
 		return
@@ -1308,9 +1329,10 @@ func GetTodayBettingCount(ctx *gin.Context) {
 		Code:   0,
 		Msg:    "查询成功",
 		Data: gin.H{
-			"count":   count,
-			"date":    today,
-			"user_id": userIDStr,
+			"count":      count,
+			"start_date": startDateStr,
+			"end_date":   endDateStr,
+			"user_id":    userIDStr,
 		},
 	})
 }
