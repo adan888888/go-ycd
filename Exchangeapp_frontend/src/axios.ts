@@ -2,6 +2,7 @@ import axios from 'axios';
 
 const instance = axios.create({
   baseURL: 'http://localhost:3000/api',
+  timeout: 10000, // 10秒超时
 });
 
 instance.interceptors.request.use(config => {
@@ -69,6 +70,14 @@ instance.interceptors.response.use(response => {
   }
   return response;
 }, error => {
+  // 统一错误处理
+  if (error.code === 'ECONNABORTED') {
+    console.warn('请求超时:', error.config?.url);
+  } else if (error.message?.includes('Network Error')) {
+    console.error('网络错误:', error.config?.url);
+  } else {
+    console.error('请求错误:', error.config?.url, error.message);
+  }
   return Promise.reject(error);
 });
 

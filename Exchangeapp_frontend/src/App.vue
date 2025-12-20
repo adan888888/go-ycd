@@ -8,6 +8,23 @@
         </div>
       </div>
       <div class="header-right">
+        <!-- 用户选择下拉框（在首页和用户配置记录页面显示） -->
+        <el-select 
+          v-if="showUserSelect"
+          v-model="selectedUserId" 
+          placeholder="选择用户" 
+          clearable 
+          @change="handleUserSelectChange"
+          style="width: 200px; margin-right: 16px;"
+          size="default">
+          <el-option label="全部用户" value="" />
+          <el-option 
+            v-for="(user, index) in userList" 
+            :key="`user-${index}-${user.user_id}`"
+            :label="user.username || `用户 ${user.user_id}`" 
+            :value="String(user.user_id)" />
+        </el-select>
+        
         <el-dropdown @command="handleCommand">
           <span class="user-info">
             <el-avatar :size="32" class="user-avatar">A</el-avatar>
@@ -39,6 +56,10 @@
             <el-icon><House /></el-icon>
             <span>首页</span>
           </el-menu-item>
+          <el-menu-item index="userConfig">
+            <el-icon><Document /></el-icon>
+            <span>用户配置记录</span>
+          </el-menu-item>
           <el-menu-item index="currencyExchange">
             <el-icon><Money /></el-icon>
             <span>兑换货币</span>
@@ -67,30 +88,108 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, provide, computed, type Ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from './store/auth';
 import { House, Money, Document, User, Edit, ArrowDown } from '@element-plus/icons-vue';
+import axios from './axios';
+
+interface UserInfo {
+  user_id: string;
+  username: string;
+}
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
-const activeIndex = ref(route.name?.toString() || 'home');
+// 初始化 activeIndex，将路由名称转换为菜单 index 格式
+const getMenuIndex = (routeName: string | undefined): string => {
+  if (!routeName) return 'home';
+  if (routeName === 'UserConfig') return 'userConfig';
+  return routeName.charAt(0).toLowerCase() + routeName.slice(1);
+};
+const activeIndex = ref(getMenuIndex(route.name?.toString()));
+
+// 用户选择相关状态
+const selectedUserId = ref<string | null>(null);
+const userList = ref<UserInfo[]>([]);
+const isHomePage = computed(() => route.name === 'Home' || route.path === '/');
+// 是否显示用户选择框（在首页和用户配置记录页面显示）
+const showUserSelect = computed(() => {
+  const routeName = route.name?.toString();
+  const routePath = route.path;
+  return routeName === 'Home' || routePath === '/' || routeName === 'UserConfig' || routePath === '/user-config';
+});
+
+// 通过 provide 共享用户选择状态给子组件
+provide<Ref<string | null>>('selectedUserId', selectedUserId);
+provide<Ref<UserInfo[]>>('userList', userList);
+
+// 获取用户列表
+const fetchUserList = async () => {
+  try {
+    const response = await axios.get('/ycd/today/users');
+    if (response.data.code === 0 && response.data.data) {
+      userList.value = Array.isArray(response.data.data) ? response.data.data : [];
+    }
+  } catch (error) {
+    console.error('获取用户列表失败:', error);
+    userList.value = [];
+  }
+};
+
+// 用户选择改变时的处理
+const handleUserSelectChange = (value: string | null) => {
+  console.log('App.vue - 用户选择改变:', value, '类型:', typeof value);
+  if (value === null || value === '' || value === undefined) {
+    selectedUserId.value = null;
+    console.log('App.vue - 设置为全部用户（null）');
+  } else {
+    selectedUserId.value = String(value);
+    console.log('App.vue - 设置为用户ID:', selectedUserId.value);
+  }
+};
+
+// 页面加载时获取用户列表（在首页和用户配置记录页面）
+watch(showUserSelect, (shouldShow) => {
+  if (shouldShow && userList.value.length === 0) {
+    fetchUserList();
+  }
+}, { immediate: true });
 
 //保证亮度状态和页面是一致的
 watch(route, (newRoute) => {
-  activeIndex.value = newRoute.name?.toString() || 'home';
-  console.log(activeIndex.value)
+  const routeName = newRoute.name?.toString() || 'home';
+  const routePath = newRoute.path;
+  // 将路由名称转换为菜单 index 格式（首字母小写）
+  if (routeName === 'UserConfig' || routePath === '/user-config') {
+    activeIndex.value = 'userConfig';
+  } else {
+    activeIndex.value = routeName.charAt(0).toLowerCase() + routeName.slice(1);
+  }
+  console.log('路由变化:', routeName, routePath, '-> 菜单index:', activeIndex.value);
 });
 
 //当用户在下拉框中选择一个选项时，handleSelect 方法会被调用，并将选中的值作为参数传递进去
 const handleSelect = (key: string) => {
-  console.log('测试',activeIndex.value, key)
+  console.log('菜单选择:', activeIndex.value, key)
   if ( key === 'logout') {
     authStore.logout();
     router.push({ name: 'Home' });
+  } else if (key === 'userConfig') {
+    // 用户配置记录跳转到独立页面
+    console.log('跳转到用户配置记录页面');
+    router.push('/user-config').then(() => {
+      console.log('路由跳转成功');
+    }).catch(err => {
+      console.error('路由跳转失败:', err);
+    });
   } else {
-    router.push({ name:  key.charAt(0).toUpperCase() +  key.slice(1) }); //Name后面要变成大写
+    const routeName = key.charAt(0).toUpperCase() + key.slice(1);
+    console.log('跳转到:', routeName);
+    router.push({ name: routeName }).catch(err => {
+      console.error('路由跳转失败:', err);
+    });
   }
 };
 
@@ -104,6 +203,21 @@ const handleCommand = (command: string) => {
   }
 };
 </script>
+
+<style>
+/* 全局样式：防止页面滚动 */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+#app {
+  height: 100vh;
+  overflow: hidden;
+}
+</style>
 
 <style scoped>
 .admin-layout {
@@ -143,6 +257,7 @@ const handleCommand = (command: string) => {
 .header-right {
   display: flex;
   align-items: center;
+  gap: 16px;
 }
 
 .user-info {
@@ -202,10 +317,40 @@ const handleCommand = (command: string) => {
   font-size: 18px;
 }
 
+.admin-menu .el-sub-menu {
+  margin: 4px 0;
+}
+
+.admin-menu .el-sub-menu__title {
+  height: 50px;
+  line-height: 50px;
+  border-radius: 4px;
+}
+
+.admin-menu .el-sub-menu__title:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.admin-menu .el-sub-menu .el-menu-item {
+  padding-left: 50px !important;
+  height: 45px;
+  line-height: 45px;
+  margin: 2px 0;
+}
+
+.admin-menu .el-sub-menu .el-menu-item.is-active {
+  background-color: #1890ff !important;
+  color: #fff !important;
+}
+
 /* 主内容区 */
 .admin-main {
   background-color: #f0f2f5;
   padding: 20px;
-  overflow-y: auto;
+  overflow-y: hidden;
+  overflow-x: hidden;
+  height: calc(100vh - 60px);
+  position: relative;
+  box-sizing: border-box;
 }
 </style>

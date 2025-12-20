@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
+import UserConfigView from '../views/UserConfigView.vue';
 import CurrencyExchangeView from '../views/CurrencyExchangeView.vue';
 import NewsView from '../views/NewsView.vue';
 import NewsDetailView from '../views/NewsDetailView.vue';
@@ -8,6 +9,7 @@ import Register from '../components/Register.vue';
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'Home', component: HomeView },
+  { path: '/user-config', name: 'UserConfig', component: UserConfigView },
   { path: '/exchange', name: 'CurrencyExchange', component: CurrencyExchangeView },
   { path: '/news', name: 'News', component: NewsView },
     /*:id 动态路由参数*/

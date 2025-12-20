@@ -723,6 +723,109 @@ func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
 	})
 }
 
+// GetTable1List 获取table_yanchendao1数据列表（无需认证，支持分页）
+func GetTable1List(ctx *gin.Context) {
+	userIDStr := ctx.Query("user_id")
+	
+	// 获取分页参数
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
+	
+	// 限制每页最大数量
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if page < 1 {
+		page = 1
+	}
+	
+	var tableYanchendao1s []models.TableYanchendao1
+	var total int64
+	var query *gorm.DB
+	
+	// 如果 user_id 为空，查询所有用户的记录；否则查询指定用户的记录
+	if userIDStr == "" {
+		// 查询所有用户的记录，按创建时间倒序排列
+		query = global.Db.Model(&models.TableYanchendao1{}).Where("deleted_at IS NULL")
+	} else {
+		// 查询该用户的所有记录，按创建时间倒序排列
+		query = global.Db.Model(&models.TableYanchendao1{}).Where("uid = ? AND deleted_at IS NULL", userIDStr)
+	}
+	
+	// 获取总数
+	if err := query.Count(&total).Error; err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询总数失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+	
+	// 分页查询（按创建时间正序排列，最早的数据在前）
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at ASC").Offset(offset).Limit(pageSize).Find(&tableYanchendao1s).Error; err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	// 获取所有唯一的用户ID
+	uidMap := make(map[int64]string) // uid -> username
+	for _, item := range tableYanchendao1s {
+		if _, exists := uidMap[item.Uid]; !exists {
+			uidMap[item.Uid] = ""
+		}
+	}
+
+	// 批量查询用户名
+	if len(uidMap) > 0 {
+		var uids []int64
+		for uid := range uidMap {
+			uids = append(uids, uid)
+		}
+		var users []models.User
+		if err := global.Db.Select("uid, username").Where("uid IN ?", uids).Find(&users).Error; err == nil {
+			for _, user := range users {
+				uidMap[user.Uid] = user.Username
+			}
+		}
+	}
+
+	// 构建返回数据，添加用户名
+	type Table1WithUsername struct {
+		models.TableYanchendao1
+		Username string `json:"username"`
+	}
+	var resultList []Table1WithUsername
+	for _, item := range tableYanchendao1s {
+		resultList = append(resultList, Table1WithUsername{
+			TableYanchendao1: item,
+			Username:         uidMap[item.Uid],
+		})
+	}
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "查询成功",
+		Data: gin.H{
+			"list":      resultList,
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
+		},
+	})
+}
+
 // 加载更多历史数据
 func LoadMore(ctx *gin.Context) {
 	//http://localhost:3000/api/LoadMore?last_id=836&c=10&uid=1852251920824012800

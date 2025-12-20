@@ -1,0 +1,432 @@
+<template>
+  <div class="user-config-container">
+    <div class="content-wrapper">
+      <!-- 刷新按钮 -->
+      <div class="refresh-header">
+        <el-button type="primary" :icon="Refresh" @click="handleRefreshTable1" :loading="loadingTable1" circle />
+      </div>
+
+      <!-- 用户配置记录 -->
+      <el-card id="user-config" class="table-card" shadow="always">
+        <div class="table-wrapper">
+          <el-table :data="table1List" stripe border v-loading="loadingTable1" :height="tableHeight" empty-text="暂无记录"
+            style="width: 100%">
+            <el-table-column type="index" label="序号" width="70" align="center">
+              <template #default="{ $index }">
+                {{ (table1Page - 1) * table1PageSize + $index + 1 }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="uid" label="用户ID" width="150" align="center" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.uid || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="username" label="用户名" width="150" align="center" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.username || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="column_benjin" label="本金" width="120" align="center" show-overflow-tooltip>
+              <template #default="{ row }">
+                ¥{{ formatAmount(parseFloat(row.column_benjin || 0)) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="column_yongJin" label="俑金" width="120" align="center" show-overflow-tooltip>
+              <template #default="{ row }">
+                ¥{{ formatAmount(parseFloat(row.column_yongJin || 0)) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="column_mean" label="数学期望" width="120" align="center" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span :style="{ color: parseFloat(row.column_mean || 0) >= 0 ? '#67c23a' : '#f56c6c' }">
+                  {{ parseFloat(row.column_mean || 0) >= 0 ? '+' : '' }}{{ formatAmount(parseFloat(row.column_mean ||
+                    0)) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="column_restart_index" label="重启位置" width="100" align="center"
+              show-overflow-tooltip />
+            <el-table-column prop="column_liushui_index" label="流水位置" width="100" align="center"
+              show-overflow-tooltip />
+            <el-table-column prop="column_zhuang_zhan_bi" label="庄占比" width="90" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.column_zhuang_zhan_bi >= 50 ? 'warning' : 'success'" size="small">
+                  {{ row.column_zhuang_zhan_bi || 50 }}%
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="temp_index" label="临时索引" width="100" align="center" show-overflow-tooltip />
+            <el-table-column prop="created_at" label="创建时间" width="160" align="center" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ formatDateTime(row.created_at) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div class="table-footer" v-if="table1List.length > 0 || table1Total > 0">
+          <div class="table-pagination">
+            <el-pagination v-model:current-page="table1Page" v-model:page-size="table1PageSize"
+              :page-sizes="[10, 20, 50, 100]" :total="table1Total" layout="total, sizes, prev, pager, next, jumper"
+              @size-change="handleTable1SizeChange" @current-change="handleTable1PageChange" />
+          </div>
+        </div>
+      </el-card>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted, inject, watch, type Ref } from 'vue';
+import { Refresh } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+import axios from '../axios';
+
+// 从 App.vue 注入用户选择状态
+const selectedUserId = inject<Ref<string | null>>('selectedUserId')!;
+
+const loadingTable1 = ref<boolean>(false);
+// 分页相关
+const table1Page = ref<number>(1);
+const table1PageSize = ref<number>(20);
+const table1Total = ref<number>(0);
+const isInitialLoadComplete = ref<boolean>(false); // 标记是否已完成初始加载
+const table1List = ref<any[]>([]); // table_yanchendao1 数据列表
+
+// 防止重复请求的标记
+const isRequesting = ref<boolean>(false);
+
+// 动态计算表格高度
+const tableHeight = ref<number>(600);
+
+// 计算表格高度
+const calculateTableHeight = () => {
+  // 视口高度
+  const viewportHeight = window.innerHeight;
+  // 顶部导航栏高度（App.vue 中的 header）
+  const headerHeight = 60;
+  // 刷新按钮区域高度
+  const refreshHeaderHeight = 60;
+  // 卡片内边距（上下各20px）
+  const cardPadding = 40;
+  // 分页组件高度
+  const paginationHeight = 60;
+  // 底部间距
+  const bottomMargin = 40;
+  // 其他边距和间距
+  const otherSpacing = 20;
+
+  // 计算表格可用高度
+  const availableHeight = viewportHeight - headerHeight - refreshHeaderHeight - cardPadding - paginationHeight - bottomMargin - otherSpacing;
+
+  // 最小高度 400px，最大高度 900px
+  const minHeight = 400;
+  const maxHeight = 900;
+
+  tableHeight.value = Math.max(minHeight, Math.min(maxHeight, availableHeight));
+
+  console.log('计算表格高度:', {
+    viewportHeight,
+    availableHeight,
+    tableHeight: tableHeight.value
+  });
+};
+
+// 窗口大小改变时重新计算
+const handleResize = () => {
+  calculateTableHeight();
+};
+
+// 格式化金额
+const formatAmount = (amount: number): string => {
+  return amount.toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
+
+// 格式化日期时间
+const formatDateTime = (dateTime: string): string => {
+  if (!dateTime) return '-';
+  const date = new Date(dateTime);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+// 刷新表格数据
+const handleRefreshTable1 = () => {
+  console.log('刷新按钮被点击');
+  fetchTable1List();
+};
+
+// 获取 table_yanchendao1 数据列表（支持分页）
+const fetchTable1List = async () => {
+  console.log('fetchTable1List 被调用');
+
+  // 防止重复请求
+  if (isRequesting.value || loadingTable1.value) {
+    console.log('请求正在进行中，跳过重复请求');
+    return;
+  }
+
+  console.log('开始加载数据，user_id:', selectedUserId.value, 'page:', table1Page.value, 'pageSize:', table1PageSize.value);
+  loadingTable1.value = true;
+  isRequesting.value = true;
+  try {
+    // 构建查询参数
+    const params = new URLSearchParams();
+    if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
+      params.append('user_id', String(selectedUserId.value));
+      console.log('开始请求table1数据, user_id:', selectedUserId.value);
+    } else {
+      console.log('开始请求table1数据, 查询所有用户');
+    }
+    params.append('page', String(table1Page.value));
+    params.append('page_size', String(table1PageSize.value));
+
+    const url = `/ycd/table1/list?${params.toString()}`;
+    const response = await axios.get(url, {
+      timeout: 10000 // 设置10秒超时
+    });
+    console.log('table1列表响应:', response.data);
+
+    if (response.data.code === 0) {
+      if (response.data.data) {
+        const data = response.data.data;
+        // 处理新的返回格式（包含 list, total, page, page_size）
+        if (data.list && Array.isArray(data.list)) {
+          const newTotal = data.total || 0;
+          table1Total.value = newTotal;
+
+          // 如果是第一次加载且页码为1，自动跳转到最后一页
+          if (table1Page.value === 1 && newTotal > 0 && !isInitialLoadComplete.value) {
+            const totalPages = Math.ceil(newTotal / table1PageSize.value);
+            if (totalPages > 1) {
+              // 先重置请求标记和加载状态
+              isRequesting.value = false;
+              loadingTable1.value = false;
+              // 设置页码为最后一页
+              table1Page.value = totalPages;
+              isInitialLoadComplete.value = true;
+              // 使用 setTimeout 确保页码更新后再请求
+              setTimeout(() => {
+                console.log('自动跳转到最后一页，页码:', table1Page.value);
+                fetchTable1List();
+              }, 10);
+              return; // 不显示第一页的数据
+            }
+          }
+
+          // 正常显示数据
+          table1List.value = data.list;
+          isInitialLoadComplete.value = true;
+          console.log('table1列表数据:', table1List.value, '数量:', table1List.value.length, '总数:', table1Total.value, '当前页:', table1Page.value);
+
+          if (table1List.value.length > 0) {
+            console.log('第一条数据示例:', table1List.value[0]);
+            // 不显示成功消息，避免刷屏
+          } else {
+            ElMessage.info('暂无记录');
+          }
+        } else if (Array.isArray(data)) {
+          // 兼容旧格式（直接返回数组）
+          table1List.value = data;
+          table1Total.value = data.length;
+          console.log('table1列表数据（旧格式）:', table1List.value, '数量:', table1List.value.length);
+        } else {
+          table1List.value = [];
+          table1Total.value = 0;
+          console.log('响应数据格式不正确');
+          ElMessage.info('暂无记录');
+        }
+      } else {
+        table1List.value = [];
+        table1Total.value = 0;
+        console.log('响应数据为空');
+        ElMessage.info('暂无记录');
+      }
+    } else {
+      console.error('获取table1列表失败:', response.data.msg);
+      table1List.value = [];
+      table1Total.value = 0;
+      ElMessage.warning('获取记录失败: ' + (response.data.msg || '未知错误'));
+    }
+  } catch (error: any) {
+    console.error('获取table1列表失败:', error);
+    table1List.value = [];
+    table1Total.value = 0;
+    // 只显示网络错误，不显示超时等错误（避免刷屏）
+    if (error.code === 'ECONNABORTED') {
+      console.warn('请求超时');
+    } else if (error.message?.includes('Network Error')) {
+      ElMessage.error('网络连接失败，请检查后端服务是否运行');
+    } else {
+      ElMessage.error('获取记录失败: ' + (error.response?.data?.msg || error.message));
+    }
+  } finally {
+    loadingTable1.value = false;
+    isRequesting.value = false;
+  }
+};
+
+// 分页大小改变
+const handleTable1SizeChange = (size: number) => {
+  console.log('分页大小改变:', size);
+  table1PageSize.value = size;
+  table1Page.value = 1; // 重置到第一页
+  fetchTable1List();
+};
+
+// 页码改变
+const handleTable1PageChange = (page: number) => {
+  console.log('页码改变:', page);
+  table1Page.value = page;
+  fetchTable1List();
+};
+
+// 监听用户选择变化（从 App.vue 传入）
+watch(() => selectedUserId.value, (newValue, oldValue) => {
+  // 避免初始化时触发
+  if (newValue === oldValue) return;
+
+  console.log('用户选择改变:', newValue, '类型:', typeof newValue);
+  // 重置分页到第一页，并重置初始加载标记
+  table1Page.value = 1;
+  isInitialLoadComplete.value = false;
+  fetchTable1List();
+}, { immediate: false });
+
+// 组件挂载时自动加载数据
+onMounted(() => {
+  console.log('UserConfigView 组件已挂载');
+  console.log('selectedUserId:', selectedUserId.value);
+
+  // 计算初始表格高度
+  calculateTableHeight();
+
+  // 监听窗口大小变化
+  window.addEventListener('resize', handleResize);
+
+  // 加载数据：如果选择了用户，加载用户相关数据；否则加载所有用户的数据
+  if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
+    console.log('加载指定用户的数据');
+    fetchTable1List();
+  } else {
+    // 未选择用户时，也加载所有用户的数据
+    console.log('onMounted - 未选择用户，加载所有用户数据');
+    fetchTable1List();
+  }
+});
+
+// 组件卸载时移除监听器
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+});
+</script>
+
+<style scoped>
+.user-config-container {
+  width: 100%;
+  height: 100%;
+  max-height: calc(100vh - 60px);
+  margin: -20px;
+  padding: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  background-color: #f0f2f5;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.content-wrapper {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  box-sizing: border-box;
+  padding: 0 20px;
+  padding-top: 0;
+  padding-bottom: 20px;
+}
+
+/* 刷新按钮区域 */
+.refresh-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 8px 20px;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* table_yanchendao1 数据表格 */
+.table-card {
+  margin-top: 0 !important;
+  margin-bottom: 20px !important;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  transition: all 0.3s ease;
+  overflow: visible !important;
+  position: relative;
+  z-index: 10;
+  display: block !important;
+  visibility: visible !important;
+  width: 100%;
+}
+
+.table-card :deep(.el-card__body) {
+  padding: 16px 20px !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.table-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0 -20px;
+  padding: 0 20px;
+}
+
+.table-wrapper :deep(.el-table) {
+  width: 100% !important;
+  min-width: 100%;
+}
+
+.table-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 0 0 0;
+  border-top: 1px solid #ebeef5;
+  margin-top: 16px;
+}
+
+.table-pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 16px;
+  color: #303133;
+  padding: 0;
+}
+</style>

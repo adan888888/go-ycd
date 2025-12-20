@@ -1,0 +1,35 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Vite 开发服务器生成的临时编译文件
+# 这些是 .vue 和 .ts 文件编译后生成的临时文件，不应该提交到 Git
+**/*.vue.js
+**/*.ts.js
+
+# 但是保留实际的源文件（.vue、.ts、.js 源文件）
+!src/**/*.vue
+!src/**/*.ts
+# 注意：如果项目中有实际的 .js 源文件（如 main.js、axios.js），它们不会被忽略
+

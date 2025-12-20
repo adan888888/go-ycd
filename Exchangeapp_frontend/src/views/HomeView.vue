@@ -6,43 +6,33 @@
       <!-- 筛选条件区域 -->
       <el-card class="filter-card" shadow="never">
         <div class="filter-section">
-          <div class="filter-item">
-            <label class="filter-label">用户选择</label>
-            <el-select v-model="selectedUserId" placeholder="请选择用户（不选则查询所有用户）" clearable @change="handleUserChange"
-              class="filter-select">
-              <el-option label="全部用户" value="" />
-              <el-option v-for="(user, index) in userList" :key="`user-${index}-${user.user_id}`"
-                :label="user.username || `用户 ${user.user_id}`" :value="String(user.user_id)" />
-            </el-select>
-          </div>
-
-          <div class="filter-item">
+          <div class="filter-item" style="flex: 1;">
             <label class="filter-label">日期范围</label>
             <el-date-picker v-model="dateRange" type="daterange" range-separator="至" start-placeholder="开始日期"
               end-placeholder="结束日期" format="YYYY年MM月DD日" value-format="YYYY-MM-DD" @change="handleDateChange"
               class="filter-date-picker" />
           </div>
-        </div>
 
-        <div class="quick-date-section">
-          <span class="quick-date-label">快捷选择：</span>
-          <div class="quick-date-buttons">
-            <el-button size="small" type="primary" :plain="activeQuickDate !== 'today'"
-              :class="{ 'quick-date-active': activeQuickDate === 'today' }" @click="selectQuickDate('today')">
-              今天
-            </el-button>
-            <el-button size="small" type="primary" :plain="activeQuickDate !== 'yesterday'"
-              :class="{ 'quick-date-active': activeQuickDate === 'yesterday' }" @click="selectQuickDate('yesterday')">
-              昨天
-            </el-button>
-            <el-button size="small" type="primary" :plain="activeQuickDate !== 'thisWeek'"
-              :class="{ 'quick-date-active': activeQuickDate === 'thisWeek' }" @click="selectQuickDate('thisWeek')">
-              本周
-            </el-button>
-            <el-button size="small" type="primary" :plain="activeQuickDate !== 'thisMonth'"
-              :class="{ 'quick-date-active': activeQuickDate === 'thisMonth' }" @click="selectQuickDate('thisMonth')">
-              本月
-            </el-button>
+          <div class="filter-item quick-date-item">
+            <label class="filter-label">快捷选择</label>
+            <div class="quick-date-buttons">
+              <el-button size="small" type="primary" :plain="activeQuickDate !== 'today'"
+                :class="{ 'quick-date-active': activeQuickDate === 'today' }" @click="selectQuickDate('today')">
+                今天
+              </el-button>
+              <el-button size="small" type="primary" :plain="activeQuickDate !== 'yesterday'"
+                :class="{ 'quick-date-active': activeQuickDate === 'yesterday' }" @click="selectQuickDate('yesterday')">
+                昨天
+              </el-button>
+              <el-button size="small" type="primary" :plain="activeQuickDate !== 'thisWeek'"
+                :class="{ 'quick-date-active': activeQuickDate === 'thisWeek' }" @click="selectQuickDate('thisWeek')">
+                本周
+              </el-button>
+              <el-button size="small" type="primary" :plain="activeQuickDate !== 'thisMonth'"
+                :class="{ 'quick-date-active': activeQuickDate === 'thisMonth' }" @click="selectQuickDate('thisMonth')">
+                本月
+              </el-button>
+            </div>
           </div>
         </div>
       </el-card>
@@ -50,18 +40,15 @@
       <!-- 庄占比设置 -->
       <el-card class="zhuangzhanbi-card" shadow="hover"
         v-if="selectedUserId && selectedUserId !== '' && selectedUserId !== null">
-        <template #header>
-          <div class="card-header">
-            <span class="card-title">庄占比设置</span>
-          </div>
-        </template>
         <div class="zhuangzhanbi-content">
+          <span class="zhuangzhanbi-label">庄占比设置：</span>
           <div class="zhuangzhanbi-input-wrapper">
             <el-input-number v-model="zhuangZhanBi" :min="0" :max="100" :precision="0" :step="10"
               :style="getZhuangZhanBiStyle()" class="zhuangzhanbi-input" placeholder="请输入庄占比(0-100)" />
             <span class="zhuangzhanbi-unit">%</span>
           </div>
-          <el-button type="primary" @click="updateZhuangZhanBi" :loading="loadingZhuangZhanBi" class="save-button">
+          <el-button type="primary" @click="updateZhuangZhanBi" :loading="loadingZhuangZhanBi" class="save-button"
+            size="default">
             保存设置
           </el-button>
         </div>
@@ -118,8 +105,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { Refresh } from '@element-plus/icons-vue';
+import { ref, onMounted, inject, watch, type Ref } from 'vue';
+import { Refresh, DArrowLeft, DArrowRight } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
 
@@ -128,17 +115,19 @@ interface UserInfo {
   username: string;
 }
 
+// 从 App.vue 注入用户选择状态
+const selectedUserId = inject<Ref<string | null>>('selectedUserId')!;
+const userList = inject<Ref<UserInfo[]>>('userList')!;
+
 const todayAmount = ref<number>(0);
 const todayCount = ref<number>(0);
 const loadingAmount = ref<boolean>(false);
 const loadingCount = ref<boolean>(false);
-const loadingUsers = ref<boolean>(false);
 const loadingZhuangZhanBi = ref<boolean>(false);
-const userList = ref<UserInfo[]>([]);
-const selectedUserId = ref<string | null>(null);
 const zhuangZhanBi = ref<number>(50); // 默认庄占比50
 const dateRange = ref<[string, string] | null>(null); // 日期范围
 const activeQuickDate = ref<'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | null>(null); // 当前激活的快捷选择
+
 
 // 格式化金额
 const formatAmount = (amount: number): string => {
@@ -146,6 +135,24 @@ const formatAmount = (amount: number): string => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+};
+
+// 格式化日期时间
+const formatDateTime = (dateTime: string | null | undefined): string => {
+  if (!dateTime) return '-';
+  try {
+    const date = new Date(dateTime);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  } catch (e) {
+    return dateTime;
+  }
 };
 
 // 根据庄占比值计算渐变色（0=绿色，50=黄色，100=红色）
@@ -177,29 +184,7 @@ const getZhuangZhanBiStyle = (): Record<string, string> => {
   };
 };
 
-// 获取所有用户列表
-const fetchUserList = async () => {
-  loadingUsers.value = true;
-  try {
-    const response = await axios.get('/ycd/today/users');
-    console.log('用户列表响应:', response.data);
-    if (response.data.code === 0 && response.data.data) {
-      // axios拦截器已经将user_id转换为字符串，这里直接使用
-      const users = Array.isArray(response.data.data) ? response.data.data : [];
-      userList.value = users;
-      console.log('用户列表数据:', userList.value, '用户数量:', userList.value.length);
-      console.log('用户ID示例:', userList.value[0]?.user_id, '类型:', typeof userList.value[0]?.user_id);
-    } else {
-      console.error('获取用户列表失败:', response.data.msg);
-      userList.value = [];
-    }
-  } catch (error) {
-    console.error('获取用户列表失败:', error);
-    userList.value = [];
-  } finally {
-    loadingUsers.value = false;
-  }
-};
+// 用户列表由 App.vue 管理，这里不再需要 fetchUserList
 
 // 获取流水（支持日期范围）
 const fetchTodayAmount = async () => {
@@ -454,27 +439,24 @@ const getDateRangeLabel = (): string => {
   }
 };
 
-// 用户选择改变时重新查询
-const handleUserChange = (value: string | null) => {
-  console.log('用户选择改变:', value, '类型:', typeof value);
-  // 确保selectedUserId始终是字符串类型，避免大整数精度丢失
-  if (value === null || value === '') {
-    selectedUserId.value = null;
-    zhuangZhanBi.value = 50; // 重置为默认值
-  } else {
-    // 如果value是数字，需要特殊处理大整数
-    if (typeof value === 'number') {
-      selectedUserId.value = value.toLocaleString('fullwide', { useGrouping: false });
-    } else {
-      selectedUserId.value = String(value);
-    }
-    // 获取该用户的庄占比
-    fetchZhuangZhanBi();
-  }
-  console.log('设置后的selectedUserId:', selectedUserId.value, '类型:', typeof selectedUserId.value);
+// 表格相关代码已移至 UserConfigView.vue
+
+// 监听用户选择变化，重新查询数据
+watch(() => selectedUserId.value, (newValue, oldValue) => {
+  // 避免初始化时触发
+  if (newValue === oldValue) return;
+
+  console.log('HomeView - 用户选择改变:', newValue, '类型:', typeof newValue);
+
+  // 重新查询数据
   fetchTodayAmount();
   fetchTodayCount();
-};
+
+  // 如果选择了用户，加载庄占比；否则不显示庄占比设置
+  if (newValue && newValue !== '' && newValue !== 'null') {
+    fetchZhuangZhanBi();
+  }
+}, { immediate: false });
 
 // 组件挂载时自动加载数据
 onMounted(() => {
@@ -483,7 +465,10 @@ onMounted(() => {
   dateRange.value = [today, today];
   activeQuickDate.value = 'today'; // 默认选中"今天"
 
-  fetchUserList();
+  // 加载数据：如果选择了用户，加载用户相关数据
+  if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
+    fetchZhuangZhanBi();
+  }
   fetchTodayAmount();
   fetchTodayCount();
 });
@@ -492,12 +477,19 @@ onMounted(() => {
 <style scoped>
 .home-container {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
+  padding-bottom: 60px;
+  /* 增加底部间距，确保表格完全可见 */
 }
 
 .content-wrapper {
   width: 100%;
   max-width: 100%;
+  overflow-x: auto;
+  /* 允许横向滚动，但表格会占满宽度 */
+  box-sizing: border-box;
+  padding-bottom: 40px;
+  /* 确保底部内容不被遮挡 */
 }
 
 .title {
@@ -553,19 +545,8 @@ onMounted(() => {
   width: 100%;
 }
 
-.quick-date-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-top: 16px;
-  border-top: 1px solid #ebeef5;
-  flex-wrap: wrap;
-}
-
-.quick-date-label {
-  font-size: 14px;
-  color: #606266;
-  font-weight: 500;
+.quick-date-item {
+  min-width: 300px;
 }
 
 .quick-date-buttons {
@@ -659,10 +640,17 @@ onMounted(() => {
 
 .zhuangzhanbi-content {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 20px;
-  padding: 24px 0;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.zhuangzhanbi-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+  white-space: nowrap;
 }
 
 .zhuangzhanbi-input-wrapper {
@@ -672,25 +660,28 @@ onMounted(() => {
 }
 
 .zhuangzhanbi-input {
-  width: 200px;
+  width: 150px;
 }
 
 .zhuangzhanbi-unit {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #606266;
 }
 
 .save-button {
-  min-width: 120px;
-  height: 40px;
+  min-width: 100px;
+  height: 32px;
   font-weight: 500;
+  margin-left: auto;
 }
 
 .info-alert {
   margin-bottom: 24px;
   border-radius: 8px;
 }
+
+/* 表格相关样式已移至 UserConfigView.vue */
 
 /* 庄占比渐变色样式 - 从绿色(0)到红色(100)的渐变 */
 :deep(.el-input-number) {
