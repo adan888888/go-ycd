@@ -16,7 +16,7 @@ type TableYanchendao1 struct {
 	ColumnZhuangZhanBi int          `gorm:"column:column_zhuang_zhan_bi;type:int;default:50;comment:'庄占比(0-100)'" json:"column_zhuang_zhan_bi"`
 	TempIndex        string         `gorm:"column:temp_index;type:varchar(255)" json:"temp_index"`
 	CreatedAt        time.Time      `gorm:"type:timestamp;default:CURRENT_TIMESTAMP;comment:'创建时间'" json:"created_at"`
-	Uid              int64          `gorm:"column:uid"`
+	Uid              int64          `gorm:"column:uid" json:"uid"`
 	DeletedAt        gorm.DeletedAt `gorm:"index;comment:'删除时间'" json:"deleted_at"`
 }
 

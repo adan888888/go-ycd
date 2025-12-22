@@ -99,13 +99,53 @@
             <div class="stat-label">下注记录数</div>
           </div>
         </el-card>
+
+        <el-card class="stat-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span>{{ getDateRangeLabel() }}返水</span>
+              <el-button type="text" :icon="Refresh" @click="fetchTodayAmount" :loading="loadingAmount" circle />
+            </div>
+          </template>
+          <div class="stat-content">
+            <div class="stat-value" v-if="!loadingAmount">
+              {{ (0.0076 * 100).toFixed(2) }}%
+            </div>
+            <div class="stat-value" v-else>
+              <el-skeleton :rows="1" animated />
+            </div>
+            <div class="stat-label">返水比例</div>
+          </div>
+        </el-card>
+
+        <el-card class="stat-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span>{{ getDateRangeLabel() }}工资</span>
+              <el-button type="text" :icon="Refresh" @click="fetchTodayAmount" :loading="loadingAmount" circle />
+            </div>
+          </template>
+          <div class="stat-content">
+            <div class="stat-value" v-if="!loadingAmount">
+              ¥{{ formatAmount(salary) }}
+            </div>
+            <div class="stat-value" v-else>
+              <el-skeleton :rows="1" animated />
+            </div>
+            <div class="stat-label">工资（流水 × 0.0076）</div>
+            <div class="stat-hint" style="font-size: 12px; color: #909399; margin-top: 4px;"
+              v-if="!loadingAmount && todayAmount === 0">
+              提示：流水为 0，工资也为 0
+            </div>
+          </div>
+        </el-card>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject, watch, type Ref } from 'vue';
+import { ref, onMounted, inject, watch, computed, type Ref } from 'vue';
 import { Refresh, DArrowLeft, DArrowRight } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
@@ -128,6 +168,12 @@ const zhuangZhanBi = ref<number>(50); // 默认庄占比50
 const dateRange = ref<[string, string] | null>(null); // 日期范围
 const activeQuickDate = ref<'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | null>(null); // 当前激活的快捷选择
 
+// 计算工资（工资 = 流水 × 0.0076）
+const salary = computed(() => {
+  const result = todayAmount.value * 0.0076;
+  console.log('计算工资 - 流水:', todayAmount.value, '工资:', result);
+  return result;
+});
 
 // 格式化金额
 const formatAmount = (amount: number): string => {

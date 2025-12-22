@@ -11,32 +11,32 @@
         <div class="table-wrapper">
           <el-table :data="table1List" stripe border v-loading="loadingTable1" :height="tableHeight" empty-text="暂无记录"
             style="width: 100%">
-            <el-table-column type="index" label="序号" width="70" align="center">
+            <el-table-column type="index" label="序号" width="60" align="center">
               <template #default="{ $index }">
                 {{ (table1Page - 1) * table1PageSize + $index + 1 }}
               </template>
             </el-table-column>
-            <el-table-column prop="uid" label="用户ID" width="150" align="center" show-overflow-tooltip>
+            <el-table-column prop="uid" label="用户ID" width="120" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                {{ row.uid || '-' }}
+                {{ row.uid }}
               </template>
             </el-table-column>
-            <el-table-column prop="username" label="用户名" width="150" align="center" show-overflow-tooltip>
+            <el-table-column prop="username" label="用户名" width="100" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.username || '-' }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_benjin" label="本金" width="120" align="center" show-overflow-tooltip>
+            <el-table-column prop="column_benjin" label="本金" width="100" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 ¥{{ formatAmount(parseFloat(row.column_benjin || 0)) }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_yongJin" label="俑金" width="120" align="center" show-overflow-tooltip>
+            <el-table-column prop="column_yongJin" label="俑金" width="100" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 ¥{{ formatAmount(parseFloat(row.column_yongJin || 0)) }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_mean" label="数学期望" width="120" align="center" show-overflow-tooltip>
+            <el-table-column prop="column_mean" label="数学期望" width="110" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 <span :style="{ color: parseFloat(row.column_mean || 0) >= 0 ? '#67c23a' : '#f56c6c' }">
                   {{ parseFloat(row.column_mean || 0) >= 0 ? '+' : '' }}{{ formatAmount(parseFloat(row.column_mean ||
@@ -56,7 +56,7 @@
               </template>
             </el-table-column>
             <el-table-column prop="temp_index" label="临时索引" width="100" align="center" show-overflow-tooltip />
-            <el-table-column prop="created_at" label="创建时间" width="160" align="center" show-overflow-tooltip>
+            <el-table-column prop="created_at" label="创建时间" width="140" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ formatDateTime(row.created_at) }}
               </template>
@@ -403,6 +403,19 @@ onUnmounted(() => {
 .table-wrapper :deep(.el-table) {
   width: 100% !important;
   min-width: 100%;
+}
+
+/* 防止表格标题换行 */
+.table-wrapper :deep(.el-table th) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table-wrapper :deep(.el-table th .cell) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .table-footer {

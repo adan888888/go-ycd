@@ -800,16 +800,22 @@ func GetTable1List(ctx *gin.Context) {
 		}
 	}
 
-	// 构建返回数据，添加用户名
-	type Table1WithUsername struct {
-		models.TableYanchendao1
-		Username string `json:"username"`
-	}
-	var resultList []Table1WithUsername
+	// 构建返回数据，添加用户名，并确保 uid 是字符串
+	var resultList []gin.H
 	for _, item := range tableYanchendao1s {
-		resultList = append(resultList, Table1WithUsername{
-			TableYanchendao1: item,
-			Username:         uidMap[item.Uid],
+		resultList = append(resultList, gin.H{
+			"id":                   item.ID,
+			"uid":                  strconv.FormatInt(item.Uid, 10), // 确保 uid 是字符串
+			"username":             uidMap[item.Uid],
+			"column_benjin":        item.ColumnBenjin,
+			"column_yongJin":       item.ColumnYongJin,
+			"column_mean":          item.ColumnMean,
+			"column_restart_index": item.ColumnRestartIdx,
+			"column_liushui_index": item.ColumnLiushuiIdx,
+			"column_zhuang_zhan_bi": item.ColumnZhuangZhanBi,
+			"temp_index":           item.TempIndex,
+			"created_at":           item.CreatedAt,
+			"deleted_at":           item.DeletedAt,
 		})
 	}
 
