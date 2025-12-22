@@ -100,21 +100,23 @@
           </div>
         </el-card>
 
-        <el-card class="stat-card" shadow="hover">
+        <el-card class="stat-card" shadow="hover" style="cursor: pointer;" @click="showFanShuiDialog = true">
           <template #header>
             <div class="card-header">
               <span>{{ getDateRangeLabel() }}返水</span>
-              <el-button type="text" :icon="Refresh" @click="fetchTodayAmount" :loading="loadingAmount" circle />
+              <el-icon style="cursor: pointer; color: #409eff;" @click.stop="showFanShuiDialog = true">
+                <Edit />
+              </el-icon>
             </div>
           </template>
           <div class="stat-content">
             <div class="stat-value" v-if="!loadingAmount">
-              {{ (0.0076 * 100).toFixed(2) }}%
+              {{ ((isNaN(fanShuiRatio) || !isFinite(fanShuiRatio) ? 0.0076 : fanShuiRatio) * 100).toFixed(2) }}%
             </div>
             <div class="stat-value" v-else>
               <el-skeleton :rows="1" animated />
             </div>
-            <div class="stat-label">返水比例</div>
+            <div class="stat-label">返水比例（点击修改）</div>
           </div>
         </el-card>
 
@@ -132,7 +134,9 @@
             <div class="stat-value" v-else>
               <el-skeleton :rows="1" animated />
             </div>
-            <div class="stat-label">工资（流水 × 0.0076）</div>
+            <div class="stat-label">工资（流水 × {{ ((isNaN(fanShuiRatio) || !isFinite(fanShuiRatio) ? 0.0076 : fanShuiRatio)
+              *
+              100).toFixed(2) }}%）</div>
             <div class="stat-hint" style="font-size: 12px; color: #909399; margin-top: 4px;"
               v-if="!loadingAmount && todayAmount === 0">
               提示：流水为 0，工资也为 0
@@ -141,12 +145,40 @@
         </el-card>
       </div>
     </div>
+
+    <!-- 返水比例设置对话框 -->
+    <el-dialog v-model="showFanShuiDialog" title="设置返水比例" width="400px" :close-on-click-modal="false">
+      <div style="padding: 20px 0;">
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #606266;">返水比例：</label>
+          <el-input-number v-model="tempFanShuiRatio" :min="0" :max="1" :step="0.0001" :precision="4"
+            style="width: 100%;" placeholder="请输入返水比例（0-1）" />
+          <div style="margin-top: 8px; color: #909399; font-size: 12px;">
+            当前值：{{ (tempFanShuiRatio * 100).toFixed(4) }}%
+          </div>
+        </div>
+        <div style="color: #909399; font-size: 12px; line-height: 1.5;">
+          <p>说明：</p>
+          <p>• 返水比例范围：0 到 1（0% 到 100%）</p>
+          <p>• 工资 = 流水 × 返水比例</p>
+          <p>• 例如：0.0076 表示 0.76%（默认值）</p>
+          <p>• 当前默认值：0.76%</p>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="resetFanShuiRatio">重置为默认值</el-button>
+          <el-button @click="showFanShuiDialog = false">取消</el-button>
+          <el-button type="primary" @click="saveFanShuiRatio">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, inject, watch, computed, type Ref } from 'vue';
-import { Refresh, DArrowLeft, DArrowRight } from '@element-plus/icons-vue';
+import { Refresh, DArrowLeft, DArrowRight, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
 
@@ -168,10 +200,85 @@ const zhuangZhanBi = ref<number>(50); // 默认庄占比50
 const dateRange = ref<[string, string] | null>(null); // 日期范围
 const activeQuickDate = ref<'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | null>(null); // 当前激活的快捷选择
 
-// 计算工资（工资 = 流水 × 0.0076）
+// 返水比例（默认 0.0076，即 0.76%）
+const getDefaultFanShuiRatio = (): number => {
+  // 从 localStorage 读取保存的返水比例，如果没有则使用默认值 0.0076
+  try {
+    const saved = localStorage.getItem('fanShuiRatio');
+    if (saved && saved !== 'null' && saved !== 'undefined') {
+      const parsed = parseFloat(saved);
+      // 验证值的有效性（0-1之间，且不是 NaN）
+      if (!isNaN(parsed) && isFinite(parsed) && parsed >= 0 && parsed <= 1) {
+        console.log('从 localStorage 读取返水比例:', parsed, '百分比:', (parsed * 100).toFixed(2) + '%');
+        return parsed;
+      } else {
+        // 如果值无效，清除并使用默认值
+        localStorage.removeItem('fanShuiRatio');
+        console.log('localStorage 中的返水比例无效，已清除，使用默认值 0.76%');
+      }
+    } else {
+      console.log('localStorage 中没有返水比例，使用默认值 0.76%');
+    }
+  } catch (error) {
+    console.error('读取 localStorage 失败:', error);
+  }
+  // 如果没有保存的值或值无效，使用默认值 0.0076（0.76%）
+  return 0.0076;
+};
+
+const fanShuiRatio = ref<number>(getDefaultFanShuiRatio());
+
+// 对话框显示状态
+const showFanShuiDialog = ref<boolean>(false);
+// 临时返水比例（用于对话框编辑）
+const tempFanShuiRatio = ref<number>(() => {
+  const value = fanShuiRatio.value;
+  // 确保值有效，如果无效则使用默认值
+  if (isNaN(value) || !isFinite(value) || value < 0 || value > 1) {
+    return 0.0076;
+  }
+  return value;
+});
+
+// 打开对话框时，同步当前值到临时变量
+watch(showFanShuiDialog, (show) => {
+  if (show) {
+    tempFanShuiRatio.value = fanShuiRatio.value;
+  }
+});
+
+// 重置返水比例为默认值
+const resetFanShuiRatio = () => {
+  tempFanShuiRatio.value = 0.0076; // 默认值 0.76%
+  ElMessage.info('已重置为默认值 0.76%');
+};
+
+// 保存返水比例
+const saveFanShuiRatio = () => {
+  if (tempFanShuiRatio.value >= 0 && tempFanShuiRatio.value <= 1) {
+    fanShuiRatio.value = tempFanShuiRatio.value;
+    // 保存到 localStorage
+    localStorage.setItem('fanShuiRatio', tempFanShuiRatio.value.toString());
+    console.log('返水比例已更新:', tempFanShuiRatio.value, '百分比:', (tempFanShuiRatio.value * 100).toFixed(2) + '%');
+    ElMessage.success('返水比例已更新');
+    showFanShuiDialog.value = false;
+  } else {
+    ElMessage.warning('返水比例必须在 0 到 1 之间');
+  }
+};
+
+// 计算工资（工资 = 流水 × 返水比例）
 const salary = computed(() => {
-  const result = todayAmount.value * 0.0076;
-  console.log('计算工资 - 流水:', todayAmount.value, '工资:', result);
+  // 确保返水比例有效
+  let ratio = fanShuiRatio.value;
+  if (isNaN(ratio) || !isFinite(ratio) || ratio < 0 || ratio > 1) {
+    console.warn('返水比例无效，已重置为默认值 0.0076');
+    ratio = 0.0076;
+    fanShuiRatio.value = 0.0076;
+  }
+
+  const result = todayAmount.value * ratio;
+  console.log('计算工资 - 流水:', todayAmount.value, '返水比例:', ratio, '工资:', result);
   return result;
 });
 
@@ -510,6 +617,9 @@ onMounted(() => {
   const today = new Date().toISOString().split('T')[0];
   dateRange.value = [today, today];
   activeQuickDate.value = 'today'; // 默认选中"今天"
+
+  // 确认返水比例初始化值
+  console.log('页面初始化 - 返水比例:', fanShuiRatio.value, '百分比:', (fanShuiRatio.value * 100).toFixed(2) + '%');
 
   // 加载数据：如果选择了用户，加载用户相关数据
   if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
