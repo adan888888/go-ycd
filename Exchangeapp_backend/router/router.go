@@ -100,6 +100,7 @@ func SetupRouter() *gin.Engine {
 		ycdStats.POST("/zhuangzhanbi", controllers.UpdateZhuangZhanBiPublic) // 更新用户庄占比
 		ycdStats.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi) // 修改庄占比（无需认证）
 		ycdStats.GET("/table1/list", controllers.GetTable1List)         // 获取table_yanchendao1数据列表
+		ycdStats.PUT("/table1/config", controllers.UpdateTable1Config) // 更新table_yanchendao1的临时索引和重启位置
 	}
 
 	// 第4组：买币记录管理（无需认证）

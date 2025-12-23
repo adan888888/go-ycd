@@ -172,16 +172,24 @@ watch(route, (newRoute) => {
 
 //当用户在下拉框中选择一个选项时，handleSelect 方法会被调用，并将选中的值作为参数传递进去
 const handleSelect = (key: string) => {
-  console.log('菜单选择:', activeIndex.value, key)
-  if ( key === 'logout') {
+  console.log('菜单选择:', activeIndex.value, key);
+  
+  // 阻止默认行为，手动处理路由跳转
+  if (key === 'logout') {
     authStore.logout();
-    router.push({ name: 'Home' });
+    router.push({ name: 'Home' }).catch(err => {
+      console.error('路由跳转失败:', err);
+    });
   } else if (key === 'userConfig') {
     // 用户配置记录跳转到独立页面
     console.log('跳转到用户配置记录页面');
-    router.push('/user-config').then(() => {
-      console.log('路由跳转成功');
+    router.push({ path: '/user-config', replace: false }).then(() => {
+      console.log('路由跳转成功，当前路径:', router.currentRoute.value.path);
     }).catch(err => {
+      console.error('路由跳转失败:', err);
+    });
+  } else if (key === 'home') {
+    router.push({ path: '/', replace: false }).catch(err => {
       console.error('路由跳转失败:', err);
     });
   } else {

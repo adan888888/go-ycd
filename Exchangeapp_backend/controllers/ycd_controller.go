@@ -239,47 +239,121 @@ func Restart(ctx *gin.Context) {
 // 对消数列进行排序
 func SortXiaoShu(ctx *gin.Context) {
 	var tableYanchendao2s []models.TableYanchendao2
-	if err := global.Db.Where("user_id=?", ctx.GetHeader("UserId")).Find(&tableYanchendao2s).Error; err != nil {
+	// 按创建时间正序查询，确保最新的记录在数组最后
+	if err := global.Db.Where("user_id=?", ctx.GetHeader("UserId")).Order("created_at ASC").Find(&tableYanchendao2s).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			Fail(ctx, ResponseJson{Code: 1, Status: http.StatusNotFound, Msg: err.Error(), Data: gin.H{}})
 			return
 		}
 	}
-	// 提取 colmun_shuyingzhi_d 列的数据
+	
+	// 提取 colmun_shuyingzhi_d 列的有效数据（非空且能转换为浮点数）
 	var floats []float64
-	// 遍历字符串切片，将每个字符串转换为 float64
 	for _, s := range tableYanchendao2s {
-		num, err := strconv.ParseFloat(s.ColmunShuyingzhiD, 64) //把数字类型的添加到floats切片中
+		if s.ColmunShuyingzhiD == "" {
+			continue // 跳过空值
+		}
+		num, err := strconv.ParseFloat(s.ColmunShuyingzhiD, 64)
 		if err != nil {
 			fmt.Println("Error converting string to float:", err)
 			continue
 		}
 		floats = append(floats, num)
 	}
+	
+	// 如果有有效值，进行排序
 	if len(floats) > 0 {
-		// 对浮点数切片进行排序
+		// 对浮点数切片进行排序（从小到大）
 		sort.Float64s(floats)
-		var slice1 []float64
-		for i := 0; i < len(tableYanchendao2s)-len(floats); i++ {
-			slice1 = append(slice1, 1234567.8)
+		
+		// 先清空所有记录的 colmun_shuyingzhi_d
+		for i := range tableYanchendao2s {
+			tableYanchendao2s[i].ColmunShuyingzhiD = ""
 		}
-		// 在开头插入元素
-		floats = append(slice1, floats...)
-		//更新
-		for i, _ := range tableYanchendao2s {
-			if floats[i] == 1234567.8 {
-				tableYanchendao2s[i].ColmunShuyingzhiD = "" //如果是“”空的字符串，db.update不会起效
-			} else {
-				tableYanchendao2s[i].ColmunShuyingzhiD = strconv.FormatFloat(floats[i], 'f', -1, 64) //转换为科学计数法字符串,-1 表示保留尽可能多的位数。'E': 科学计数法（大写 E）。
-			}
+		
+		// 从最新的记录（数组最后）开始，倒序写入排序后的值
+		// 例如：如果有100条记录，其中50条有值，排序后的值应该写入到索引50-99（最新的50条记录）
+		floatsIndex := len(floats) - 1 // 从排序后的最后一个值开始
+		for i := len(tableYanchendao2s) - 1; i >= 0 && floatsIndex >= 0; i-- {
+			tableYanchendao2s[i].ColmunShuyingzhiD = strconv.FormatFloat(floats[floatsIndex], 'f', -1, 64)
+			floatsIndex--
 		}
 	}
 
-	// 更新数据库中的数据
-	for _, v := range tableYanchendao2s {
-		global.Db.Model(&models.TableYanchendao2{}).Select("colmun_shuyingzhi_d").Where("id=?", v.ID).Updates(v) //要使用Select指定，空值才会更新
-		//global.Db .Save(&v) //，这个方法不稳，感觉还是key造成的 或者数据太多操作的太快 底层判断不过来要加事务，Save 方法会更新结构体的所有字段 如果key相同就是update如果没有就是插入数据
+	// 使用事务批量更新数据库
+	tx := global.Db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if tx.Error != nil {
+		Fail(ctx, ResponseJson{
+			Code:   1,
+			Status: http.StatusInternalServerError,
+			Msg:    "开启事务失败: " + tx.Error.Error(),
+			Data:   gin.H{},
+		})
+		return
 	}
+
+	// 使用 CASE WHEN 语句批量更新，避免 N 次数据库查询
+	if len(tableYanchendao2s) > 0 {
+		// 构建 CASE WHEN SQL 语句
+		var caseWhenSQL strings.Builder
+		var ids []interface{}
+		
+		caseWhenSQL.WriteString("CASE id ")
+		for _, v := range tableYanchendao2s {
+			caseWhenSQL.WriteString("WHEN ? THEN ? ")
+			ids = append(ids, v.ID, v.ColmunShuyingzhiD)
+		}
+		caseWhenSQL.WriteString("END")
+		
+		// 构建 WHERE 条件
+		var whereIDs []interface{}
+		var placeholders []string
+		for _, v := range tableYanchendao2s {
+			placeholders = append(placeholders, "?")
+			whereIDs = append(whereIDs, v.ID)
+		}
+		
+		// 执行批量更新
+		userID := ctx.GetHeader("UserId")
+		sql := fmt.Sprintf(
+			"UPDATE table_yanchendao2 SET colmun_shuyingzhi_d = %s WHERE user_id = ? AND id IN (%s) AND deleted_at IS NULL",
+			caseWhenSQL.String(),
+			strings.Join(placeholders, ","),
+		)
+		
+		// 合并所有参数：CASE WHEN 的参数 + user_id + WHERE IN 的参数
+		args := append(ids, userID)
+		args = append(args, whereIDs...)
+		
+		if err := tx.Exec(sql, args...).Error; err != nil {
+			tx.Rollback()
+			Fail(ctx, ResponseJson{
+				Code:   1,
+				Status: http.StatusInternalServerError,
+				Msg:    "批量更新失败: " + err.Error(),
+				Data:   gin.H{},
+			})
+			return
+		}
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		Fail(ctx, ResponseJson{
+			Code:   1,
+			Status: http.StatusInternalServerError,
+			Msg:    "提交事务失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
 	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "排序成功", Data: gin.H{}})
 	//tableYanchendao2s[0].ColmunShuyingzhiD = "测试"
 	//global.Db.Save(&tableYanchendao2s[0])// 总体测试下来，是需要自动生成的id才可以更新
@@ -828,6 +902,83 @@ func GetTable1List(ctx *gin.Context) {
 			"total":     total,
 			"page":      page,
 			"page_size": pageSize,
+		},
+	})
+}
+
+// 更新 table_yanchendao1 的临时索引和重启位置
+func UpdateTable1Config(ctx *gin.Context) {
+	type UpdateTable1ConfigRequest struct {
+		ID              int    `json:"id" binding:"required"`              // 记录ID
+		TempIndex       string `json:"temp_index"`                         // 临时索引
+		RestartIndex    string `json:"restart_index"`                      // 重启位置
+	}
+
+	var req UpdateTable1ConfigRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "参数错误: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	// 查询记录是否存在
+	var tableYanchendao1 models.TableYanchendao1
+	if err := global.Db.Where("id = ? AND deleted_at IS NULL", req.ID).First(&tableYanchendao1).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusNotFound,
+				Code:   1,
+				Msg:    "记录不存在",
+				Data:   gin.H{},
+			})
+			return
+		}
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	// 更新字段（只更新传入的字段）
+	updates := make(map[string]interface{})
+	if req.TempIndex != "" {
+		updates["temp_index"] = req.TempIndex
+	}
+	if req.RestartIndex != "" {
+		updates["column_restart_index"] = req.RestartIndex
+	}
+
+	// 如果有要更新的字段，执行更新
+	if len(updates) > 0 {
+		if err := global.Db.Model(&tableYanchendao1).Updates(updates).Error; err != nil {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusInternalServerError,
+				Code:   1,
+				Msg:    "更新失败: " + err.Error(),
+				Data:   gin.H{},
+			})
+			return
+		}
+	}
+
+	// 重新查询更新后的数据
+	global.Db.Where("id = ?", req.ID).First(&tableYanchendao1)
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "更新成功",
+		Data: gin.H{
+			"id":                   tableYanchendao1.ID,
+			"temp_index":           tableYanchendao1.TempIndex,
+			"column_restart_index": tableYanchendao1.ColumnRestartIdx,
 		},
 	})
 }

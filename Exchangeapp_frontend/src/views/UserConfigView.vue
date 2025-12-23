@@ -61,6 +61,11 @@
                 {{ formatDateTime(row.created_at) }}
               </template>
             </el-table-column>
+            <el-table-column label="操作" width="100" align="center" fixed="right">
+              <template #default="{ row }">
+                <el-button type="primary" :icon="Edit" size="small" @click="handleEdit(row)" circle />
+              </template>
+            </el-table-column>
           </el-table>
         </div>
         <div class="table-footer" v-if="table1List.length > 0 || table1Total > 0">
@@ -72,12 +77,33 @@
         </div>
       </el-card>
     </div>
+
+    <!-- 编辑对话框 -->
+    <el-dialog v-model="editDialogVisible" title="编辑配置" width="500px" :close-on-click-modal="false">
+      <el-form :model="editForm" label-width="100px">
+        <el-form-item label="记录ID">
+          <el-input v-model="editForm.id" disabled />
+        </el-form-item>
+        <el-form-item label="临时索引">
+          <el-input v-model="editForm.temp_index" placeholder="请输入临时索引" clearable />
+        </el-form-item>
+        <el-form-item label="重启位置">
+          <el-input v-model="editForm.restart_index" placeholder="请输入重启位置" clearable />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="editDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleSaveEdit" :loading="saving">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, inject, watch, type Ref } from 'vue';
-import { Refresh } from '@element-plus/icons-vue';
+import { Refresh, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
 
@@ -97,6 +123,19 @@ const isRequesting = ref<boolean>(false);
 
 // 动态计算表格高度
 const tableHeight = ref<number>(600);
+
+// 编辑对话框相关
+const editDialogVisible = ref<boolean>(false);
+const saving = ref<boolean>(false);
+const editForm = ref<{
+  id: number | null;
+  temp_index: string;
+  restart_index: string;
+}>({
+  id: null,
+  temp_index: '',
+  restart_index: ''
+});
 
 // 计算表格高度
 const calculateTableHeight = () => {
@@ -286,6 +325,54 @@ const handleTable1PageChange = (page: number) => {
   console.log('页码改变:', page);
   table1Page.value = page;
   fetchTable1List();
+};
+
+// 打开编辑对话框
+const handleEdit = (row: any) => {
+  console.log('编辑记录:', row);
+  editForm.value = {
+    id: row.id,
+    temp_index: row.temp_index || '',
+    restart_index: row.column_restart_index || ''
+  };
+  editDialogVisible.value = true;
+};
+
+// 保存编辑
+const handleSaveEdit = async () => {
+  if (!editForm.value.id) {
+    ElMessage.warning('记录ID不能为空');
+    return;
+  }
+
+  // 验证至少有一个字段需要更新
+  if (!editForm.value.temp_index && !editForm.value.restart_index) {
+    ElMessage.warning('请至少填写一个字段');
+    return;
+  }
+
+  saving.value = true;
+  try {
+    const response = await axios.put('/ycd/table1/config', {
+      id: editForm.value.id,
+      temp_index: editForm.value.temp_index,
+      restart_index: editForm.value.restart_index
+    });
+
+    if (response.data.code === 0) {
+      ElMessage.success('更新成功');
+      editDialogVisible.value = false;
+      // 刷新表格数据
+      fetchTable1List();
+    } else {
+      ElMessage.error('更新失败: ' + (response.data.msg || '未知错误'));
+    }
+  } catch (error: any) {
+    console.error('更新失败:', error);
+    ElMessage.error('更新失败: ' + (error.response?.data?.msg || error.message));
+  } finally {
+    saving.value = false;
+  }
 };
 
 // 监听用户选择变化（从 App.vue 传入）

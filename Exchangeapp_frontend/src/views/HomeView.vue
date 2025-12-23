@@ -47,6 +47,8 @@
               :style="getZhuangZhanBiStyle()" class="zhuangzhanbi-input" placeholder="请输入庄占比(0-100)" />
             <span class="zhuangzhanbi-unit">%</span>
           </div>
+          <!-- 渐变指示条 -->
+          <div class="zhuangzhanbi-gradient-bar" :style="getGradientBarStyle()"></div>
           <el-button type="primary" @click="updateZhuangZhanBi" :loading="loadingZhuangZhanBi" class="save-button"
             size="default">
             保存设置
@@ -231,19 +233,18 @@ const fanShuiRatio = ref<number>(getDefaultFanShuiRatio());
 // 对话框显示状态
 const showFanShuiDialog = ref<boolean>(false);
 // 临时返水比例（用于对话框编辑）
-const tempFanShuiRatio = ref<number>(() => {
-  const value = fanShuiRatio.value;
-  // 确保值有效，如果无效则使用默认值
-  if (isNaN(value) || !isFinite(value) || value < 0 || value > 1) {
-    return 0.0076;
-  }
-  return value;
-});
+const tempFanShuiRatio = ref<number>(0.0076);
 
 // 打开对话框时，同步当前值到临时变量
 watch(showFanShuiDialog, (show) => {
   if (show) {
-    tempFanShuiRatio.value = fanShuiRatio.value;
+    const value = fanShuiRatio.value;
+    // 确保值有效，如果无效则使用默认值
+    if (isNaN(value) || !isFinite(value) || value < 0 || value > 1) {
+      tempFanShuiRatio.value = 0.0076;
+    } else {
+      tempFanShuiRatio.value = value;
+    }
   }
 });
 
@@ -334,6 +335,39 @@ const getZhuangZhanBiStyle = (): Record<string, string> => {
   return {
     '--zhuangzhanbi-color': color,
     '--zhuangzhanbi-shadow': shadowColor
+  };
+};
+
+// 获取渐变条样式（根据庄占比值变化颜色）
+const getGradientBarStyle = (): Record<string, string> => {
+  const value = zhuangZhanBi.value;
+  let r: number, g: number, b: number;
+
+  if (value <= 50) {
+    // 0-50: 绿色(0,255,0) -> 黄色(255,255,0)
+    const ratio = value / 50;
+    r = Math.round(255 * ratio);
+    g = 255;
+    b = 0;
+  } else {
+    // 50-100: 黄色(255,255,0) -> 红色(255,0,0)
+    const ratio = (value - 50) / 50;
+    r = 255;
+    g = Math.round(255 * (1 - ratio));
+    b = 0;
+  }
+
+  const color = `rgb(${r}, ${g}, ${b})`;
+  // 创建渐变效果（从当前颜色到稍浅的颜色）
+  const lightColor = `rgba(${r}, ${g}, ${b}, 0.3)`;
+
+  return {
+    background: `linear-gradient(90deg, ${color} 0%, ${lightColor} 100%)`,
+    width: '700px',
+    height: '100%',
+    minHeight: '30px',
+    borderRadius: '4px',
+    transition: 'all 0.3s ease'
   };
 };
 
@@ -800,6 +834,14 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
+}
+
+.zhuangzhanbi-gradient-bar {
+  width: 700px;
+  height: 20px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .zhuangzhanbi-label {
