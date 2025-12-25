@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
 import UserConfigView from '../views/UserConfigView.vue';
+import Table2View from '../views/Table2View.vue';
 import CurrencyExchangeView from '../views/CurrencyExchangeView.vue';
 import NewsView from '../views/NewsView.vue';
 import NewsDetailView from '../views/NewsDetailView.vue';
@@ -10,6 +11,12 @@ import Register from '../components/Register.vue';
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'Home', component: HomeView },
   { path: '/user-config', name: 'UserConfig', component: UserConfigView },
+  { 
+    path: '/table2', 
+    name: 'Table2', 
+    component: Table2View,
+    meta: { title: '表2数据记录' }
+  },
   { path: '/exchange', name: 'CurrencyExchange', component: CurrencyExchangeView },
   { path: '/news', name: 'News', component: NewsView },
     /*:id 动态路由参数*/
@@ -22,5 +29,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes,
 });
+
+
 //导出
 export default router;//向外暴露路由好引用

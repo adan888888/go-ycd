@@ -354,7 +354,24 @@ func SortXiaoShu(ctx *gin.Context) {
 		return
 	}
 
-	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "排序成功", Data: gin.H{}})
+	// 构建排序后的序列（字符串数组，用于返回）
+	var sortedSequence []string
+	if len(floats) > 0 {
+		sortedSequence = make([]string, len(floats))
+		for i, v := range floats {
+			sortedSequence[i] = strconv.FormatFloat(v, 'f', -1, 64)
+		}
+	}
+
+	Ok(ctx, ResponseJson{
+		Code:   0,
+		Status: http.StatusOK,
+		Msg:    "排序成功",
+		Data: gin.H{
+			"sorted_sequence": sortedSequence, // 排序后的序列（字符串数组）
+			"count":          len(sortedSequence), // 排序后的数量
+		},
+	})
 	//tableYanchendao2s[0].ColmunShuyingzhiD = "测试"
 	//global.Db.Save(&tableYanchendao2s[0])// 总体测试下来，是需要自动生成的id才可以更新
 }
@@ -902,6 +919,199 @@ func GetTable1List(ctx *gin.Context) {
 			"total":     total,
 			"page":      page,
 			"page_size": pageSize,
+		},
+	})
+}
+
+// GetTable2List 获取table_yanchendao2数据列表（无需认证，支持分页）
+func GetTable2List(ctx *gin.Context) {
+	userIDStr := ctx.Query("user_id")
+	
+	// 获取分页参数
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
+	
+	// 限制每页最大数量
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if page < 1 {
+		page = 1
+	}
+	
+	var tableYanchendao2s []models.TableYanchendao2
+	var total int64
+	var query *gorm.DB
+	
+	// 如果 user_id 为空，查询所有用户的记录；否则查询指定用户的记录
+	if userIDStr == "" {
+		// 查询所有用户的记录，按创建时间倒序排列
+		query = global.Db.Model(&models.TableYanchendao2{}).Where("deleted_at IS NULL")
+	} else {
+		// 查询该用户的所有记录，按创建时间倒序排列
+		userID, err := strconv.ParseInt(userIDStr, 10, 64)
+		if err != nil {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusBadRequest,
+				Code:   1,
+				Msg:    "用户ID格式错误: " + err.Error(),
+				Data:   gin.H{},
+			})
+			return
+		}
+		query = global.Db.Model(&models.TableYanchendao2{}).Where("user_id = ? AND deleted_at IS NULL", userID)
+	}
+	
+	// 获取总数
+	if err := query.Count(&total).Error; err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询总数失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+	
+	// 分页查询（按创建时间正序排列，最早的数据在前）
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at ASC").Offset(offset).Limit(pageSize).Find(&tableYanchendao2s).Error; err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	// 获取所有唯一的用户ID
+	uidMap := make(map[int64]string) // user_id -> username
+	for _, item := range tableYanchendao2s {
+		if _, exists := uidMap[item.UserID]; !exists {
+			uidMap[item.UserID] = ""
+		}
+	}
+
+	// 批量查询用户名
+	if len(uidMap) > 0 {
+		var uids []int64
+		for uid := range uidMap {
+			uids = append(uids, uid)
+		}
+		var users []models.User
+		if err := global.Db.Select("uid, username").Where("uid IN ?", uids).Find(&users).Error; err == nil {
+			for _, user := range users {
+				uidMap[user.Uid] = user.Username
+			}
+		}
+	}
+
+	// 构建返回数据，添加用户名，并确保 user_id 是字符串
+	var resultList []gin.H
+	for _, item := range tableYanchendao2s {
+		resultList = append(resultList, gin.H{
+			"id":                    item.ID,
+			"user_id":               strconv.FormatInt(item.UserID, 10), // 确保 user_id 是字符串
+			"username":              uidMap[item.UserID],
+			"column_xiazhujine":     item.ColumnXiazhujine,
+			"colmun_shuyingzhi":     item.ColmunShuyingzhi,
+			"colmun_shuyingzhi_d":   item.ColmunShuyingzhiD,
+			"colmun_shengfulu":      item.ColmunShengfulu,
+			"colmun_zx":             item.ColmunZX,
+			"colmun_remark":         item.ColmunRemark,
+			"column_current_jin":    item.ColumnCurrentJin,
+			"created_at":            item.CreatedAt,
+			"deleted_at":            item.DeletedAt,
+		})
+	}
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "查询成功",
+		Data: gin.H{
+			"list":      resultList,
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
+		},
+	})
+}
+
+// UpdateTable2Config 更新table_yanchendao2的输赢值和消数后输赢值
+func UpdateTable2Config(ctx *gin.Context) {
+	type UpdateTable2ConfigRequest struct {
+		ID                int    `json:"id" binding:"required"`              // 记录ID
+		ColmunShuyingzhi  string `json:"colmun_shuyingzhi"`                 // 输赢值
+		ColmunShuyingzhiD string `json:"colmun_shuyingzhi_d"`               // 消数后输赢值
+	}
+
+	var req UpdateTable2ConfigRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "参数错误: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	var tableYanchendao2 models.TableYanchendao2
+	if err := global.Db.Where("id = ? AND deleted_at IS NULL", req.ID).First(&tableYanchendao2).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusNotFound,
+				Code:   1,
+				Msg:    "记录不存在",
+				Data:   gin.H{},
+			})
+			return
+		}
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	updates := make(map[string]interface{})
+	if req.ColmunShuyingzhi != "" {
+		updates["colmun_shuyingzhi"] = req.ColmunShuyingzhi
+	}
+	if req.ColmunShuyingzhiD != "" {
+		updates["colmun_shuyingzhi_d"] = req.ColmunShuyingzhiD
+	}
+
+	if len(updates) > 0 {
+		if err := global.Db.Model(&tableYanchendao2).Updates(updates).Error; err != nil {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusInternalServerError,
+				Code:   1,
+				Msg:    "更新失败: " + err.Error(),
+				Data:   gin.H{},
+			})
+			return
+		}
+	}
+
+	// 重新查询以返回最新数据
+	global.Db.Where("id = ?", req.ID).First(&tableYanchendao2)
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "更新成功",
+		Data: gin.H{
+			"id":                  tableYanchendao2.ID,
+			"colmun_shuyingzhi":    tableYanchendao2.ColmunShuyingzhi,
+			"colmun_shuyingzhi_d": tableYanchendao2.ColmunShuyingzhiD,
 		},
 	})
 }

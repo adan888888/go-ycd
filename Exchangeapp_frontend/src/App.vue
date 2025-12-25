@@ -60,6 +60,10 @@
             <el-icon><Document /></el-icon>
             <span>用户配置记录</span>
           </el-menu-item>
+          <el-menu-item index="table2">
+            <el-icon><Document /></el-icon>
+            <span>表2数据记录</span>
+          </el-menu-item>
           <el-menu-item index="currencyExchange">
             <el-icon><Money /></el-icon>
             <span>兑换货币</span>
@@ -106,6 +110,7 @@ const authStore = useAuthStore();
 const getMenuIndex = (routeName: string | undefined): string => {
   if (!routeName) return 'home';
   if (routeName === 'UserConfig') return 'userConfig';
+  if (routeName === 'Table2') return 'table2';
   return routeName.charAt(0).toLowerCase() + routeName.slice(1);
 };
 const activeIndex = ref(getMenuIndex(route.name?.toString()));
@@ -114,11 +119,13 @@ const activeIndex = ref(getMenuIndex(route.name?.toString()));
 const selectedUserId = ref<string | null>(null);
 const userList = ref<UserInfo[]>([]);
 const isHomePage = computed(() => route.name === 'Home' || route.path === '/');
-// 是否显示用户选择框（在首页和用户配置记录页面显示）
+// 是否显示用户选择框（在首页、用户配置记录页面和表2页面显示）
 const showUserSelect = computed(() => {
   const routeName = route.name?.toString();
   const routePath = route.path;
-  return routeName === 'Home' || routePath === '/' || routeName === 'UserConfig' || routePath === '/user-config';
+  return routeName === 'Home' || routePath === '/' || 
+         routeName === 'UserConfig' || routePath === '/user-config' ||
+         routeName === 'Table2' || routePath === '/table2';
 });
 
 // 通过 provide 共享用户选择状态给子组件
@@ -164,6 +171,8 @@ watch(route, (newRoute) => {
   // 将路由名称转换为菜单 index 格式（首字母小写）
   if (routeName === 'UserConfig' || routePath === '/user-config') {
     activeIndex.value = 'userConfig';
+  } else if (routeName === 'Table2' || routePath === '/table2') {
+    activeIndex.value = 'table2';
   } else {
     activeIndex.value = routeName.charAt(0).toLowerCase() + routeName.slice(1);
   }
@@ -184,6 +193,14 @@ const handleSelect = (key: string) => {
     // 用户配置记录跳转到独立页面
     console.log('跳转到用户配置记录页面');
     router.push({ path: '/user-config', replace: false }).then(() => {
+      console.log('路由跳转成功，当前路径:', router.currentRoute.value.path);
+    }).catch(err => {
+      console.error('路由跳转失败:', err);
+    });
+  } else if (key === 'table2') {
+    // 表2数据记录跳转到独立页面
+    console.log('跳转到表2数据记录页面');
+    router.push({ path: '/table2', replace: false }).then(() => {
       console.log('路由跳转成功，当前路径:', router.currentRoute.value.path);
     }).catch(err => {
       console.error('路由跳转失败:', err);
