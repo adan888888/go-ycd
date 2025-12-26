@@ -6,10 +6,10 @@
         <el-button type="primary" :icon="Refresh" @click="handleRefreshTable1" :loading="loadingTable1" circle />
       </div>
 
-      <!-- 用户配置记录 -->
+      <!-- 用户配置 -->
       <el-card id="user-config" class="table-card" shadow="always">
         <div class="table-wrapper">
-          <el-table :data="table1List" stripe border v-loading="loadingTable1" :height="tableHeight" empty-text="暂无记录"
+          <el-table :data="table1List" stripe v-loading="loadingTable1" :height="tableHeight" empty-text="暂无记录"
             style="width: 100%">
             <el-table-column type="index" label="序号" width="60" align="center">
               <template #default="{ $index }">
@@ -63,12 +63,15 @@
             </el-table-column>
             <el-table-column label="操作" width="100" align="center" fixed="right">
               <template #default="{ row }">
-                <el-button type="primary" :icon="Edit" size="small" @click="handleEdit(row)" circle />
+                <el-button :icon="Edit" size="small" @click="handleEdit(row)" circle class="edit-btn" />
               </template>
             </el-table-column>
           </el-table>
         </div>
         <div class="table-footer" v-if="table1List.length > 0 || table1Total > 0">
+          <div class="footer-left">
+            <span class="footer-info">本页共 {{ table1List.length }} 条记录</span>
+          </div>
           <div class="table-pagination">
             <el-pagination v-model:current-page="table1Page" v-model:page-size="table1PageSize"
               :page-sizes="[10, 20, 50, 100]" :total="table1Total" layout="total, sizes, prev, pager, next, jumper"
@@ -417,11 +420,11 @@ onUnmounted(() => {
 .table-card {
   margin-top: 0 !important;
   margin-bottom: 20px !important;
-  border-radius: 8px;
+  border-radius: 0;
   background: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-  transition: all 0.3s ease;
-  overflow: visible !important;
+  box-shadow: none;
+  border: none;
+  overflow: hidden;
   position: relative;
   z-index: 10;
   display: block !important;
@@ -430,27 +433,31 @@ onUnmounted(() => {
 }
 
 .table-card :deep(.el-card__body) {
-  padding: 16px 20px !important;
+  padding: 0;
   width: 100%;
   box-sizing: border-box;
-}
-
-.table-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .table-wrapper {
   width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  margin: 0 -20px;
-  padding: 0 20px;
+  padding: 0;
 }
 
 .table-wrapper :deep(.el-table) {
   width: 100% !important;
   min-width: 100%;
+  border: none;
+  font-size: 14px;
+}
+
+.table-wrapper :deep(.el-table::before) {
+  display: none;
+}
+
+.table-wrapper :deep(.el-table__inner-wrapper::before) {
+  display: none;
 }
 
 /* 防止表格标题换行 */
@@ -458,6 +465,12 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  background-color: #fafafa;
+  font-weight: 500;
+  color: #606266;
+  border-bottom: 1px solid #ebeef5;
+  padding: 6px 0;
+  line-height: 1.3;
 }
 
 .table-wrapper :deep(.el-table th .cell) {
@@ -466,19 +479,50 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
+.table-wrapper :deep(.el-table td) {
+  white-space: nowrap;
+  border-bottom: 1px solid #f5f7fa;
+  padding: 6px 0;
+  line-height: 1.3;
+}
+
+.table-wrapper :deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: #fafafa;
+}
+
+.table-wrapper :deep(.el-table--striped .el-table__body tr.el-table__row--striped:hover > td) {
+  background-color: #f0f2f5;
+}
+
+.table-wrapper :deep(.el-table__body tr:hover > td) {
+  background-color: #f5f7fa;
+}
+
 .table-footer {
+  margin-top: 0;
   display: flex;
-  justify-content: flex-end;
-  padding: 16px 0 0 0;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
   border-top: 1px solid #ebeef5;
-  margin-top: 16px;
+  background-color: #ffffff;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.footer-info {
+  font-size: 14px;
+  color: #606266;
 }
 
 .table-pagination {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  width: 100%;
 }
 
 .card-header {

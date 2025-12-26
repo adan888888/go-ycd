@@ -8,7 +8,7 @@
         </div>
       </div>
       <div class="header-right">
-        <!-- 用户选择下拉框（在首页和用户配置记录页面显示） -->
+        <!-- 用户选择下拉框（在首页和用户配置页面显示） -->
         <el-select v-if="showUserSelect" v-model="selectedUserId" placeholder="选择用户" clearable
           @change="handleUserSelectChange" style="width: 200px; margin-right: 16px;" size="default">
           <el-option label="全部用户" value="" />
@@ -49,9 +49,9 @@
             <el-icon>
               <Tickets />
             </el-icon>
-            <span>用户配置记录</span>
+            <span>用户配置</span>
           </el-menu-item>
-          <el-menu-item index="table2">
+          <el-menu-item index="bettingRecord">
             <el-icon>
               <Money />
             </el-icon>
@@ -111,7 +111,7 @@ const authStore = useAuthStore();
 const getMenuIndex = (routeName: string | undefined): string => {
   if (!routeName) return 'home';
   if (routeName === 'UserConfig') return 'userConfig';
-  if (routeName === 'Table2') return 'table2';
+  if (routeName === 'BettingRecord') return 'bettingRecord';
   return routeName.charAt(0).toLowerCase() + routeName.slice(1);
 };
 const activeIndex = ref(getMenuIndex(route.name?.toString()));
@@ -119,13 +119,13 @@ const activeIndex = ref(getMenuIndex(route.name?.toString()));
 // 用户选择相关状态
 const selectedUserId = ref<string | null>(null);
 const userList = ref<UserInfo[]>([]);
-// 是否显示用户选择框（在首页、用户配置记录页面和表2页面显示）
+// 是否显示用户选择框（在首页、用户配置页面和表2页面显示）
 const showUserSelect = computed(() => {
   const routeName = route.name?.toString();
   const routePath = route.path;
   return routeName === 'Home' || routePath === '/' ||
     routeName === 'UserConfig' || routePath === '/user-config' ||
-    routeName === 'Table2' || routePath === '/table2';
+    routeName === 'BettingRecord' || routePath === '/betting-record';
 });
 
 // 通过 provide 共享用户选择状态给子组件
@@ -153,7 +153,7 @@ const handleUserSelectChange = (value: string | null) => {
   }
 };
 
-// 页面加载时获取用户列表（在首页和用户配置记录页面）
+// 页面加载时获取用户列表（在首页和用户配置页面）
 watch(showUserSelect, (shouldShow) => {
   if (shouldShow && userList.value.length === 0) {
     fetchUserList();
@@ -167,8 +167,8 @@ watch(route, (newRoute) => {
   // 将路由名称转换为菜单 index 格式（首字母小写）
   if (routeName === 'UserConfig' || routePath === '/user-config') {
     activeIndex.value = 'userConfig';
-  } else if (routeName === 'Table2' || routePath === '/table2') {
-    activeIndex.value = 'table2';
+  } else if (routeName === 'BettingRecord' || routePath === '/betting-record') {
+    activeIndex.value = 'bettingRecord';
   } else {
     activeIndex.value = routeName.charAt(0).toLowerCase() + routeName.slice(1);
   }
@@ -179,18 +179,18 @@ const handleSelect = (key: string) => {
   // 阻止默认行为，手动处理路由跳转
   if (key === 'logout') {
     authStore.logout();
-    router.push({ name: 'Home' }).catch(() => {});
+    router.push({ name: 'Home' }).catch(() => { });
   } else if (key === 'userConfig') {
-    // 用户配置记录跳转到独立页面
-    router.push({ path: '/user-config', replace: false }).catch(() => {});
-  } else if (key === 'table2') {
-    // 表2数据记录跳转到独立页面
-    router.push({ path: '/table2', replace: false }).catch(() => {});
+    // 用户配置跳转到独立页面
+    router.push({ path: '/user-config', replace: false }).catch(() => { });
+  } else if (key === 'bettingRecord') {
+    // 投注记录跳转到独立页面
+    router.push({ path: '/betting-record', replace: false }).catch(() => { });
   } else if (key === 'home') {
-    router.push({ path: '/', replace: false }).catch(() => {});
+    router.push({ path: '/', replace: false }).catch(() => { });
   } else {
     const routeName = key.charAt(0).toUpperCase() + key.slice(1);
-    router.push({ name: routeName }).catch(() => {});
+    router.push({ name: routeName }).catch(() => { });
   }
 };
 

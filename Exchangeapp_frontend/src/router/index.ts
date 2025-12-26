@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
 import UserConfigView from '../views/UserConfigView.vue';
-import Table2View from '../views/Table2View.vue';
+import BettingRecord from '../views/BettingRecord.vue';
 import CurrencyExchangeView from '../views/CurrencyExchangeView.vue';
 import NewsView from '../views/NewsView.vue';
 import NewsDetailView from '../views/NewsDetailView.vue';
@@ -12,10 +12,10 @@ const routes: RouteRecordRaw[] = [
   { path: '/', name: 'Home', component: HomeView },
   { path: '/user-config', name: 'UserConfig', component: UserConfigView },
   { 
-    path: '/table2', 
-    name: 'Table2', 
-    component: Table2View,
-    meta: { title: '表2数据记录' }
+    path: '/betting-record', 
+    name: 'BettingRecord', 
+    component: BettingRecord,
+    meta: { title: '投注记录' }
   },
   { path: '/exchange', name: 'CurrencyExchange', component: CurrencyExchangeView },
   { path: '/news', name: 'News', component: NewsView },

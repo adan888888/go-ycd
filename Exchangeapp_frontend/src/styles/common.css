@@ -1,0 +1,29 @@
+/* 共享样式：编辑按钮样式 - 透明背景，蓝色轮廓图标 */
+.edit-btn {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: #409eff !important;
+}
+
+.edit-btn:hover {
+  background-color: rgba(64, 158, 255, 0.1) !important;
+  border-color: transparent !important;
+  color: #409eff !important;
+}
+
+.edit-btn .el-icon {
+  color: #409eff !important;
+  font-size: 22px !important;
+  width: 22px !important;
+  height: 22px !important;
+}
+
+.edit-btn svg {
+  color: #409eff !important;
+  fill: none !important;
+  stroke: #409eff !important;
+  stroke-width: 2 !important;
+  width: 22px !important;
+  height: 22px !important;
+}
+

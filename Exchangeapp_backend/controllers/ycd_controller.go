@@ -305,7 +305,7 @@ func SortXiaoShu(ctx *gin.Context) {
 		var ids []interface{}
 		
 		caseWhenSQL.WriteString("CASE id ")
-		for _, v := range tableYanchendao2s {
+	for _, v := range tableYanchendao2s {
 			caseWhenSQL.WriteString("WHEN ? THEN ? ")
 			ids = append(ids, v.ID, v.ColmunShuyingzhiD)
 		}
