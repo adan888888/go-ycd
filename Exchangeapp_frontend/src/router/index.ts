@@ -5,8 +5,8 @@ import Table2View from '../views/Table2View.vue';
 import CurrencyExchangeView from '../views/CurrencyExchangeView.vue';
 import NewsView from '../views/NewsView.vue';
 import NewsDetailView from '../views/NewsDetailView.vue';
-import Login from '../components/Login.vue';
-import Register from '../components/Register.vue';
+import LoginView from '../views/LoginView.vue';
+import RegisterView from '../views/RegisterView.vue';
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'Home', component: HomeView },
@@ -21,8 +21,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/news', name: 'News', component: NewsView },
     /*:id 动态路由参数*/
   { path: '/news/:id', name: 'NewsDetail', component: NewsDetailView },
-  { path: '/login', name: 'Login', component: Login },
-  { path: '/register', name: 'Register', component: Register },
+  { path: '/login', name: 'Login', component: LoginView },
+  { path: '/register', name: 'Register', component: RegisterView },
 ];
 
 const router = createRouter({
