@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUpdated, onBeforeUpdate, onBeforeMount } from "vue";
+import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "../axios";
 import type { Article, Like } from "../types/Article";
@@ -31,7 +31,7 @@ const fetchArticle = async () => {
     const response = await axios.get<Article>(`/articles/${id}`);
     article.value = response.data;
   } catch (error) {
-    console.error("Failed to load article:", error);
+    // 加载失败，静默处理
   }
 };
 
@@ -41,7 +41,7 @@ const likeArticle = async () => {
     likes.value = res.data.likes
     await fetchLike()
   } catch (error) {
-    console.log('Error Liking article:', error)
+    // 点赞失败，静默处理
   }
 };
 
@@ -50,7 +50,7 @@ const fetchLike = async ()=>{
     const res = await axios.get<Like>(`articles/${id}/like`)
     likes.value = res.data.likes
   }catch(error){
-    console.log('Error fetching likes:', error)
+    // 获取点赞数失败，静默处理
   }
 }
 

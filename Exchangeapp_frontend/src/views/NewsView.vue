@@ -30,7 +30,7 @@ const fetchArticles = async () => {
     const response = await axios.get<Article[]>('/articles');
     articles.value = response.data;
   } catch (error) {
-    console.error('Failed to load articles:', error);
+    // 加载失败，静默处理
   }
 };
 

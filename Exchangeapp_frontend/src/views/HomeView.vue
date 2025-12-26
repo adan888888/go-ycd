@@ -136,9 +136,6 @@
             <div class="stat-value" v-else>
               <el-skeleton :rows="1" animated />
             </div>
-            <div class="stat-label">工资（流水 × {{ ((isNaN(fanShuiRatio) || !isFinite(fanShuiRatio) ? 0.0076 : fanShuiRatio)
-              *
-              100).toFixed(2) }}%）</div>
             <div class="stat-hint" style="font-size: 12px; color: #909399; margin-top: 4px;"
               v-if="!loadingAmount && todayAmount === 0">
               提示：流水为 0，工资也为 0
@@ -180,18 +177,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, inject, watch, computed, type Ref } from 'vue';
-import { Refresh, DArrowLeft, DArrowRight, Edit } from '@element-plus/icons-vue';
+import { Refresh, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
 
-interface UserInfo {
-  user_id: string; // 使用字符串避免大整数精度丢失
-  username: string;
-}
-
 // 从 App.vue 注入用户选择状态
 const selectedUserId = inject<Ref<string | null>>('selectedUserId')!;
-const userList = inject<Ref<UserInfo[]>>('userList')!;
 
 const todayAmount = ref<number>(0);
 const todayCount = ref<number>(0);
@@ -211,18 +202,14 @@ const getDefaultFanShuiRatio = (): number => {
       const parsed = parseFloat(saved);
       // 验证值的有效性（0-1之间，且不是 NaN）
       if (!isNaN(parsed) && isFinite(parsed) && parsed >= 0 && parsed <= 1) {
-        console.log('从 localStorage 读取返水比例:', parsed, '百分比:', (parsed * 100).toFixed(2) + '%');
         return parsed;
       } else {
         // 如果值无效，清除并使用默认值
         localStorage.removeItem('fanShuiRatio');
-        console.log('localStorage 中的返水比例无效，已清除，使用默认值 0.76%');
       }
-    } else {
-      console.log('localStorage 中没有返水比例，使用默认值 0.76%');
     }
   } catch (error) {
-    console.error('读取 localStorage 失败:', error);
+    // 读取失败，使用默认值
   }
   // 如果没有保存的值或值无效，使用默认值 0.0076（0.76%）
   return 0.0076;
@@ -260,7 +247,6 @@ const saveFanShuiRatio = () => {
     fanShuiRatio.value = tempFanShuiRatio.value;
     // 保存到 localStorage
     localStorage.setItem('fanShuiRatio', tempFanShuiRatio.value.toString());
-    console.log('返水比例已更新:', tempFanShuiRatio.value, '百分比:', (tempFanShuiRatio.value * 100).toFixed(2) + '%');
     ElMessage.success('返水比例已更新');
     showFanShuiDialog.value = false;
   } else {
@@ -273,13 +259,11 @@ const salary = computed(() => {
   // 确保返水比例有效
   let ratio = fanShuiRatio.value;
   if (isNaN(ratio) || !isFinite(ratio) || ratio < 0 || ratio > 1) {
-    console.warn('返水比例无效，已重置为默认值 0.0076');
     ratio = 0.0076;
     fanShuiRatio.value = 0.0076;
   }
 
   const result = todayAmount.value * ratio;
-  console.log('计算工资 - 流水:', todayAmount.value, '返水比例:', ratio, '工资:', result);
   return result;
 });
 
@@ -289,24 +273,6 @@ const formatAmount = (amount: number): string => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
-};
-
-// 格式化日期时间
-const formatDateTime = (dateTime: string | null | undefined): string => {
-  if (!dateTime) return '-';
-  try {
-    const date = new Date(dateTime);
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  } catch (e) {
-    return dateTime;
-  }
 };
 
 // 根据庄占比值计算渐变色（0=绿色，50=黄色，100=红色）
@@ -392,20 +358,15 @@ const fetchTodayAmount = async () => {
     }
 
     const url = `/ycd/today/amount${params.toString() ? '?' + params.toString() : ''}`;
-    console.log('请求流水URL:', url);
     const response = await axios.get(url);
-    console.log('流水响应:', response.data);
     if (response.data.code === 0) {
       const amount = response.data.data.total_amount;
-      console.log('原始金额值:', amount, '类型:', typeof amount);
       todayAmount.value = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
-      console.log('设置流水值:', todayAmount.value);
     } else {
-      console.error('获取流水失败:', response.data.msg);
       todayAmount.value = 0; // 失败时重置为0
     }
   } catch (error) {
-    console.error('获取流水失败:', error);
+    todayAmount.value = 0;
   } finally {
     loadingAmount.value = false;
   }
@@ -430,20 +391,15 @@ const fetchTodayCount = async () => {
     }
 
     const url = `/ycd/today/count${params.toString() ? '?' + params.toString() : ''}`;
-    console.log('请求次数URL:', url);
     const response = await axios.get(url);
-    console.log('次数响应:', response.data);
     if (response.data.code === 0) {
       const count = response.data.data.count;
-      console.log('原始次数值:', count, '类型:', typeof count);
       todayCount.value = typeof count === 'number' ? count : parseInt(count) || 0;
-      console.log('设置次数值:', todayCount.value);
     } else {
-      console.error('获取下注次数失败:', response.data.msg);
       todayCount.value = 0; // 失败时重置为0
     }
   } catch (error) {
-    console.error('获取下注次数失败:', error);
+    todayCount.value = 0;
   } finally {
     loadingCount.value = false;
   }
@@ -457,17 +413,13 @@ const fetchZhuangZhanBi = async () => {
   try {
     const userId = String(selectedUserId.value);
     const response = await axios.get(`/ycd/zhuangzhanbi?user_id=${userId}`);
-    console.log('庄占比响应:', response.data);
     if (response.data.code === 0) {
       const value = response.data.data.zhuangZhanBi;
       zhuangZhanBi.value = typeof value === 'number' ? value : parseInt(value) || 50;
-      console.log('设置庄占比值:', zhuangZhanBi.value);
     } else {
-      console.error('获取庄占比失败:', response.data.msg);
       zhuangZhanBi.value = 50; // 失败时使用默认值
     }
   } catch (error) {
-    console.error('获取庄占比失败:', error);
     zhuangZhanBi.value = 50; // 失败时使用默认值
   }
 };
@@ -487,14 +439,12 @@ const updateZhuangZhanBi = async () => {
     const response = await axios.post(`/ycd/zhuangzhanbi?user_id=${userId}`, {
       zhuangZhanBi: zhuangZhanBi.value
     });
-    console.log('更新庄占比响应:', response.data);
     if (response.data.code === 0) {
       ElMessage.success('修改成功！');
     } else {
       ElMessage.error('修改失败: ' + response.data.msg);
     }
   } catch (error: any) {
-    console.error('更新庄占比失败:', error);
     ElMessage.error('更新失败: ' + (error.response?.data?.msg || error.message));
   } finally {
     loadingZhuangZhanBi.value = false;
@@ -547,7 +497,6 @@ const detectQuickDate = (): 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | n
 
 // 日期选择改变时重新查询
 const handleDateChange = () => {
-  console.log('日期范围改变:', dateRange.value);
   // 检测当前日期范围对应的快捷选项
   activeQuickDate.value = detectQuickDate();
   fetchTodayAmount();
@@ -633,8 +582,6 @@ watch(() => selectedUserId.value, (newValue, oldValue) => {
   // 避免初始化时触发
   if (newValue === oldValue) return;
 
-  console.log('HomeView - 用户选择改变:', newValue, '类型:', typeof newValue);
-
   // 重新查询数据
   fetchTodayAmount();
   fetchTodayCount();
@@ -651,9 +598,6 @@ onMounted(() => {
   const today = new Date().toISOString().split('T')[0];
   dateRange.value = [today, today];
   activeQuickDate.value = 'today'; // 默认选中"今天"
-
-  // 确认返水比例初始化值
-  console.log('页面初始化 - 返水比例:', fanShuiRatio.value, '百分比:', (fanShuiRatio.value * 100).toFixed(2) + '%');
 
   // 加载数据：如果选择了用户，加载用户相关数据
   if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {

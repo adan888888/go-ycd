@@ -28,8 +28,10 @@ dist-ssr
 **/*.vue.js
 **/*.ts.js
 
-# 但是保留实际的源文件（.vue、.ts、.js 源文件）
-!src/**/*.vue
-!src/**/*.ts
-# 注意：如果项目中有实际的 .js 源文件（如 main.js、axios.js），它们不会被忽略
+# 旧的 JavaScript 源文件（项目已迁移到 TypeScript）
+src/**/*.js
+!src/**/*.min.js
+
+# Volar (Vue Language Server) 自动生成的类型文件
+__VLS_types.d.ts
 

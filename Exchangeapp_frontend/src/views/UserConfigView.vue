@@ -162,12 +162,6 @@ const calculateTableHeight = () => {
   const maxHeight = 900;
 
   tableHeight.value = Math.max(minHeight, Math.min(maxHeight, availableHeight));
-
-  console.log('计算表格高度:', {
-    viewportHeight,
-    availableHeight,
-    tableHeight: tableHeight.value
-  });
 };
 
 // 窗口大小改变时重新计算
@@ -198,21 +192,15 @@ const formatDateTime = (dateTime: string): string => {
 
 // 刷新表格数据
 const handleRefreshTable1 = () => {
-  console.log('刷新按钮被点击');
   fetchTable1List();
 };
 
 // 获取 table_yanchendao1 数据列表（支持分页）
 const fetchTable1List = async () => {
-  console.log('fetchTable1List 被调用');
-
   // 防止重复请求
   if (isRequesting.value || loadingTable1.value) {
-    console.log('请求正在进行中，跳过重复请求');
     return;
   }
-
-  console.log('开始加载数据，user_id:', selectedUserId.value, 'page:', table1Page.value, 'pageSize:', table1PageSize.value);
   loadingTable1.value = true;
   isRequesting.value = true;
   try {
@@ -220,9 +208,6 @@ const fetchTable1List = async () => {
     const params = new URLSearchParams();
     if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
       params.append('user_id', String(selectedUserId.value));
-      console.log('开始请求table1数据, user_id:', selectedUserId.value);
-    } else {
-      console.log('开始请求table1数据, 查询所有用户');
     }
     params.append('page', String(table1Page.value));
     params.append('page_size', String(table1PageSize.value));
@@ -231,7 +216,6 @@ const fetchTable1List = async () => {
     const response = await axios.get(url, {
       timeout: 10000 // 设置10秒超时
     });
-    console.log('table1列表响应:', response.data);
 
     if (response.data.code === 0) {
       if (response.data.data) {
@@ -253,7 +237,6 @@ const fetchTable1List = async () => {
               isInitialLoadComplete.value = true;
               // 使用 setTimeout 确保页码更新后再请求
               setTimeout(() => {
-                console.log('自动跳转到最后一页，页码:', table1Page.value);
                 fetchTable1List();
               }, 10);
               return; // 不显示第一页的数据
@@ -263,10 +246,8 @@ const fetchTable1List = async () => {
           // 正常显示数据
           table1List.value = data.list;
           isInitialLoadComplete.value = true;
-          console.log('table1列表数据:', table1List.value, '数量:', table1List.value.length, '总数:', table1Total.value, '当前页:', table1Page.value);
 
           if (table1List.value.length > 0) {
-            console.log('第一条数据示例:', table1List.value[0]);
             // 不显示成功消息，避免刷屏
           } else {
             ElMessage.info('暂无记录');
@@ -275,32 +256,27 @@ const fetchTable1List = async () => {
           // 兼容旧格式（直接返回数组）
           table1List.value = data;
           table1Total.value = data.length;
-          console.log('table1列表数据（旧格式）:', table1List.value, '数量:', table1List.value.length);
         } else {
           table1List.value = [];
           table1Total.value = 0;
-          console.log('响应数据格式不正确');
           ElMessage.info('暂无记录');
         }
       } else {
         table1List.value = [];
         table1Total.value = 0;
-        console.log('响应数据为空');
         ElMessage.info('暂无记录');
       }
     } else {
-      console.error('获取table1列表失败:', response.data.msg);
       table1List.value = [];
       table1Total.value = 0;
       ElMessage.warning('获取记录失败: ' + (response.data.msg || '未知错误'));
     }
   } catch (error: any) {
-    console.error('获取table1列表失败:', error);
     table1List.value = [];
     table1Total.value = 0;
     // 只显示网络错误，不显示超时等错误（避免刷屏）
     if (error.code === 'ECONNABORTED') {
-      console.warn('请求超时');
+      // 请求超时，静默处理
     } else if (error.message?.includes('Network Error')) {
       ElMessage.error('网络连接失败，请检查后端服务是否运行');
     } else {
@@ -314,7 +290,6 @@ const fetchTable1List = async () => {
 
 // 分页大小改变
 const handleTable1SizeChange = (size: number) => {
-  console.log('分页大小改变:', size);
   table1PageSize.value = size;
   table1Page.value = 1; // 重置到第一页
   fetchTable1List();
@@ -322,14 +297,12 @@ const handleTable1SizeChange = (size: number) => {
 
 // 页码改变
 const handleTable1PageChange = (page: number) => {
-  console.log('页码改变:', page);
   table1Page.value = page;
   fetchTable1List();
 };
 
 // 打开编辑对话框
 const handleEdit = (row: any) => {
-  console.log('编辑记录:', row);
   editForm.value = {
     id: row.id,
     temp_index: row.temp_index || '',
@@ -368,7 +341,6 @@ const handleSaveEdit = async () => {
       ElMessage.error('更新失败: ' + (response.data.msg || '未知错误'));
     }
   } catch (error: any) {
-    console.error('更新失败:', error);
     ElMessage.error('更新失败: ' + (error.response?.data?.msg || error.message));
   } finally {
     saving.value = false;
@@ -380,7 +352,6 @@ watch(() => selectedUserId.value, (newValue, oldValue) => {
   // 避免初始化时触发
   if (newValue === oldValue) return;
 
-  console.log('用户选择改变:', newValue, '类型:', typeof newValue);
   // 重置分页到第一页，并重置初始加载标记
   table1Page.value = 1;
   isInitialLoadComplete.value = false;
@@ -389,9 +360,6 @@ watch(() => selectedUserId.value, (newValue, oldValue) => {
 
 // 组件挂载时自动加载数据
 onMounted(() => {
-  console.log('UserConfigView 组件已挂载');
-  console.log('selectedUserId:', selectedUserId.value);
-
   // 计算初始表格高度
   calculateTableHeight();
 
@@ -399,14 +367,7 @@ onMounted(() => {
   window.addEventListener('resize', handleResize);
 
   // 加载数据：如果选择了用户，加载用户相关数据；否则加载所有用户的数据
-  if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
-    console.log('加载指定用户的数据');
-    fetchTable1List();
-  } else {
-    // 未选择用户时，也加载所有用户的数据
-    console.log('onMounted - 未选择用户，加载所有用户数据');
-    fetchTable1List();
-  }
+  fetchTable1List();
 });
 
 // 组件卸载时移除监听器

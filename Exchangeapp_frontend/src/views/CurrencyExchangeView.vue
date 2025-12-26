@@ -46,12 +46,11 @@
   
   const fetchCurrencies = async () => {
     try{
-      console.log('==========', '开始访问')
       const response = await axios.get<ExchangeRate[]>('/exchangeRates');
       rates.value = response.data;
       currencies.value = [...new Set(response.data.map((rate: ExchangeRate) => [rate.fromCurrency, rate.toCurrency]).flat())];
     }catch(error){
-      console.log('Failed to load currencies', error)
+      // 加载失败，静默处理
     }
   };
   

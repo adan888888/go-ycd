@@ -7,10 +7,8 @@ const instance = axios.create({
 
 instance.interceptors.request.use(config => {
   const token = localStorage.getItem('token');
-  console.log("token", token);
   if (token) {
     config.headers.Authorization = token;
-    console.log(token)
   }
   return config;
 });
@@ -34,19 +32,16 @@ instance.interceptors.response.use(response => {
             userIds.push(match[1]); // 提取原始字符串形式的user_id
           }
           
-          console.log('从原始响应提取的user_id:', userIds);
-          
           // 将提取的user_id字符串替换到数据中
           if (userIds.length === response.data.data.length) {
             response.data.data = response.data.data.map((user: any, index: number) => ({
               ...user,
               user_id: userIds[index] // 使用从原始文本中提取的字符串
             }));
-            console.log('已修复user_id精度问题:', response.data.data);
             return response;
           }
         } catch (e) {
-          console.warn('无法从原始响应中提取user_id:', e);
+          // 无法从原始文本提取，继续后续处理
         }
       }
       
@@ -57,7 +52,6 @@ instance.interceptors.response.use(response => {
         let userIdStr: string;
         if (typeof userId === 'number') {
           userIdStr = userId.toString();
-          console.warn('警告: user_id精度可能已丢失，无法恢复:', userIdStr);
         } else {
           userIdStr = String(userId);
         }
@@ -71,13 +65,6 @@ instance.interceptors.response.use(response => {
   return response;
 }, error => {
   // 统一错误处理
-  if (error.code === 'ECONNABORTED') {
-    console.warn('请求超时:', error.config?.url);
-  } else if (error.message?.includes('Network Error')) {
-    console.error('网络错误:', error.config?.url);
-  } else {
-    console.error('请求错误:', error.config?.url, error.message);
-  }
   return Promise.reject(error);
 });
 

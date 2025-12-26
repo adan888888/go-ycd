@@ -9,27 +9,20 @@
       </div>
       <div class="header-right">
         <!-- 用户选择下拉框（在首页和用户配置记录页面显示） -->
-        <el-select 
-          v-if="showUserSelect"
-          v-model="selectedUserId" 
-          placeholder="选择用户" 
-          clearable 
-          @change="handleUserSelectChange"
-          style="width: 200px; margin-right: 16px;"
-          size="default">
+        <el-select v-if="showUserSelect" v-model="selectedUserId" placeholder="选择用户" clearable
+          @change="handleUserSelectChange" style="width: 200px; margin-right: 16px;" size="default">
           <el-option label="全部用户" value="" />
-          <el-option 
-            v-for="(user, index) in userList" 
-            :key="`user-${index}-${user.user_id}`"
-            :label="user.username || `用户 ${user.user_id}`" 
-            :value="String(user.user_id)" />
+          <el-option v-for="(user, index) in userList" :key="`user-${index}-${user.user_id}`"
+            :label="user.username || `用户 ${user.user_id}`" :value="String(user.user_id)" />
         </el-select>
-        
+
         <el-dropdown @command="handleCommand">
           <span class="user-info">
             <el-avatar :size="32" class="user-avatar">A</el-avatar>
             <span class="username">{{ authStore.isAuthenticated ? 'admin' : '游客' }}</span>
-            <el-icon><ArrowDown /></el-icon>
+            <el-icon>
+              <ArrowDown />
+            </el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
@@ -43,41 +36,49 @@
 
     <el-container>
       <!-- 左侧边栏 -->
-      <el-aside width="200px" class="admin-aside">
-        <el-menu
-          :default-active="activeIndex"
-          class="admin-menu"
-          background-color="#304156"
-          text-color="#bfcbd9"
-          active-text-color="#409eff"
-          @select="handleSelect"
-        >
+      <el-aside width="150px" class="admin-aside">
+        <el-menu :default-active="activeIndex" class="admin-menu" background-color="#304156" text-color="#bfcbd9"
+          active-text-color="#409eff" @select="handleSelect">
           <el-menu-item index="home">
-            <el-icon><House /></el-icon>
+            <el-icon>
+              <House />
+            </el-icon>
             <span>首页</span>
           </el-menu-item>
           <el-menu-item index="userConfig">
-            <el-icon><Document /></el-icon>
+            <el-icon>
+              <Tickets />
+            </el-icon>
             <span>用户配置记录</span>
           </el-menu-item>
           <el-menu-item index="table2">
-            <el-icon><Document /></el-icon>
-            <span>表2数据记录</span>
+            <el-icon>
+              <Money />
+            </el-icon>
+            <span>投注记录</span>
           </el-menu-item>
           <el-menu-item index="currencyExchange">
-            <el-icon><Money /></el-icon>
+            <el-icon>
+              <Switch />
+            </el-icon>
             <span>兑换货币</span>
           </el-menu-item>
           <el-menu-item index="news">
-            <el-icon><Document /></el-icon>
+            <el-icon>
+              <Document />
+            </el-icon>
             <span>查看新闻</span>
           </el-menu-item>
           <el-menu-item index="login" v-if="!authStore.isAuthenticated">
-            <el-icon><User /></el-icon>
+            <el-icon>
+              <User />
+            </el-icon>
             <span>登录</span>
           </el-menu-item>
           <el-menu-item index="register" v-if="!authStore.isAuthenticated">
-            <el-icon><Edit /></el-icon>
+            <el-icon>
+              <Edit />
+            </el-icon>
             <span>注册</span>
           </el-menu-item>
         </el-menu>
@@ -95,7 +96,7 @@
 import { ref, watch, provide, computed, type Ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from './store/auth';
-import { House, Money, Document, User, Edit, ArrowDown } from '@element-plus/icons-vue';
+import { House, Money, Document, User, Edit, ArrowDown, Switch, Tickets } from '@element-plus/icons-vue';
 import axios from './axios';
 
 interface UserInfo {
@@ -118,14 +119,13 @@ const activeIndex = ref(getMenuIndex(route.name?.toString()));
 // 用户选择相关状态
 const selectedUserId = ref<string | null>(null);
 const userList = ref<UserInfo[]>([]);
-const isHomePage = computed(() => route.name === 'Home' || route.path === '/');
 // 是否显示用户选择框（在首页、用户配置记录页面和表2页面显示）
 const showUserSelect = computed(() => {
   const routeName = route.name?.toString();
   const routePath = route.path;
-  return routeName === 'Home' || routePath === '/' || 
-         routeName === 'UserConfig' || routePath === '/user-config' ||
-         routeName === 'Table2' || routePath === '/table2';
+  return routeName === 'Home' || routePath === '/' ||
+    routeName === 'UserConfig' || routePath === '/user-config' ||
+    routeName === 'Table2' || routePath === '/table2';
 });
 
 // 通过 provide 共享用户选择状态给子组件
@@ -140,20 +140,16 @@ const fetchUserList = async () => {
       userList.value = Array.isArray(response.data.data) ? response.data.data : [];
     }
   } catch (error) {
-    console.error('获取用户列表失败:', error);
     userList.value = [];
   }
 };
 
 // 用户选择改变时的处理
 const handleUserSelectChange = (value: string | null) => {
-  console.log('App.vue - 用户选择改变:', value, '类型:', typeof value);
   if (value === null || value === '' || value === undefined) {
     selectedUserId.value = null;
-    console.log('App.vue - 设置为全部用户（null）');
   } else {
     selectedUserId.value = String(value);
-    console.log('App.vue - 设置为用户ID:', selectedUserId.value);
   }
 };
 
@@ -176,45 +172,25 @@ watch(route, (newRoute) => {
   } else {
     activeIndex.value = routeName.charAt(0).toLowerCase() + routeName.slice(1);
   }
-  console.log('路由变化:', routeName, routePath, '-> 菜单index:', activeIndex.value);
 });
 
 //当用户在下拉框中选择一个选项时，handleSelect 方法会被调用，并将选中的值作为参数传递进去
 const handleSelect = (key: string) => {
-  console.log('菜单选择:', activeIndex.value, key);
-  
   // 阻止默认行为，手动处理路由跳转
   if (key === 'logout') {
     authStore.logout();
-    router.push({ name: 'Home' }).catch(err => {
-      console.error('路由跳转失败:', err);
-    });
+    router.push({ name: 'Home' }).catch(() => {});
   } else if (key === 'userConfig') {
     // 用户配置记录跳转到独立页面
-    console.log('跳转到用户配置记录页面');
-    router.push({ path: '/user-config', replace: false }).then(() => {
-      console.log('路由跳转成功，当前路径:', router.currentRoute.value.path);
-    }).catch(err => {
-      console.error('路由跳转失败:', err);
-    });
+    router.push({ path: '/user-config', replace: false }).catch(() => {});
   } else if (key === 'table2') {
     // 表2数据记录跳转到独立页面
-    console.log('跳转到表2数据记录页面');
-    router.push({ path: '/table2', replace: false }).then(() => {
-      console.log('路由跳转成功，当前路径:', router.currentRoute.value.path);
-    }).catch(err => {
-      console.error('路由跳转失败:', err);
-    });
+    router.push({ path: '/table2', replace: false }).catch(() => {});
   } else if (key === 'home') {
-    router.push({ path: '/', replace: false }).catch(err => {
-      console.error('路由跳转失败:', err);
-    });
+    router.push({ path: '/', replace: false }).catch(() => {});
   } else {
     const routeName = key.charAt(0).toUpperCase() + key.slice(1);
-    console.log('跳转到:', routeName);
-    router.push({ name: routeName }).catch(err => {
-      console.error('路由跳转失败:', err);
-    });
+    router.push({ name: routeName }).catch(() => {});
   }
 };
 
@@ -231,7 +207,8 @@ const handleCommand = (command: string) => {
 
 <style>
 /* 全局样式：防止页面滚动 */
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
   margin: 0;
