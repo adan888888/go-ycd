@@ -8,7 +8,7 @@
         </div>
       </div>
       <div class="header-right">
-        <!-- 用户选择下拉框（在首页和用户配置页面显示） -->
+        <!-- 用户选择下拉框（在首页和操作日志页面显示） -->
         <el-select v-if="showUserSelect" v-model="selectedUserId" placeholder="选择用户" clearable
           @change="handleUserSelectChange" style="width: 200px; margin-right: 16px;" size="default">
           <el-option label="全部用户" value="" />
@@ -49,7 +49,7 @@
             <el-icon>
               <Tickets />
             </el-icon>
-            <span>用户配置</span>
+            <span>操作日志</span>
           </el-menu-item>
           <el-menu-item index="bettingRecord">
             <el-icon>
@@ -119,7 +119,7 @@ const activeIndex = ref(getMenuIndex(route.name?.toString()));
 // 用户选择相关状态
 const selectedUserId = ref<string | null>(null);
 const userList = ref<UserInfo[]>([]);
-// 是否显示用户选择框（在首页、用户配置页面和表2页面显示）
+// 是否显示用户选择框（在首页、操作日志页面和表2页面显示）
 const showUserSelect = computed(() => {
   const routeName = route.name?.toString();
   const routePath = route.path;
@@ -153,7 +153,7 @@ const handleUserSelectChange = (value: string | null) => {
   }
 };
 
-// 页面加载时获取用户列表（在首页和用户配置页面）
+// 页面加载时获取用户列表（在首页和操作日志页面）
 watch(showUserSelect, (shouldShow) => {
   if (shouldShow && userList.value.length === 0) {
     fetchUserList();
@@ -181,7 +181,7 @@ const handleSelect = (key: string) => {
     authStore.logout();
     router.push({ name: 'Home' }).catch(() => { });
   } else if (key === 'userConfig') {
-    // 用户配置跳转到独立页面
+    // 操作日志跳转到独立页面
     router.push({ path: '/user-config', replace: false }).catch(() => { });
   } else if (key === 'bettingRecord') {
     // 投注记录跳转到独立页面

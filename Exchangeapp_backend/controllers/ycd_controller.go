@@ -30,24 +30,24 @@ func CreateTables(ctx *gin.Context) {
 		})
 		return
 	}
-	
+
 	var table1 = models.TableYanchendao1{
-		ColumnBenjin:      "5000",
-		ColumnYongJin:     "0.95",
-		ColumnMean:        "0.08",
-		ColumnRestartIdx:  "1",
-		ColumnLiushuiIdx:  "1",
+		ColumnBenjin:       "5000",
+		ColumnYongJin:      "0.95",
+		ColumnMean:         "0.08",
+		ColumnRestartIdx:   "1",
+		ColumnLiushuiIdx:   "1",
 		ColumnZhuangZhanBi: 50, // 默认庄占比50%
-		Uid:               uid,
+		Uid:                uid,
 	}
 	var table2 models.TableYanchendao2
-	
+
 	// AutoMigrate自动迁移：没有这个表的时候，用于自动创建数据库表或更新表的结构(不会插入数据)
 	err = global.Db.AutoMigrate(&table1)
 	if err != nil {
 		panic("failed to migrate database：" + err.Error())
 	}
-	
+
 	// 检查该用户是否已有数据（包括已删除的记录）
 	// 使用 Unscoped() 查询包括已软删除的记录，避免重复创建
 	var count int64 = 0
@@ -55,13 +55,13 @@ func CreateTables(ctx *gin.Context) {
 	if count <= 0 {
 		global.Db.Create(&table1) //把初始数据插入到数据库中
 	}
-	
+
 	// 迁移 table2 表结构
 	err = global.Db.AutoMigrate(&table2)
 	if err != nil {
 		panic("failed to migrate table2：" + err.Error())
 	}
-	
+
 	Ok(ctx, ResponseJson{
 		Code:   0,
 		Status: http.StatusOK,
@@ -141,7 +141,7 @@ func InsertTable1(ctx *gin.Context) {
 // MySQL的InnoDB引擎提供了行级锁和事务隔离，可以安全地处理并发插入
 func InsertTable2(ctx *gin.Context) {
 	var tableYanchendao2 models.TableYanchendao2
-	
+
 	// JSON解析（不需要锁保护）
 	if err := ctx.ShouldBindJSON(&tableYanchendao2); err != nil { //移动端不传某个字段这里也不会报错，在结构体里需要加binding:"required"才会报错
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -151,7 +151,7 @@ func InsertTable2(ctx *gin.Context) {
 	tableYanchendao2.ID = 0 //解决运行的过程中会自动给赋值
 	//使用你提供的主键值，而不是数据库的自增值 Session(&gorm.Session{FullSaveAssociations: true})（gorm默认会忽略传的值），mysql数据库的特性也是下标从时1开始。 例如我删除一个，再插入一个值，这时候的主键自增的就会少一个值
 	//现在继续使用自增的（从数据里可以看出来删除了哪个数据）
-	
+
 	// 直接执行数据库插入，依赖数据库的并发控制
 	// MySQL会自动处理并发插入，使用行级锁保证数据一致性
 	if err := global.Db.Create(&tableYanchendao2).Error; err != nil {
@@ -246,7 +246,7 @@ func SortXiaoShu(ctx *gin.Context) {
 			return
 		}
 	}
-	
+
 	// 提取 colmun_shuyingzhi_d 列的有效数据（非空且能转换为浮点数）
 	var floats []float64
 	for _, s := range tableYanchendao2s {
@@ -260,17 +260,17 @@ func SortXiaoShu(ctx *gin.Context) {
 		}
 		floats = append(floats, num)
 	}
-	
+
 	// 如果有有效值，进行排序
 	if len(floats) > 0 {
 		// 对浮点数切片进行排序（从小到大）
 		sort.Float64s(floats)
-		
+
 		// 先清空所有记录的 colmun_shuyingzhi_d
 		for i := range tableYanchendao2s {
 			tableYanchendao2s[i].ColmunShuyingzhiD = ""
 		}
-		
+
 		// 从最新的记录（数组最后）开始，倒序写入排序后的值
 		// 例如：如果有100条记录，其中50条有值，排序后的值应该写入到索引50-99（最新的50条记录）
 		floatsIndex := len(floats) - 1 // 从排序后的最后一个值开始
@@ -303,14 +303,14 @@ func SortXiaoShu(ctx *gin.Context) {
 		// 构建 CASE WHEN SQL 语句
 		var caseWhenSQL strings.Builder
 		var ids []interface{}
-		
+
 		caseWhenSQL.WriteString("CASE id ")
-	for _, v := range tableYanchendao2s {
+		for _, v := range tableYanchendao2s {
 			caseWhenSQL.WriteString("WHEN ? THEN ? ")
 			ids = append(ids, v.ID, v.ColmunShuyingzhiD)
 		}
 		caseWhenSQL.WriteString("END")
-		
+
 		// 构建 WHERE 条件
 		var whereIDs []interface{}
 		var placeholders []string
@@ -318,7 +318,7 @@ func SortXiaoShu(ctx *gin.Context) {
 			placeholders = append(placeholders, "?")
 			whereIDs = append(whereIDs, v.ID)
 		}
-		
+
 		// 执行批量更新
 		userID := ctx.GetHeader("UserId")
 		sql := fmt.Sprintf(
@@ -326,11 +326,11 @@ func SortXiaoShu(ctx *gin.Context) {
 			caseWhenSQL.String(),
 			strings.Join(placeholders, ","),
 		)
-		
+
 		// 合并所有参数：CASE WHEN 的参数 + user_id + WHERE IN 的参数
 		args := append(ids, userID)
 		args = append(args, whereIDs...)
-		
+
 		if err := tx.Exec(sql, args...).Error; err != nil {
 			tx.Rollback()
 			Fail(ctx, ResponseJson{
@@ -368,8 +368,8 @@ func SortXiaoShu(ctx *gin.Context) {
 		Status: http.StatusOK,
 		Msg:    "排序成功",
 		Data: gin.H{
-			"sorted_sequence": sortedSequence, // 排序后的序列（字符串数组）
-			"count":          len(sortedSequence), // 排序后的数量
+			"sorted_sequence": sortedSequence,      // 排序后的序列（字符串数组）
+			"count":           len(sortedSequence), // 排序后的数量
 		},
 	})
 	//tableYanchendao2s[0].ColmunShuyingzhiD = "测试"
@@ -408,7 +408,7 @@ func Xiaoshu(ctx *gin.Context) {
 // 删除本页（清空用户所有数据并重新初始化）
 func DeleteAll(ctx *gin.Context) {
 	UserId := ctx.GetHeader("UserId")
-	
+
 	// 物理删除：真正清空用户的所有数据（包括已软删除的记录）
 	// 使用 Unscoped() 跳过软删除机制，执行真正的 DELETE 操作
 	result := global.Db.Unscoped().Where("uid=?", UserId).Delete(&models.TableYanchendao1{})
@@ -432,7 +432,7 @@ func DeleteAll(ctx *gin.Context) {
 		})
 		return
 	}
-	
+
 	// 输出受影响的行数
 	println("Deleted rows:", result.RowsAffected, result1.RowsAffected)
 
@@ -817,11 +817,11 @@ func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
 // GetTable1List 获取table_yanchendao1数据列表（无需认证，支持分页）
 func GetTable1List(ctx *gin.Context) {
 	userIDStr := ctx.Query("user_id")
-	
+
 	// 获取分页参数
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
-	
+
 	// 限制每页最大数量
 	if pageSize > 100 {
 		pageSize = 100
@@ -832,11 +832,11 @@ func GetTable1List(ctx *gin.Context) {
 	if page < 1 {
 		page = 1
 	}
-	
+
 	var tableYanchendao1s []models.TableYanchendao1
 	var total int64
 	var query *gorm.DB
-	
+
 	// 如果 user_id 为空，查询所有用户的记录；否则查询指定用户的记录
 	if userIDStr == "" {
 		// 查询所有用户的记录，按创建时间倒序排列
@@ -845,7 +845,7 @@ func GetTable1List(ctx *gin.Context) {
 		// 查询该用户的所有记录，按创建时间倒序排列
 		query = global.Db.Model(&models.TableYanchendao1{}).Where("uid = ? AND deleted_at IS NULL", userIDStr)
 	}
-	
+
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
 		Fail(ctx, ResponseJson{
@@ -856,7 +856,7 @@ func GetTable1List(ctx *gin.Context) {
 		})
 		return
 	}
-	
+
 	// 分页查询（按创建时间正序排列，最早的数据在前）
 	offset := (page - 1) * pageSize
 	if err := query.Order("created_at ASC").Offset(offset).Limit(pageSize).Find(&tableYanchendao1s).Error; err != nil {
@@ -895,18 +895,18 @@ func GetTable1List(ctx *gin.Context) {
 	var resultList []gin.H
 	for _, item := range tableYanchendao1s {
 		resultList = append(resultList, gin.H{
-			"id":                   item.ID,
-			"uid":                  strconv.FormatInt(item.Uid, 10), // 确保 uid 是字符串
-			"username":             uidMap[item.Uid],
-			"column_benjin":        item.ColumnBenjin,
-			"column_yongJin":       item.ColumnYongJin,
-			"column_mean":          item.ColumnMean,
-			"column_restart_index": item.ColumnRestartIdx,
-			"column_liushui_index": item.ColumnLiushuiIdx,
+			"id":                    item.ID,
+			"uid":                   strconv.FormatInt(item.Uid, 10), // 确保 uid 是字符串
+			"username":              uidMap[item.Uid],
+			"column_benjin":         item.ColumnBenjin,
+			"column_yongJin":        item.ColumnYongJin,
+			"column_mean":           item.ColumnMean,
+			"column_restart_index":  item.ColumnRestartIdx,
+			"column_liushui_index":  item.ColumnLiushuiIdx,
 			"column_zhuang_zhan_bi": item.ColumnZhuangZhanBi,
-			"temp_index":           item.TempIndex,
-			"created_at":           item.CreatedAt,
-			"deleted_at":           item.DeletedAt,
+			"temp_index":            item.TempIndex,
+			"created_at":            item.CreatedAt,
+			"deleted_at":            item.DeletedAt,
 		})
 	}
 
@@ -926,11 +926,11 @@ func GetTable1List(ctx *gin.Context) {
 // GetTable2List 获取table_yanchendao2数据列表（无需认证，支持分页）
 func GetTable2List(ctx *gin.Context) {
 	userIDStr := ctx.Query("user_id")
-	
+
 	// 获取分页参数
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
-	
+
 	// 限制每页最大数量
 	if pageSize > 100 {
 		pageSize = 100
@@ -941,11 +941,11 @@ func GetTable2List(ctx *gin.Context) {
 	if page < 1 {
 		page = 1
 	}
-	
+
 	var tableYanchendao2s []models.TableYanchendao2
 	var total int64
 	var query *gorm.DB
-	
+
 	// 如果 user_id 为空，查询所有用户的记录；否则查询指定用户的记录
 	if userIDStr == "" {
 		// 查询所有用户的记录，按创建时间倒序排列
@@ -964,7 +964,7 @@ func GetTable2List(ctx *gin.Context) {
 		}
 		query = global.Db.Model(&models.TableYanchendao2{}).Where("user_id = ? AND deleted_at IS NULL", userID)
 	}
-	
+
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
 		Fail(ctx, ResponseJson{
@@ -975,7 +975,7 @@ func GetTable2List(ctx *gin.Context) {
 		})
 		return
 	}
-	
+
 	// 分页查询（按创建时间正序排列，最早的数据在前）
 	offset := (page - 1) * pageSize
 	if err := query.Order("created_at ASC").Offset(offset).Limit(pageSize).Find(&tableYanchendao2s).Error; err != nil {
@@ -1014,18 +1014,18 @@ func GetTable2List(ctx *gin.Context) {
 	var resultList []gin.H
 	for _, item := range tableYanchendao2s {
 		resultList = append(resultList, gin.H{
-			"id":                    item.ID,
-			"user_id":               strconv.FormatInt(item.UserID, 10), // 确保 user_id 是字符串
-			"username":              uidMap[item.UserID],
-			"column_xiazhujine":     item.ColumnXiazhujine,
-			"colmun_shuyingzhi":     item.ColmunShuyingzhi,
-			"colmun_shuyingzhi_d":   item.ColmunShuyingzhiD,
-			"colmun_shengfulu":      item.ColmunShengfulu,
-			"colmun_zx":             item.ColmunZX,
-			"colmun_remark":         item.ColmunRemark,
-			"column_current_jin":    item.ColumnCurrentJin,
-			"created_at":            item.CreatedAt,
-			"deleted_at":            item.DeletedAt,
+			"id":                  item.ID,
+			"user_id":             strconv.FormatInt(item.UserID, 10), // 确保 user_id 是字符串
+			"username":            uidMap[item.UserID],
+			"column_xiazhujine":   item.ColumnXiazhujine,
+			"colmun_shuyingzhi":   item.ColmunShuyingzhi,
+			"colmun_shuyingzhi_d": item.ColmunShuyingzhiD,
+			"colmun_shengfulu":    item.ColmunShengfulu,
+			"colmun_zx":           item.ColmunZX,
+			"colmun_remark":       item.ColmunRemark,
+			"column_current_jin":  item.ColumnCurrentJin,
+			"created_at":          item.CreatedAt,
+			"deleted_at":          item.DeletedAt,
 		})
 	}
 
@@ -1045,9 +1045,9 @@ func GetTable2List(ctx *gin.Context) {
 // UpdateTable2Config 更新table_yanchendao2的输赢值和消数后输赢值
 func UpdateTable2Config(ctx *gin.Context) {
 	type UpdateTable2ConfigRequest struct {
-		ID                int    `json:"id" binding:"required"`              // 记录ID
-		ColmunShuyingzhi  string `json:"colmun_shuyingzhi"`                 // 输赢值
-		ColmunShuyingzhiD string `json:"colmun_shuyingzhi_d"`               // 消数后输赢值
+		ID                int    `json:"id" binding:"required"` // 记录ID
+		ColmunShuyingzhi  string `json:"colmun_shuyingzhi"`     // 输赢值
+		ColmunShuyingzhiD string `json:"colmun_shuyingzhi_d"`   // 消数后输赢值
 	}
 
 	var req UpdateTable2ConfigRequest
@@ -1110,7 +1110,7 @@ func UpdateTable2Config(ctx *gin.Context) {
 		Msg:    "更新成功",
 		Data: gin.H{
 			"id":                  tableYanchendao2.ID,
-			"colmun_shuyingzhi":    tableYanchendao2.ColmunShuyingzhi,
+			"colmun_shuyingzhi":   tableYanchendao2.ColmunShuyingzhi,
 			"colmun_shuyingzhi_d": tableYanchendao2.ColmunShuyingzhiD,
 		},
 	})
@@ -1119,9 +1119,9 @@ func UpdateTable2Config(ctx *gin.Context) {
 // 更新 table_yanchendao1 的临时索引和重启位置
 func UpdateTable1Config(ctx *gin.Context) {
 	type UpdateTable1ConfigRequest struct {
-		ID              int    `json:"id" binding:"required"`              // 记录ID
-		TempIndex       string `json:"temp_index"`                         // 临时索引
-		RestartIndex    string `json:"restart_index"`                      // 重启位置
+		ID           int    `json:"id" binding:"required"` // 记录ID
+		TempIndex    string `json:"temp_index"`            // 临时索引
+		RestartIndex string `json:"restart_index"`         // 重启位置
 	}
 
 	var req UpdateTable1ConfigRequest
@@ -1267,8 +1267,17 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	CurrentTempIndex = tempIndex
 
-	//需要把这个值也存起来
-	global.Db.Model(&tableYanchendao1).Update("temp_index", tempIndex)
+	//防止多次点击取消局部平衡
+	if tempIndex != -1 && tableYanchendao1.TempIndex != "-1" {
+		newRecord := tableYanchendao1
+		newRecord.ID = 0 // 重置 ID，让数据库自动生成新 ID
+		newRecord.TempIndex = strconv.FormatInt(tempIndex, 10)
+		//需要把这个值也存起来
+		if err := global.Db.Save(&newRecord).Error; err != nil {
+			println("创建新记录失败:", err.Error())
+			return
+		}
+	}
 
 	if err := global.Db.Where("user_id=?", UserId).Find(&tableYanchendao2s).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1663,15 +1672,15 @@ func GetTodayBettingUsers(ctx *gin.Context) {
 			jsonBuilder.WriteString(",")
 		}
 		// 确保user_id是字符串（用引号包裹）
-		jsonBuilder.WriteString(fmt.Sprintf(`{"user_id":"%s","username":"%s"}`, 
-			strconv.FormatInt(user.Uid, 10), 
+		jsonBuilder.WriteString(fmt.Sprintf(`{"user_id":"%s","username":"%s"}`,
+			strconv.FormatInt(user.Uid, 10),
 			strings.ReplaceAll(user.Username, `"`, `\"`)))
 	}
 	jsonBuilder.WriteString("]}")
-	
+
 	// 调试日志
 	fmt.Printf("查询到 %d 个用户，JSON: %s\n", len(users), jsonBuilder.String())
-	
+
 	// 直接返回JSON字符串，避免gin的自动序列化
 	ctx.Data(http.StatusOK, "application/json; charset=utf-8", []byte(jsonBuilder.String()))
 }
@@ -1690,7 +1699,7 @@ func GetTodayBettingAmount(ctx *gin.Context) {
 	// 获取日期参数
 	startDateStr := ctx.Query("start_date")
 	endDateStr := ctx.Query("end_date")
-	
+
 	// 如果没有提供日期，默认使用今天
 	if startDateStr == "" {
 		startDateStr = time.Now().Format("2006-01-02")
@@ -1701,18 +1710,18 @@ func GetTodayBettingAmount(ctx *gin.Context) {
 
 	// 获取可选的用户ID参数
 	userIDStr := ctx.Query("user_id")
-	
+
 	// 构建查询条件：日期范围
 	query := global.Db.Model(&models.TableYanchendao2{}).
 		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
-	
+
 	// 如果提供了用户ID，则按用户筛选
 	if userIDStr != "" {
 		if userID, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
 			query = query.Where("user_id = ?", userID)
 		}
 	}
-	
+
 	var records []models.TableYanchendao2
 	if err := query.Find(&records).Error; err != nil {
 		Fail(ctx, ResponseJson{
@@ -1760,7 +1769,7 @@ func GetTodayBettingCount(ctx *gin.Context) {
 	// 获取日期参数
 	startDateStr := ctx.Query("start_date")
 	endDateStr := ctx.Query("end_date")
-	
+
 	// 如果没有提供日期，默认使用今天
 	if startDateStr == "" {
 		startDateStr = time.Now().Format("2006-01-02")
@@ -1771,18 +1780,18 @@ func GetTodayBettingCount(ctx *gin.Context) {
 
 	// 获取可选的用户ID参数
 	userIDStr := ctx.Query("user_id")
-	
+
 	// 构建查询条件：日期范围
 	query := global.Db.Model(&models.TableYanchendao2{}).
 		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
-	
+
 	// 如果提供了用户ID，则按用户筛选
 	if userIDStr != "" {
 		if userID, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
 			query = query.Where("user_id = ?", userID)
 		}
 	}
-	
+
 	var count int64
 	if err := query.Count(&count).Error; err != nil {
 		Fail(ctx, ResponseJson{
@@ -1870,8 +1879,8 @@ func GetRandomBankerPlayer(ctx *gin.Context) {
 		Data: gin.H{
 			"result":      result,
 			"value":       resultValue,
-			"randomValue": randomValue,    // 实际随机数
-			"biasValue":   zhuangZhanBi,  // 庄占比（0-100）
+			"randomValue": randomValue,  // 实际随机数
+			"biasValue":   zhuangZhanBi, // 庄占比（0-100）
 			"timestamp":   time.Now().Unix(),
 		},
 	})

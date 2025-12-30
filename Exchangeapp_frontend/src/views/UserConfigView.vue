@@ -6,7 +6,7 @@
         <el-button type="primary" :icon="Refresh" @click="handleRefreshTable1" :loading="loadingTable1" circle />
       </div>
 
-      <!-- 用户配置 -->
+      <!-- 操作日志 -->
       <el-card id="user-config" class="table-card" shadow="always">
         <div class="table-wrapper">
           <el-table :data="table1List" stripe v-loading="loadingTable1" :height="tableHeight" empty-text="暂无记录"
