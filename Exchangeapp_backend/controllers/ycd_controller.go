@@ -843,7 +843,18 @@ func GetTable1List(ctx *gin.Context) {
 		query = global.Db.Model(&models.TableYanchendao1{}).Where("deleted_at IS NULL")
 	} else {
 		// 查询该用户的所有记录，按创建时间倒序排列
-		query = global.Db.Model(&models.TableYanchendao1{}).Where("uid = ? AND deleted_at IS NULL", userIDStr)
+		// 将字符串转换为 int64，避免大整数查询问题
+		userID, err := strconv.ParseInt(userIDStr, 10, 64)
+		if err != nil {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusBadRequest,
+				Code:   1,
+				Msg:    "用户ID格式错误: " + err.Error(),
+				Data:   gin.H{},
+			})
+			return
+		}
+		query = global.Db.Model(&models.TableYanchendao1{}).Where("uid = ? AND deleted_at IS NULL", userID)
 	}
 
 	// 获取总数
@@ -887,17 +898,26 @@ func GetTable1List(ctx *gin.Context) {
 		if err := global.Db.Select("uid, username").Where("uid IN ?", uids).Find(&users).Error; err == nil {
 			for _, user := range users {
 				uidMap[user.Uid] = user.Username
+				// 调试日志：检查 uid 和 username 的对应关系
+				fmt.Printf("GetTable1List 调试: uid=%d, username=%s\n", user.Uid, user.Username)
 			}
+		} else {
+			fmt.Printf("GetTable1List 错误: 查询用户名失败: %v\n", err)
 		}
 	}
 
 	// 构建返回数据，添加用户名，并确保 uid 是字符串
 	var resultList []gin.H
 	for _, item := range tableYanchendao1s {
+		username := uidMap[item.Uid]
+		// 调试日志：检查返回数据中的 uid 和 username 对应关系
+		if userIDStr != "" {
+			fmt.Printf("GetTable1List 返回数据: uid=%d, username=%s, 查询的user_id=%s\n", item.Uid, username, userIDStr)
+		}
 		resultList = append(resultList, gin.H{
 			"id":                    item.ID,
 			"uid":                   strconv.FormatInt(item.Uid, 10), // 确保 uid 是字符串
-			"username":              uidMap[item.Uid],
+			"username":              username,
 			"column_benjin":         item.ColumnBenjin,
 			"column_yongJin":        item.ColumnYongJin,
 			"column_mean":           item.ColumnMean,
@@ -1267,11 +1287,11 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	CurrentTempIndex = tempIndex
 
-	//防止多次点击取消局部平衡
-	if tempIndex != -1 && tableYanchendao1.TempIndex != "-1" {
-		newRecord := tableYanchendao1
-		newRecord.ID = 0 // 重置 ID，让数据库自动生成新 ID
-		newRecord.TempIndex = strconv.FormatInt(tempIndex, 10)
+	newRecord := tableYanchendao1
+	newRecord.ID = 0 // 重置 ID，让数据库自动生成新 ID
+	newRecord.TempIndex = strconv.FormatInt(tempIndex, 10)
+	//防止正常的投注的时候，还在存数据
+	if (tempIndex > 0 && newRecord.TempIndex != tableYanchendao1.TempIndex) || tempIndex == -1 {
 		//需要把这个值也存起来
 		if err := global.Db.Save(&newRecord).Error; err != nil {
 			println("创建新记录失败:", err.Error())
