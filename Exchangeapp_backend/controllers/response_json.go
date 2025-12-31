@@ -6,6 +6,7 @@ import (
 	"reflect"
 )
 
+// code 0 成功，1 失败
 type ResponseJson struct {
 	Status int    `json:"-"`             //是忽略的 (系统的状态码,传的话，就是自己写的，不传系统会默认传)
 	Code   int    `json:"code"`          //`json:"code,omitempty"` omitempty 如果不存在就不返回给前端  假如设置为o，这个字段不会返回给前端

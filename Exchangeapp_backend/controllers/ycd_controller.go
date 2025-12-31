@@ -488,7 +488,7 @@ func UpdateQiWangValue(ctx *gin.Context) {
 		return
 	}
 	if temp.Mean != nil {
-		fmt.Printf("前端传递的 age 值为: %d\n", *temp.Mean)
+		fmt.Printf("前端传递的 Mean 值为: %s\n", *temp.Mean)
 	} else {
 		fmt.Println("Mean 是结构体默认值")
 	}
@@ -526,7 +526,7 @@ func UpdateOdds(ctx *gin.Context) {
 		return
 	}
 	if temp.Odds != nil {
-		fmt.Printf("前端传递的 Benjin 值为: %d\n", *temp.Odds)
+		fmt.Printf("前端传递的 Benjin 值为: %s\n", *temp.Odds)
 	} else {
 		fmt.Println("Benjin 是结构体默认值")
 	}
@@ -563,14 +563,19 @@ func UpdateBenjin(ctx *gin.Context) {
 		return
 	}
 	if temp.Benjin != nil {
-		fmt.Printf("前端传递的 Benjin 值为: %d\n", *temp.Benjin)
+		fmt.Printf("前端传递的 Benjin 值为: %s\n", *temp.Benjin)
 	} else {
 		fmt.Println("Benjin 是结构体默认值")
 	}
 	var tableYanchendao1 models.TableYanchendao1
 	if err := global.Db.Where("uid=?", ctx.GetHeader("UserId")).Last(&tableYanchendao1).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-		}
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询用户数据失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
 	}
 	tableYanchendao1.ColumnBenjin = *temp.Benjin
 	// 如果新字段是0（旧数据没有这个字段），使用默认值，避免覆盖
@@ -1259,6 +1264,10 @@ func LoadMore(ctx *gin.Context) {
 	})
 }
 
+// tempIndex -10000 app第一次进来
+// tempIndex -1 取消局部平衡/重启...
+// tempIndex -2 确保不会破坏局部平衡-->每次下注记录输赢/改变数据库里面的值等 ...
+// tempIndex >2 点击进行局部平衡
 func GetStatisticalAreasData(ctx *gin.Context) {
 	var CurrentTempIndex int64             //  这个全局变量主要是用来区分有没有点局部平衡
 	statisticalAreas := make([]string, 32) // 定义一个空的字符串切片，类似于 Dart 中的空字符串列表
@@ -1291,7 +1300,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	newRecord.ID = 0 // 重置 ID，让数据库自动生成新 ID
 	newRecord.TempIndex = strconv.FormatInt(tempIndex, 10)
 	//防止正常的投注的时候，还在存数据
-	if (tempIndex > 0 && newRecord.TempIndex != tableYanchendao1.TempIndex) || tempIndex == -1 {
+	if tempIndex != -2 {
 		//需要把这个值也存起来
 		if err := global.Db.Save(&newRecord).Error; err != nil {
 			println("创建新记录失败:", err.Error())
