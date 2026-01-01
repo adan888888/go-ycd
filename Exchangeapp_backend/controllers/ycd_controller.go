@@ -1299,8 +1299,8 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	newRecord := tableYanchendao1
 	newRecord.ID = 0 // 重置 ID，让数据库自动生成新 ID
 	newRecord.TempIndex = strconv.FormatInt(tempIndex, 10)
-	//防止正常的投注的时候，还在存数据
-	if tempIndex != -2 {
+	//防止正常的投注的时候，还在存数据；修复多行-1的问题
+	if tempIndex != -2 || !(tempIndex == -1 && newRecord.TempIndex == tableYanchendao1.TempIndex) {
 		//需要把这个值也存起来
 		if err := global.Db.Save(&newRecord).Error; err != nil {
 			println("创建新记录失败:", err.Error())

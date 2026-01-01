@@ -294,7 +294,13 @@ const fetchTable1List = async () => {
 // 分页大小改变
 const handleTable1SizeChange = (size: number) => {
   table1PageSize.value = size;
-  table1Page.value = 1; // 重置到第一页
+  // 计算新的总页数，跳转到最后一页
+  if (table1Total.value > 0) {
+    const totalPages = Math.ceil(table1Total.value / size);
+    table1Page.value = totalPages > 0 ? totalPages : 1;
+  } else {
+    table1Page.value = 1;
+  }
   fetchTable1List();
 };
 
