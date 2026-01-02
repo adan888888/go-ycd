@@ -218,12 +218,13 @@ func Restart(ctx *gin.Context) {
 		tableYanchendao1.ColumnZhuangZhanBi = 50 // 默认庄占比50%
 	}
 	tableYanchendao1.Uid = uid
+	tableYanchendao1.TempIndex = "-1"
 	tableYanchendao1.ColumnRestartIdx = strconv.Itoa(tableYanchendao2.ID)
 	// 如果新字段是0（旧数据没有这个字段），使用默认值
 	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
 		tableYanchendao1.ColumnZhuangZhanBi = 50
 	}
-	E := global.Db.Table("table_yanchendao1").Omit("id", "temp_index").Create(tableYanchendao1) //.Omit忽略id插入数据
+	E := global.Db.Table("table_yanchendao1").Omit("id").Create(tableYanchendao1) //.Omit忽略id插入数据
 	if E.Error != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
@@ -1299,9 +1300,8 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	newRecord := tableYanchendao1
 	newRecord.ID = 0 // 重置 ID，让数据库自动生成新 ID
 	newRecord.TempIndex = strconv.FormatInt(tempIndex, 10)
-	//防止正常的投注的时候，还在存数据；修复多行-1的问题
-	if tempIndex != -2 || !(tempIndex == -1 && newRecord.TempIndex == tableYanchendao1.TempIndex) {
-		//需要把这个值也存起来
+	//防止取消局部平衡的时候再次存一次
+	if tempIndex != -1 || newRecord.TempIndex != tableYanchendao1.TempIndex {
 		if err := global.Db.Save(&newRecord).Error; err != nil {
 			println("创建新记录失败:", err.Error())
 			return
@@ -1536,33 +1536,39 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	statisticalAreas[11] = fmt.Sprintf("%d", countLianShengFu)
 	xianCount := len(tableYanchendao2s) - zhuangCount
 	statisticalAreas[15] = fmt.Sprintf("%d/%d/%d", zhuangCount, xianCount, zhuangCount-xianCount) //统计庄闲差
+	// 保存佣金值，用于后续计算
+	var yongJinValue string
 	if len(tableYanchendao2s) > 0 {
-		statisticalAreas[23] = tableYanchendao1.ColumnYongJin //扣水（庄扣5%）
+		yongJinValue = tableYanchendao1.ColumnYongJin //扣水（庄扣5%）
 	}
+	// 计算期望值（原27的值），直接放到23位置
 	if statisticalAreas[14] == "0" {
-		statisticalAreas[27] = ""
+		statisticalAreas[23] = "" //期望值
 	} else if statisticalAreas[21] == "-" {
-		statisticalAreas[27] = ""
+		statisticalAreas[23] = "" //期望值
 	} else {
 		parts := strings.Split(RemoveChineseCharacters(statisticalAreas[25]), "x")
 		if len(parts) > 0 {
 			num25, _ := strconv.ParseFloat(parts[0], 64)
-			num23, _ := strconv.ParseFloat(statisticalAreas[23], 64)
-			statisticalAreas[27] = fmt.Sprintf("%.2f", num25/num23)
+			num23, _ := strconv.ParseFloat(yongJinValue, 64)
+			statisticalAreas[23] = fmt.Sprintf("%.2f", num25/num23) //期望值
 		}
 	}
+	// 计算原31的值，直接放到27位置
 	if statisticalAreas[14] == "0" {
-		statisticalAreas[31] = ""
+		statisticalAreas[27] = ""
 	} else if statisticalAreas[22] == "-" {
-		statisticalAreas[31] = ""
+		statisticalAreas[27] = ""
 	} else {
 		parts := strings.Split(RemoveChineseCharacters(statisticalAreas[26]), "x")
 		if len(parts) > 0 {
 			num26, _ := strconv.ParseFloat(parts[0], 64)
-			num23, _ := strconv.ParseFloat(statisticalAreas[23], 64)
-			statisticalAreas[31] = fmt.Sprintf("%.2f", num26/num23)
+			num23, _ := strconv.ParseFloat(yongJinValue, 64)
+			statisticalAreas[27] = fmt.Sprintf("%.2f", num26/num23)
 		}
 	}
+	// 佣金值直接放到31位置
+	statisticalAreas[31] = yongJinValue //佣金
 
 	// 预测平均值. 手机上做
 	//textEditingControllerText := ""
@@ -1570,13 +1576,6 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	//	statisticalAreas[20] = pVal1(tableYanchendao1)
 	//	statisticalAreas[24] = pVal2()
 	//}
-	change1 := statisticalAreas[31]
-	change2 := statisticalAreas[27]
-	change3 := statisticalAreas[23]
-
-	statisticalAreas[31] = change3 //佣金
-	statisticalAreas[27] = change1
-	statisticalAreas[23] = change2 //期望值
 
 	if CurrentTempIndex > 2 {
 		statisticalAreas[30] = fmt.Sprintf("%d", CurrentTempIndex)

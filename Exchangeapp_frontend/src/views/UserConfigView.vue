@@ -45,7 +45,12 @@
               </template>
             </el-table-column>
             <el-table-column prop="column_restart_index" label="重启位置" width="100" align="center"
-              show-overflow-tooltip />
+              show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.column_restart_index || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="temp_index" label="临时索引" width="100" align="center" show-overflow-tooltip />
             <el-table-column prop="column_liushui_index" label="流水位置" width="100" align="center"
               show-overflow-tooltip />
             <el-table-column prop="column_zhuang_zhan_bi" label="庄占比" width="90" align="center">
@@ -55,7 +60,6 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="temp_index" label="临时索引" width="100" align="center" show-overflow-tooltip />
             <el-table-column prop="created_at" label="创建时间" width="140" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ formatDateTime(row.created_at) }}
