@@ -117,7 +117,32 @@ const getMenuIndex = (routeName: string | undefined): string => {
 const activeIndex = ref(getMenuIndex(route.name?.toString()));
 
 // 用户选择相关状态
-const selectedUserId = ref<string | null>(null);
+// 从 localStorage 恢复用户选择（根据当前页面）
+const getStoredUserId = (pageType: 'userConfig' | 'bettingRecord' | null = null): string | null => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    // 如果没有指定页面类型，根据当前路由判断
+    if (!pageType) {
+      const currentRouteName = route.name?.toString();
+      const currentRoutePath = route.path;
+      if (currentRouteName === 'UserConfig' || currentRoutePath === '/user-config') {
+        pageType = 'userConfig';
+      } else if (currentRouteName === 'BettingRecord' || currentRoutePath === '/betting-record') {
+        pageType = 'bettingRecord';
+      } else {
+        return null;
+      }
+    }
+
+    const storageKey = pageType === 'userConfig'
+      ? 'userConfig_selectedUserId'
+      : 'bettingRecord_selectedUserId';
+    const stored = localStorage.getItem(storageKey);
+    return stored || null;
+  }
+  return null;
+};
+
+const selectedUserId = ref<string | null>(getStoredUserId());
 const userList = ref<UserInfo[]>([]);
 // 是否显示用户选择框（在首页、操作日志页面和表2页面显示）
 const showUserSelect = computed(() => {
@@ -148,8 +173,34 @@ const fetchUserList = async () => {
 const handleUserSelectChange = (value: string | null) => {
   if (value === null || value === '' || value === undefined) {
     selectedUserId.value = null;
+    // 清除 localStorage 中的选择（根据当前页面）
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const routeName = route.name?.toString();
+      const routePath = route.path;
+      const isUserConfigPage = routeName === 'UserConfig' || routePath === '/user-config';
+      const isBettingRecordPage = routeName === 'BettingRecord' || routePath === '/betting-record';
+
+      if (isUserConfigPage) {
+        localStorage.removeItem('userConfig_selectedUserId');
+      } else if (isBettingRecordPage) {
+        localStorage.removeItem('bettingRecord_selectedUserId');
+      }
+    }
   } else {
     selectedUserId.value = String(value);
+    // 保存到 localStorage（根据当前页面）
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const routeName = route.name?.toString();
+      const routePath = route.path;
+      const isUserConfigPage = routeName === 'UserConfig' || routePath === '/user-config';
+      const isBettingRecordPage = routeName === 'BettingRecord' || routePath === '/betting-record';
+
+      if (isUserConfigPage) {
+        localStorage.setItem('userConfig_selectedUserId', String(value));
+      } else if (isBettingRecordPage) {
+        localStorage.setItem('bettingRecord_selectedUserId', String(value));
+      }
+    }
   }
 };
 
@@ -160,8 +211,26 @@ watch(showUserSelect, (shouldShow) => {
   }
 }, { immediate: true });
 
-//保证亮度状态和页面是一致的
+// 监听路由变化，在进入操作日志页面或投注记录页面时恢复用户选择
 watch(route, (newRoute) => {
+  const currentRouteName = newRoute.name?.toString();
+  const currentRoutePath = newRoute.path;
+  const isUserConfigPage = currentRouteName === 'UserConfig' || currentRoutePath === '/user-config';
+  const isBettingRecordPage = currentRouteName === 'BettingRecord' || currentRoutePath === '/betting-record';
+
+  // 如果是操作日志页面或投注记录页面，从 localStorage 恢复用户选择
+  if (isUserConfigPage || isBettingRecordPage) {
+    const pageType = isUserConfigPage ? 'userConfig' : 'bettingRecord';
+    const storedUserId = getStoredUserId(pageType);
+    if (storedUserId) {
+      selectedUserId.value = storedUserId;
+    } else {
+      // 如果没有存储的选择，设置为 null
+      selectedUserId.value = null;
+    }
+  }
+
+  //保证亮度状态和页面是一致的
   const routeName = newRoute.name?.toString() || 'home';
   const routePath = newRoute.path;
   // 将路由名称转换为菜单 index 格式（首字母小写）
