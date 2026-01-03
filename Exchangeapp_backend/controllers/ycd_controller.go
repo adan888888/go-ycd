@@ -874,9 +874,9 @@ func GetTable1List(ctx *gin.Context) {
 		return
 	}
 
-	// 分页查询（按创建时间正序排列，最早的数据在前）
+	// 分页查询（按ID正序排列，保持数据库中的顺序）
 	offset := (page - 1) * pageSize
-	if err := query.Order("created_at ASC").Offset(offset).Limit(pageSize).Find(&tableYanchendao1s).Error; err != nil {
+	if err := query.Order("id ASC").Offset(offset).Limit(pageSize).Find(&tableYanchendao1s).Error; err != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
 			Code:   1,
@@ -1289,6 +1289,17 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		return
 	}
 
+	newRecord := tableYanchendao1
+	newRecord.ID = 0 // 重置 ID，让数据库自动生成新 ID
+	newRecord.TempIndex = strconv.FormatInt(tempIndex, 10)
+	//防止取消局部平衡的时候再次存一次
+	if (tempIndex == -1 && newRecord.TempIndex != tableYanchendao1.TempIndex) || (tempIndex > 2 && newRecord.TempIndex != tableYanchendao1.TempIndex) {
+		if err := global.Db.Save(&newRecord).Error; err != nil {
+			println("创建新记录失败:", err.Error())
+			return
+		}
+	}
+
 	// -10000(app退出应用再进来)
 	// -2（正常打）
 	if (tempIndex == -10000 && tableYanchendao1.TempIndex != "") || (tempIndex == -2 && tableYanchendao1.TempIndex != "") {
@@ -1296,17 +1307,6 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		tempIndex = parseInt
 	}
 	CurrentTempIndex = tempIndex
-
-	newRecord := tableYanchendao1
-	newRecord.ID = 0 // 重置 ID，让数据库自动生成新 ID
-	newRecord.TempIndex = strconv.FormatInt(tempIndex, 10)
-	//防止取消局部平衡的时候再次存一次
-	if tempIndex != -1 || newRecord.TempIndex != tableYanchendao1.TempIndex {
-		if err := global.Db.Save(&newRecord).Error; err != nil {
-			println("创建新记录失败:", err.Error())
-			return
-		}
-	}
 
 	if err := global.Db.Where("user_id=?", UserId).Find(&tableYanchendao2s).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

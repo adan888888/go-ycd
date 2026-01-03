@@ -16,6 +16,11 @@
                 {{ (table1Page - 1) * table1PageSize + $index + 1 }}
               </template>
             </el-table-column>
+            <el-table-column prop="id" label="ID" width="80" align="center" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.id || '-' }}
+              </template>
+            </el-table-column>
             <el-table-column prop="uid" label="用户ID" width="120" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.uid }}
