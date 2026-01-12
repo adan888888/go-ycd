@@ -1844,6 +1844,92 @@ func GetTodayBettingCount(ctx *gin.Context) {
 	})
 }
 
+// 查询净胜负和输赢金额 - 支持日期范围查询
+// @Summary      查询净胜负和输赢金额
+// @Tags         ycd投注记录
+// @Accept       json
+// @Produce      json
+// @Param        user_id query string false "用户ID，不传则查询所有用户"
+// @Param        start_date query string false "开始日期，格式：YYYY-MM-DD，不传则默认为今天"
+// @Param        end_date query string false "结束日期，格式：YYYY-MM-DD，不传则默认为开始日期"
+// @Success      200  {object}  ResponseJson{data=object}
+// @Router       /api/ycd/stats [get]
+func GetBettingStats(ctx *gin.Context) {
+	// 获取日期参数
+	startDateStr := ctx.Query("start_date")
+	endDateStr := ctx.Query("end_date")
+
+	// 如果没有提供日期，默认使用今天
+	if startDateStr == "" {
+		startDateStr = time.Now().Format("2006-01-02")
+	}
+	if endDateStr == "" {
+		endDateStr = startDateStr
+	}
+
+	// 获取可选的用户ID参数
+	userIDStr := ctx.Query("user_id")
+
+	// 构建查询条件：日期范围
+	query := global.Db.Model(&models.TableYanchendao2{}).
+		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
+
+	// 如果提供了用户ID，则按用户筛选
+	if userIDStr != "" {
+		if userID, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
+			query = query.Where("user_id = ?", userID)
+		}
+	}
+
+	var records []models.TableYanchendao2
+	if err := query.Find(&records).Error; err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   0,
+			Msg:    "查询失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	// 计算净胜负和输赢金额
+	var zt_y = 0     // 总体赢的次数
+	var zt_s = 0     // 总体输的次数
+	var zt_syz = 0.0 // 一共输赢多少钱
+
+	for _, element := range records {
+		// 累加输赢值
+		shuyingzhiStr := fmt.Sprintf("%v", element.ColmunShuyingzhi)
+		shuyingzhi, _ := strconv.ParseFloat(shuyingzhiStr, 64)
+		zt_syz += shuyingzhi
+
+		// 根据备注判断 zt_s 和 zt_y
+		if element.ColmunRemark != "" && element.ColmunRemark == "-1" {
+			zt_s++
+		} else {
+			zt_y++
+		}
+	}
+
+	// 净胜负 = 赢的次数 - 输的次数
+	netWinLoss := zt_y - zt_s
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "查询成功",
+		Data: gin.H{
+			"net_win_loss": netWinLoss, // 净胜负
+			"profit_loss":  zt_syz,     // 输赢金额
+			"win_count":    zt_y,       // 赢的次数
+			"loss_count":   zt_s,       // 输的次数
+			"start_date":   startDateStr,
+			"end_date":     endDateStr,
+			"user_id":      userIDStr,
+		},
+	})
+}
+
 // 随机庄闲接口
 func GetRandomBankerPlayer(ctx *gin.Context) {
 	// 获取用户ID

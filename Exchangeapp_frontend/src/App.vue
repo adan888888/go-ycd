@@ -418,7 +418,7 @@ body {
 .admin-main {
   background-color: #f0f2f5;
   padding: 20px;
-  overflow-y: hidden;
+  overflow-y: auto;
   overflow-x: hidden;
   height: calc(100vh - 60px);
   position: relative;

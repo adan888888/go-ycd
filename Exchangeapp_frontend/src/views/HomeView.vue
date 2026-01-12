@@ -142,6 +142,46 @@
             </div>
           </div>
         </el-card>
+
+        <el-card class="stat-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span>{{ getDateRangeLabel() }}净胜负</span>
+              <el-button type="text" :icon="Refresh" @click="fetchBettingStats" :loading="loadingStats" circle />
+            </div>
+          </template>
+          <div class="stat-content">
+            <div class="stat-value" v-if="!loadingStats">
+              <span :style="{ color: netWinLoss >= 0 ? '#67c23a' : '#f56c6c' }">
+                {{ netWinLoss >= 0 ? '+' : '' }}{{ netWinLoss }}
+              </span>
+            </div>
+            <div class="stat-value" v-else>
+              <el-skeleton :rows="1" animated />
+            </div>
+            <div class="stat-label">净胜负（赢-输）</div>
+          </div>
+        </el-card>
+
+        <el-card class="stat-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span>{{ getDateRangeLabel() }}输赢金额</span>
+              <el-button type="text" :icon="Refresh" @click="fetchBettingStats" :loading="loadingStats" circle />
+            </div>
+          </template>
+          <div class="stat-content">
+            <div class="stat-value" v-if="!loadingStats">
+              <span :style="{ color: profitLoss >= 0 ? '#67c23a' : '#f56c6c' }">
+                {{ profitLoss >= 0 ? '+' : '' }}¥{{ formatAmount(profitLoss) }}
+              </span>
+            </div>
+            <div class="stat-value" v-else>
+              <el-skeleton :rows="1" animated />
+            </div>
+            <div class="stat-label">输赢金额</div>
+          </div>
+        </el-card>
       </div>
     </div>
 
@@ -189,6 +229,9 @@ const todayCount = ref<number>(0);
 const loadingAmount = ref<boolean>(false);
 const loadingCount = ref<boolean>(false);
 const loadingZhuangZhanBi = ref<boolean>(false);
+const loadingStats = ref<boolean>(false);
+const netWinLoss = ref<number>(0); // 净胜负
+const profitLoss = ref<number>(0); // 输赢金额
 const zhuangZhanBi = ref<number>(50); // 默认庄占比50
 const dateRange = ref<[string, string] | null>(null); // 日期范围
 const activeQuickDate = ref<'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | null>(null); // 当前激活的快捷选择
@@ -405,6 +448,42 @@ const fetchTodayCount = async () => {
   }
 };
 
+// 获取净胜负和输赢金额（支持日期范围和用户筛选）
+const fetchBettingStats = async () => {
+  loadingStats.value = true;
+  try {
+    const params = new URLSearchParams();
+
+    // 添加用户ID参数（如果选择了用户）
+    if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
+      const userId = String(selectedUserId.value);
+      params.append('user_id', userId);
+    }
+
+    // 添加日期范围参数
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.append('start_date', dateRange.value[0]);
+      params.append('end_date', dateRange.value[1]);
+    }
+
+    const url = `/ycd/stats${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await axios.get(url);
+    if (response.data.code === 0) {
+      const data = response.data.data;
+      netWinLoss.value = typeof data.net_win_loss === 'number' ? data.net_win_loss : parseInt(data.net_win_loss) || 0;
+      profitLoss.value = typeof data.profit_loss === 'number' ? data.profit_loss : parseFloat(data.profit_loss) || 0;
+    } else {
+      netWinLoss.value = 0;
+      profitLoss.value = 0;
+    }
+  } catch (error) {
+    netWinLoss.value = 0;
+    profitLoss.value = 0;
+  } finally {
+    loadingStats.value = false;
+  }
+};
+
 // 获取用户庄占比
 const fetchZhuangZhanBi = async () => {
   if (!selectedUserId.value || selectedUserId.value === '' || selectedUserId.value === 'null') {
@@ -501,6 +580,7 @@ const handleDateChange = () => {
   activeQuickDate.value = detectQuickDate();
   fetchTodayAmount();
   fetchTodayCount();
+  fetchBettingStats();
 };
 
 // 快捷选择日期
@@ -550,6 +630,7 @@ const selectQuickDate = (type: 'today' | 'yesterday' | 'thisWeek' | 'thisMonth')
   activeQuickDate.value = type; // 更新激活状态
   fetchTodayAmount();
   fetchTodayCount();
+  fetchBettingStats();
 };
 
 // 获取日期范围标签
@@ -585,6 +666,7 @@ watch(() => selectedUserId.value, (newValue, oldValue) => {
   // 重新查询数据
   fetchTodayAmount();
   fetchTodayCount();
+  fetchBettingStats();
 
   // 如果选择了用户，加载庄占比；否则不显示庄占比设置
   if (newValue && newValue !== '' && newValue !== 'null') {
@@ -605,14 +687,13 @@ onMounted(() => {
   }
   fetchTodayAmount();
   fetchTodayCount();
+  fetchBettingStats();
 });
 </script>
 
 <style scoped>
 .home-container {
   width: 100%;
-  min-height: 100%;
-  padding-bottom: 60px;
   /* 增加底部间距，确保表格完全可见 */
 }
 
@@ -622,7 +703,6 @@ onMounted(() => {
   overflow-x: auto;
   /* 允许横向滚动，但表格会占满宽度 */
   box-sizing: border-box;
-  padding-bottom: 40px;
   /* 确保底部内容不被遮挡 */
 }
 
