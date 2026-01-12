@@ -17,6 +17,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// TableYanchendao2WithSeq 带有序号的投注记录结构体（seq 为每个用户自己的序号，从 1 开始）
+type TableYanchendao2WithSeq struct {
+	models.TableYanchendao2
+	Seq int64 `json:"seq"`
+}
+
 // 创建/初始化用户数据表
 func CreateTables(ctx *gin.Context) {
 	// 获取用户ID（添加错误处理）
@@ -968,16 +974,16 @@ func GetTable2List(ctx *gin.Context) {
 		page = 1
 	}
 
-	var tableYanchendao2s []models.TableYanchendao2
+	var tableYanchendao2s []TableYanchendao2WithSeq
 	var total int64
 	var query *gorm.DB
 
 	// 如果 user_id 为空，查询所有用户的记录；否则查询指定用户的记录
 	if userIDStr == "" {
-		// 查询所有用户的记录，按创建时间倒序排列
+		// 查询所有用户的记录
 		query = global.Db.Model(&models.TableYanchendao2{}).Where("deleted_at IS NULL")
 	} else {
-		// 查询该用户的所有记录，按创建时间倒序排列
+		// 查询该用户的所有记录
 		userID, err := strconv.ParseInt(userIDStr, 10, 64)
 		if err != nil {
 			Fail(ctx, ResponseJson{
@@ -1002,16 +1008,51 @@ func GetTable2List(ctx *gin.Context) {
 		return
 	}
 
-	// 分页查询（按创建时间正序排列，最早的数据在前）
+	// 分页查询（按创建时间正序排列，最早的数据在前），并为每个用户计算序号
 	offset := (page - 1) * pageSize
-	if err := query.Order("created_at ASC").Offset(offset).Limit(pageSize).Find(&tableYanchendao2s).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询失败: " + err.Error(),
-			Data:   gin.H{},
-		})
-		return
+	// 使用 MySQL 8 的窗口函数 ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC)
+	// 为每个用户的投注记录计算一个从 1 开始的序号 seq
+	if userIDStr == "" {
+		// 查询所有用户的记录：按 user_id、created_at 排序，并在每个 user_id 分组内计算序号
+		sql := `
+			SELECT
+				*,
+				ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC) AS seq
+			FROM table_yanchendao2
+			WHERE deleted_at IS NULL
+			ORDER BY user_id ASC, created_at ASC
+			LIMIT ? OFFSET ?;
+			`
+		if err := global.Db.Raw(sql, pageSize, offset).Scan(&tableYanchendao2s).Error; err != nil {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusInternalServerError,
+				Code:   1,
+				Msg:    "查询失败: " + err.Error(),
+				Data:   gin.H{},
+			})
+			return
+		}
+	} else {
+		// 查询指定用户的记录：在该用户的记录内按 created_at 排序并计算序号
+		userID, _ := strconv.ParseInt(userIDStr, 10, 64)
+		sql := `
+			SELECT
+				*,
+				ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC) AS seq
+			FROM table_yanchendao2
+			WHERE user_id = ? AND deleted_at IS NULL
+			ORDER BY created_at ASC
+			LIMIT ? OFFSET ?;
+			`
+		if err := global.Db.Raw(sql, userID, pageSize, offset).Scan(&tableYanchendao2s).Error; err != nil {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusInternalServerError,
+				Code:   1,
+				Msg:    "查询失败: " + err.Error(),
+				Data:   gin.H{},
+			})
+			return
+		}
 	}
 
 	// 获取所有唯一的用户ID
@@ -1041,6 +1082,7 @@ func GetTable2List(ctx *gin.Context) {
 	for _, item := range tableYanchendao2s {
 		resultList = append(resultList, gin.H{
 			"id":                  item.ID,
+			"seq":                 item.Seq,                           // 每个用户自己的序号（从1开始）
 			"user_id":             strconv.FormatInt(item.UserID, 10), // 确保 user_id 是字符串
 			"username":            uidMap[item.UserID],
 			"column_xiazhujine":   item.ColumnXiazhujine,
@@ -1228,29 +1270,44 @@ func LoadMore(ctx *gin.Context) {
 	lv := ctx.Query("last_id")
 	c := ctx.Query("c")
 	uid := ctx.Query("uid")
-	var tableYanchendao2s []models.TableYanchendao2
+	var tableYanchendao2s []TableYanchendao2WithSeq
 	if lv == "-1" {
+		// 第一次加载：从该用户的全部记录中，按时间降序取最近 c 条，再按时间升序返回；
+		// 同时使用窗口函数为该用户的所有记录计算全局序号 seq（从 1 开始）
 		global.Db.Raw(`
-        SELECT *
-        FROM (
-            SELECT *
-            FROM table_yanchendao2
-            WHERE user_id = ? AND deleted_at IS NULL
-            ORDER BY created_at DESC
-            LIMIT ?
-        ) AS subquery
-        ORDER BY created_at ASC;`, uid, c).Scan(&tableYanchendao2s)
+WITH ranked AS (
+    SELECT *,
+           ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC) AS seq
+    FROM table_yanchendao2
+    WHERE user_id = ? AND deleted_at IS NULL
+)
+SELECT *
+FROM (
+    SELECT *
+    FROM ranked
+    ORDER BY created_at DESC
+    LIMIT ?
+) AS subquery
+ORDER BY created_at ASC;`, uid, c).Scan(&tableYanchendao2s)
 	} else {
+		// 加载更多：在该用户全量记录上先计算 seq，再筛选 id < last_id 的记录，并按时间降序取最近 c 条，
+		// 最后再按时间升序返回，保证 seq 是全局的“第几手”
 		result := global.Db.Raw(`
-        SELECT *
-        FROM (
-            SELECT *
-            FROM table_yanchendao2
-            WHERE id < ? AND user_id = ? AND deleted_at IS NULL
-            ORDER BY created_at DESC
-            LIMIT ?
-        ) AS subquery
-        ORDER BY created_at ASC;`, lv, uid, c).Scan(&tableYanchendao2s)
+WITH ranked AS (
+    SELECT *,
+           ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC) AS seq
+    FROM table_yanchendao2
+    WHERE user_id = ? AND deleted_at IS NULL
+)
+SELECT *
+FROM (
+    SELECT *
+    FROM ranked
+    WHERE id < ?
+    ORDER BY created_at DESC
+    LIMIT ?
+) AS subquery
+ORDER BY created_at ASC;`, uid, lv, c).Scan(&tableYanchendao2s)
 		if result.Error != nil {
 			fmt.Println("查询出错:", result.Error)
 			return
@@ -1840,6 +1897,92 @@ func GetTodayBettingCount(ctx *gin.Context) {
 			"start_date": startDateStr,
 			"end_date":   endDateStr,
 			"user_id":    userIDStr,
+		},
+	})
+}
+
+// 查询净胜负和输赢金额 - 支持日期范围查询
+// @Summary      查询净胜负和输赢金额
+// @Tags         ycd投注记录
+// @Accept       json
+// @Produce      json
+// @Param        user_id query string false "用户ID，不传则查询所有用户"
+// @Param        start_date query string false "开始日期，格式：YYYY-MM-DD，不传则默认为今天"
+// @Param        end_date query string false "结束日期，格式：YYYY-MM-DD，不传则默认为开始日期"
+// @Success      200  {object}  ResponseJson{data=object}
+// @Router       /api/ycd/stats [get]
+func GetBettingStats(ctx *gin.Context) {
+	// 获取日期参数
+	startDateStr := ctx.Query("start_date")
+	endDateStr := ctx.Query("end_date")
+
+	// 如果没有提供日期，默认使用今天
+	if startDateStr == "" {
+		startDateStr = time.Now().Format("2006-01-02")
+	}
+	if endDateStr == "" {
+		endDateStr = startDateStr
+	}
+
+	// 获取可选的用户ID参数
+	userIDStr := ctx.Query("user_id")
+
+	// 构建查询条件：日期范围
+	query := global.Db.Model(&models.TableYanchendao2{}).
+		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
+
+	// 如果提供了用户ID，则按用户筛选
+	if userIDStr != "" {
+		if userID, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
+			query = query.Where("user_id = ?", userID)
+		}
+	}
+
+	var records []models.TableYanchendao2
+	if err := query.Find(&records).Error; err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   0,
+			Msg:    "查询失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	// 计算净胜负和输赢金额
+	var zt_y = 0     // 总体赢的次数
+	var zt_s = 0     // 总体输的次数
+	var zt_syz = 0.0 // 一共输赢多少钱
+
+	for _, element := range records {
+		// 累加输赢值
+		shuyingzhiStr := fmt.Sprintf("%v", element.ColmunShuyingzhi)
+		shuyingzhi, _ := strconv.ParseFloat(shuyingzhiStr, 64)
+		zt_syz += shuyingzhi
+
+		// 根据备注判断 zt_s 和 zt_y
+		if element.ColmunRemark != "" && element.ColmunRemark == "-1" {
+			zt_s++
+		} else {
+			zt_y++
+		}
+	}
+
+	// 净胜负 = 赢的次数 - 输的次数
+	netWinLoss := zt_y - zt_s
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "查询成功",
+		Data: gin.H{
+			"net_win_loss": netWinLoss, // 净胜负
+			"profit_loss":  zt_syz,     // 输赢金额
+			"win_count":    zt_y,       // 赢的次数
+			"loss_count":   zt_s,       // 输的次数
+			"start_date":   startDateStr,
+			"end_date":     endDateStr,
+			"user_id":      userIDStr,
 		},
 	})
 }

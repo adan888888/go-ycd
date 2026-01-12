@@ -96,6 +96,7 @@ func SetupRouter() *gin.Engine {
 		ycdStats.GET("/today/users", controllers.GetTodayBettingUsers)   // 获取今天有投注记录的用户列表
 		ycdStats.GET("/today/amount", controllers.GetTodayBettingAmount) // 查询今天流水
 		ycdStats.GET("/today/count", controllers.GetTodayBettingCount)   // 查询今天下注次数
+		ycdStats.GET("/stats", controllers.GetBettingStats)              // 查询净胜负和输赢金额
 		ycdStats.GET("/zhuangzhanbi", controllers.GetZhuangZhanBi)       // 获取用户庄占比
 		ycdStats.POST("/zhuangzhanbi", controllers.UpdateZhuangZhanBiPublic) // 更新用户庄占比
 		ycdStats.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi) // 修改庄占比（无需认证）
