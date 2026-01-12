@@ -500,9 +500,24 @@ func UpdateQiWangValue(ctx *gin.Context) {
 		fmt.Println("Mean 是结构体默认值")
 	}
 	var tableYanchendao1 models.TableYanchendao1
-	if err := global.Db.Where("user_id=?", ctx.GetHeader("UserId")).Last(&tableYanchendao1).Error; err != nil {
+	// 注意：table_yanchendao1 表中用户字段是 uid，不是 user_id
+	if err := global.Db.Where("uid=?", ctx.GetHeader("UserId")).Last(&tableYanchendao1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusNotFound,
+				Code:   1,
+				Msg:    "未找到用户数据，请先初始化",
+				Data:   gin.H{},
+			})
+			return
 		}
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询用户数据失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
 	}
 	tableYanchendao1.ColumnMean = *temp.Mean
 	// 如果新字段是0（旧数据没有这个字段），使用默认值，避免覆盖
