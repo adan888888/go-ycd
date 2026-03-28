@@ -96,6 +96,12 @@
         <el-form-item label="记录ID">
           <el-input v-model="editForm.id" disabled />
         </el-form-item>
+        <el-form-item label="本金">
+          <el-input v-model="editForm.column_benjin" placeholder="请输入本金" clearable />
+        </el-form-item>
+        <el-form-item label="数学期望">
+          <el-input v-model="editForm.column_mean" placeholder="请输入数学期望" clearable />
+        </el-form-item>
         <el-form-item label="临时索引">
           <el-input v-model="editForm.temp_index" placeholder="请输入临时索引" clearable />
         </el-form-item>
@@ -141,10 +147,14 @@ const editDialogVisible = ref<boolean>(false);
 const saving = ref<boolean>(false);
 const editForm = ref<{
   id: number | null;
+  column_benjin: string;
+  column_mean: string;
   temp_index: string;
   restart_index: string;
 }>({
   id: null,
+  column_benjin: '',
+  column_mean: '',
   temp_index: '',
   restart_index: ''
 });
@@ -323,6 +333,8 @@ const handleTable1PageChange = (page: number) => {
 const handleEdit = (row: any) => {
   editForm.value = {
     id: row.id,
+    column_benjin: row.column_benjin || '',
+    column_mean: row.column_mean || '',
     temp_index: row.temp_index || '',
     restart_index: row.column_restart_index || ''
   };
@@ -337,7 +349,12 @@ const handleSaveEdit = async () => {
   }
 
   // 验证至少有一个字段需要更新
-  if (!editForm.value.temp_index && !editForm.value.restart_index) {
+  if (
+    !editForm.value.column_benjin &&
+    !editForm.value.column_mean &&
+    !editForm.value.temp_index &&
+    !editForm.value.restart_index
+  ) {
     ElMessage.warning('请至少填写一个字段');
     return;
   }
@@ -346,6 +363,8 @@ const handleSaveEdit = async () => {
   try {
     const response = await axios.put('/ycd/table1/config', {
       id: editForm.value.id,
+      column_benjin: editForm.value.column_benjin,
+      column_mean: editForm.value.column_mean,
       temp_index: editForm.value.temp_index,
       restart_index: editForm.value.restart_index
     });

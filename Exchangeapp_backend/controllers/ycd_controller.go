@@ -79,22 +79,21 @@ func GetTable1(ctx *gin.Context) {
 	var tableYanchendao1s []models.TableYanchendao1
 	UserId := ctx.GetHeader("UserId")
 	if err := global.Db.Where("uid=?", UserId).Find(&tableYanchendao1s).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusNotFound,
-				Code:   0,
-				Msg:    err.Error(),
-				Data:   gin.H{},
-			})
-			return
-		} else {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusInternalServerError,
-				Code:   0,
-				Msg:    err.Error(),
-				Data:   gin.H{},
-			})
-		}
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+	if len(tableYanchendao1s) == 0 {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusOK,
+			Code:   1,
+			Msg:    "未找到用户数据，请先初始化",
+			Data:   gin.H{},
+		})
 		return
 	}
 	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "查询成功", Data: tableYanchendao1s})
@@ -107,10 +106,11 @@ func GetTable2(ctx *gin.Context) {
 	var tableYanchendao2s []models.TableYanchendao2
 	if err := global.Db.Where("user_id=?", UserId).Last(&tableYanchendao2s).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 业务上暂无记录：HTTP 仍 200，避免客户端把 Dio 当网络/404 错误
 			Fail(ctx, ResponseJson{
-				Status: http.StatusNotFound,
+				Status: http.StatusOK,
 				Code:   1,
-				Msg:    err.Error(),
+				Msg:    "暂无投注记录，请先下注或初始化数据",
 				Data:   gin.H{},
 			})
 			return
@@ -1203,6 +1203,8 @@ func UpdateTable2Config(ctx *gin.Context) {
 func UpdateTable1Config(ctx *gin.Context) {
 	type UpdateTable1ConfigRequest struct {
 		ID           int    `json:"id" binding:"required"` // 记录ID
+		ColumnBenjin string `json:"column_benjin"`         // 本金
+		ColumnMean   string `json:"column_mean"`           // 数学期望
 		TempIndex    string `json:"temp_index"`            // 临时索引
 		RestartIndex string `json:"restart_index"`         // 重启位置
 	}
@@ -1241,6 +1243,12 @@ func UpdateTable1Config(ctx *gin.Context) {
 
 	// 更新字段（只更新传入的字段）
 	updates := make(map[string]interface{})
+	if req.ColumnBenjin != "" {
+		updates["column_benjin"] = req.ColumnBenjin
+	}
+	if req.ColumnMean != "" {
+		updates["column_mean"] = req.ColumnMean
+	}
 	if req.TempIndex != "" {
 		updates["temp_index"] = req.TempIndex
 	}
@@ -1270,6 +1278,8 @@ func UpdateTable1Config(ctx *gin.Context) {
 		Msg:    "更新成功",
 		Data: gin.H{
 			"id":                   tableYanchendao1.ID,
+			"column_benjin":        tableYanchendao1.ColumnBenjin,
+			"column_mean":          tableYanchendao1.ColumnMean,
 			"temp_index":           tableYanchendao1.TempIndex,
 			"column_restart_index": tableYanchendao1.ColumnRestartIdx,
 		},
@@ -1329,6 +1339,17 @@ ORDER BY created_at ASC;`, uid, lv, c).Scan(&tableYanchendao2s)
 		}
 	}
 
+	// 无数据时 GORM 可能得到 nil 切片，JSON 会变成 "data":null；前端需要空对象时用 {}
+	if len(tableYanchendao2s) == 0 {
+		Ok(ctx, ResponseJson{
+			Status: http.StatusOK,
+			Code:   0,
+			Msg:    "加载更多成功",
+			Data:   gin.H{},
+		})
+		return
+	}
+
 	Ok(ctx, ResponseJson{
 		Status: http.StatusOK,
 		Code:   0,
@@ -1357,7 +1378,22 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 
 	//查询
 	if tx := global.Db.Where("uid=?", UserId).Last(&tableYanchendao1); tx.Error != nil {
-		println(tx.Error)
+		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
+			// 业务上未初始化：HTTP 仍 200，避免 Dio 报 404
+			Fail(ctx, ResponseJson{
+				Status: http.StatusOK,
+				Code:   1,
+				Msg:    "未找到用户数据，请先初始化",
+				Data:   gin.H{},
+			})
+		} else {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusInternalServerError,
+				Code:   1,
+				Msg:    "查询用户数据失败: " + tx.Error.Error(),
+				Data:   gin.H{},
+			})
+		}
 		return
 	}
 
@@ -1367,7 +1403,12 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	//防止取消局部平衡的时候再次存一次
 	if (tempIndex == -1 && newRecord.TempIndex != tableYanchendao1.TempIndex) || (tempIndex > 2 && newRecord.TempIndex != tableYanchendao1.TempIndex) {
 		if err := global.Db.Save(&newRecord).Error; err != nil {
-			println("创建新记录失败:", err.Error())
+			Fail(ctx, ResponseJson{
+				Status: http.StatusInternalServerError,
+				Code:   1,
+				Msg:    "保存临时索引失败: " + err.Error(),
+				Data:   gin.H{},
+			})
 			return
 		}
 	}
@@ -1383,7 +1424,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	if err := global.Db.Where("user_id=?", UserId).Find(&tableYanchendao2s).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			Fail(ctx, ResponseJson{
-				Status: http.StatusNotFound,
+				Status: http.StatusOK,
 				Code:   1,
 				Msg:    err.Error(),
 				Data:   gin.H{},
@@ -1391,7 +1432,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 			return
 		} else {
 			Fail(ctx, ResponseJson{
-				Status: http.StatusInternalServerError,
+				Status: http.StatusOK,
 				Code:   1,
 				Msg:    err.Error(),
 				Data:   gin.H{},
@@ -1470,6 +1511,12 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		num, err := strconv.ParseFloat(numStr, 64)
 		if err != nil {
 			fmt.Printf("字符串转换为浮点数出错: %v\n", err)
+			Fail(ctx, ResponseJson{
+				Status: http.StatusOK,
+				Code:   1,
+				Msg:    "统计数据计算失败(净胜解析): " + err.Error(),
+				Data:   gin.H{},
+			})
 			return
 		}
 		// 计算平均值并保留两位小数
@@ -1478,6 +1525,12 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	f, err := strconv.ParseFloat(statisticalAreas[19], 64)
 	if err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusOK,
+			Code:   1,
+			Msg:    "数学期望(column_mean)格式错误: " + err.Error(),
+			Data:   gin.H{},
+		})
 		return
 	}
 	d := float64(len(tableYanchendao2s)+1) * f //期望一共的值
@@ -1649,6 +1702,19 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	//	statisticalAreas[24] = pVal2()
 	//}
 
+	if statisticalAreas[22] == "-" {
+		statisticalAreas[29] = "-"
+	} else {
+		num22, err := strconv.ParseFloat(statisticalAreas[22], 64)
+		if err == nil {
+			value90Percent := int(num22 * 0.90)
+			value70Percent := int(num22 * 0.70)
+			value50Percent := int(num22 * 0.50)
+			statisticalAreas[29] = fmt.Sprintf("%d/%d/%d", value90Percent, value70Percent, value50Percent)
+		} else {
+			statisticalAreas[29] = "-"
+		}
+	}
 	if CurrentTempIndex > 2 {
 		statisticalAreas[30] = fmt.Sprintf("%d", CurrentTempIndex)
 	}
