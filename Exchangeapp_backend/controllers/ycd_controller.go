@@ -6,15 +6,14 @@ import (
 	"exchangeapp/models"
 	. "exchangeapp/utils"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"math"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // TableYanchendao2WithSeq 带有序号的投注记录结构体（seq 为每个用户自己的序号，从 1 开始）
@@ -1292,11 +1291,11 @@ func LoadMore(ctx *gin.Context) {
 	//http://localhost:8080/user?name=张三&age=100&addr=广东  //这种传值用ctx.Query
 	//http://localhost:3000/api/testmq/你好  //这种用Param id := ctx.Param("msg")
 
-	lastId := ctx.Query("last_id") //最后一条id
-	cout := ctx.Query("c")         //条数
-	uid := ctx.Query("uid")        //用户id
+	lastId := strings.TrimSpace(ctx.Query("last_id")) // 最后一条 id；空串与 -1 均视为首次分页
+	cout := ctx.Query("c")                            // 条数
+	uid := ctx.Query("uid")                           // 用户 id
 	var tableYanchendao2s []TableYanchendao2WithSeq
-	if lastId == "-1" {
+	if lastId == "" || lastId == "-1" {
 		// -1--》第一次加载：从该用户的全部记录中，按时间降序取最近 c 条，再按时间升序返回；
 		// 同时使用窗口函数为该用户的所有记录计算全局序号 seq（从 1 开始）
 		global.Db.Raw(
@@ -1343,15 +1342,10 @@ func LoadMore(ctx *gin.Context) {
 		}
 	}
 
-	// 无数据时 GORM 可能得到 nil 切片，JSON 会变成 "data":null；前端需要空对象时用 {}
-	if len(tableYanchendao2s) == 0 {
-		Ok(ctx, ResponseJson{
-			Status: http.StatusOK,
-			Code:   0,
-			Msg:    "加载更多成功",
-			Data:   gin.H{},
-		})
-		return
+	// GORM 无行时切片常为 nil，JSON 会编成 null；非 nil 空切片才是 []
+	// 如果没有这个就反给前端返回{"code":0,"msg":"加载更多成功","data":null}
+	if tableYanchendao2s == nil {
+		tableYanchendao2s = []TableYanchendao2WithSeq{}
 	}
 
 	Ok(ctx, ResponseJson{
