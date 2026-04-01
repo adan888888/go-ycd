@@ -85,24 +85,24 @@ func SetupRouter() *gin.Engine {
 		ycd.GET("/getusers", controllers.Getusers)
 		ycd.GET("/loadmore", controllers.LoadMore) //加载更多历史数据 //http://localhost:3000/api/ycd/loadMore?last_value=836
 		ycd.GET("/getStatisticalAreasData", controllers.GetStatisticalAreasData)
-		ycd.GET("/linechartData", controllers.LinechartData) //折线图数据
-		ycd.POST("/cleanDataD", controllers.CleanDataD)      //清除数据（消数列数据全部清除）
+		ycd.GET("/linechartData", controllers.LinechartData)              //折线图数据
+		ycd.POST("/cleanDataD", controllers.CleanDataD)                   //清除数据（消数列数据全部清除）
 		ycd.GET("/randomBankerPlayer", controllers.GetRandomBankerPlayer) //随机庄闲接口
 	}
 
 	// 第3.5组：ycd投注记录统计（无需认证）
 	ycdStats := r.Group("/api/ycd")
 	{
-		ycdStats.GET("/today/users", controllers.GetTodayBettingUsers)   // 获取今天有投注记录的用户列表
-		ycdStats.GET("/today/amount", controllers.GetTodayBettingAmount) // 查询今天流水
-		ycdStats.GET("/today/count", controllers.GetTodayBettingCount)   // 查询今天下注次数
-		ycdStats.GET("/stats", controllers.GetBettingStats)              // 查询净胜负和输赢金额
-		ycdStats.GET("/zhuangzhanbi", controllers.GetZhuangZhanBi)       // 获取用户庄占比
-		ycdStats.POST("/zhuangzhanbi", controllers.UpdateZhuangZhanBiPublic) // 更新用户庄占比
-		ycdStats.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi) // 修改庄占比（无需认证）
-		ycdStats.GET("/table1/list", controllers.GetTable1List)         // 获取table_yanchendao1数据列表
-		ycdStats.PUT("/table1/config", controllers.UpdateTable1Config) // 更新table_yanchendao1的临时索引和重启位置
-		ycdStats.GET("/betting-record/list", controllers.GetTable2List)         // 获取投注记录列表
+		ycdStats.GET("/today/users", controllers.GetTodayBettingUsers)         // 获取今天有投注记录的用户列表
+		ycdStats.GET("/today/amount", controllers.GetTodayBettingAmount)       // 查询今天流水
+		ycdStats.GET("/today/count", controllers.GetTodayBettingCount)         // 查询今天下注次数
+		ycdStats.GET("/stats", controllers.GetBettingStats)                    // 查询净胜负和输赢金额
+		ycdStats.GET("/zhuangzhanbi", controllers.GetZhuangZhanBi)             // 获取用户庄占比
+		ycdStats.POST("/zhuangzhanbi", controllers.UpdateZhuangZhanBiPublic)   // 更新用户庄占比
+		ycdStats.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi)   // 修改庄占比（无需认证）
+		ycdStats.GET("/table1/list", controllers.GetTable1List)                // 获取table_yanchendao1数据列表
+		ycdStats.PUT("/table1/config", controllers.UpdateTable1Config)         // 更新table_yanchendao1的临时索引和重启位置
+		ycdStats.GET("/betting-record/list", controllers.GetTable2List)        // 获取投注记录列表
 		ycdStats.PUT("/betting-record/config", controllers.UpdateTable2Config) // 更新投注记录的输赢值和消数后输赢值
 	}
 
@@ -128,10 +128,10 @@ func SetupRouter() *gin.Engine {
 	backupController := controllers.NewBackupController()
 	backup := r.Group("/api/backup")
 	{
-		backup.POST("/manual", backupController.ManualBackup)        // 手动触发备份
-		backup.GET("/list", backupController.GetBackupList)         // 获取备份文件列表
-		backup.GET("/status", backupController.GetBackupStatus)     // 获取备份状态
-		backup.DELETE("/clean", backupController.CleanOldBackups)   // 清理旧备份
+		backup.POST("/manual", backupController.ManualBackup)     // 手动触发备份
+		backup.GET("/list", backupController.GetBackupList)       // 获取备份文件列表
+		backup.GET("/status", backupController.GetBackupStatus)   // 获取备份状态
+		backup.DELETE("/clean", backupController.CleanOldBackups) // 清理旧备份
 	}
 
 	//cookie

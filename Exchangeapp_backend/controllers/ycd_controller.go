@@ -970,7 +970,7 @@ func GetTable1List(ctx *gin.Context) {
 	})
 }
 
-// GetTable2List 获取table_yanchendao2数据列表（无需认证，支持分页）
+// GetTable2List 获取table_yanchendao2数据列表（无需认证，支持分页）给后台接口用，app上用的是LoadMore这个接口
 func GetTable2List(ctx *gin.Context) {
 	userIDStr := ctx.Query("user_id")
 
@@ -1292,47 +1292,51 @@ func LoadMore(ctx *gin.Context) {
 	//http://localhost:8080/user?name=张三&age=100&addr=广东  //这种传值用ctx.Query
 	//http://localhost:3000/api/testmq/你好  //这种用Param id := ctx.Param("msg")
 
-	lv := ctx.Query("last_id")
-	c := ctx.Query("c")
-	uid := ctx.Query("uid")
+	lastId := ctx.Query("last_id") //最后一条id
+	cout := ctx.Query("c")         //条数
+	uid := ctx.Query("uid")        //用户id
 	var tableYanchendao2s []TableYanchendao2WithSeq
-	if lv == "-1" {
-		// 第一次加载：从该用户的全部记录中，按时间降序取最近 c 条，再按时间升序返回；
+	if lastId == "-1" {
+		// -1--》第一次加载：从该用户的全部记录中，按时间降序取最近 c 条，再按时间升序返回；
 		// 同时使用窗口函数为该用户的所有记录计算全局序号 seq（从 1 开始）
-		global.Db.Raw(`
-WITH ranked AS (
-    SELECT *,
-           ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC) AS seq
-    FROM table_yanchendao2
-    WHERE user_id = ? AND deleted_at IS NULL
-)
-SELECT *
-FROM (
-    SELECT *
-    FROM ranked
-    ORDER BY created_at DESC
-    LIMIT ?
-) AS subquery
-ORDER BY created_at ASC;`, uid, c).Scan(&tableYanchendao2s)
+		global.Db.Raw(
+			`WITH ranked AS (
+				SELECT *,
+					ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC) AS seq
+				FROM table_yanchendao2
+				WHERE user_id = ? AND deleted_at IS NULL
+			)
+			SELECT *
+			FROM (
+				SELECT *
+				FROM ranked
+				ORDER BY created_at DESC
+				LIMIT ?
+			) AS subquery
+			ORDER BY created_at ASC;`,
+			uid, cout,
+		).Scan(&tableYanchendao2s)
 	} else {
 		// 加载更多：在该用户全量记录上先计算 seq，再筛选 id < last_id 的记录，并按时间降序取最近 c 条，
-		// 最后再按时间升序返回，保证 seq 是全局的“第几手”
-		result := global.Db.Raw(`
-WITH ranked AS (
-    SELECT *,
-           ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC) AS seq
-    FROM table_yanchendao2
-    WHERE user_id = ? AND deleted_at IS NULL
-)
-SELECT *
-FROM (
-    SELECT *
-    FROM ranked
-    WHERE id < ?
-    ORDER BY created_at DESC
-    LIMIT ?
-) AS subquery
-ORDER BY created_at ASC;`, uid, lv, c).Scan(&tableYanchendao2s)
+		// 最后再按时间升序返回，保证 seq 是全局的“第几手”； ROW_NUMBER() 在每个分区里都会从 1 开始连续编号
+		result := global.Db.Raw(
+			`WITH ranked AS (
+				SELECT *,
+					ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC) AS seq
+				FROM table_yanchendao2
+				WHERE user_id = ? AND deleted_at IS NULL
+			)
+			SELECT *
+			FROM (
+				SELECT *
+				FROM ranked
+				WHERE id < ?
+				ORDER BY created_at DESC
+				LIMIT ?
+			) AS subquery
+			ORDER BY created_at ASC;`,
+			uid, lastId, cout,
+		).Scan(&tableYanchendao2s)
 		if result.Error != nil {
 			fmt.Println("查询出错:", result.Error)
 			return
