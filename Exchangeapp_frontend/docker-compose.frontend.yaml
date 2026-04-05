@@ -1,0 +1,25 @@
+# 与后端 docker-compose.yaml（name: MyYcd）同机：网络一般为 myycd_default
+# 先保证后端已 up：cd Exchangeapp_backend && docker compose up -d
+# 再启动前端：cd Exchangeapp_frontend && docker compose -f docker-compose.frontend.yaml up -d --build
+#
+# 若 docker network ls 里 default 网不叫 myycd_default，把下方 external.name 改成实际名字
+
+name: exchangeapp-frontend
+
+services:
+  frontend:
+    build:
+      context: .
+      args:
+        API_UPSTREAM: http://app:3000
+    image: exchangeapp-frontend:prod
+    container_name: exchangeapp-frontend
+    ports:
+      - "8080:80"
+    networks:
+      - myycd-backend
+
+networks:
+  myycd-backend:
+    external: true
+    name: myycd_default

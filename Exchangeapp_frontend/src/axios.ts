@@ -1,7 +1,13 @@
 import axios from 'axios';
 
+// 开发：.env.development → http://localhost:3000/api
+// 生产构建：.env.production → /api（由 Nginx 反代到 Gin）
+const apiBase =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? 'http://localhost:3000/api' : '/api');
+
 const instance = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: apiBase,
   timeout: 10000, // 10秒超时
 });
 
