@@ -63,6 +63,12 @@
             </el-icon>
             <span>兑换货币</span>
           </el-menu-item>
+          <el-menu-item index="purchaseRecord">
+            <el-icon>
+              <ShoppingCart />
+            </el-icon>
+            <span>购买记录</span>
+          </el-menu-item>
           <el-menu-item index="news">
             <el-icon>
               <Document />
@@ -96,7 +102,7 @@
 import { ref, watch, provide, computed, type Ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from './store/auth';
-import { House, Money, Document, User, Edit, ArrowDown, Switch, Tickets } from '@element-plus/icons-vue';
+import { House, Money, Document, User, Edit, ArrowDown, Switch, Tickets, ShoppingCart } from '@element-plus/icons-vue';
 import axios from './axios';
 
 interface UserInfo {
@@ -112,6 +118,7 @@ const getMenuIndex = (routeName: string | undefined): string => {
   if (!routeName) return 'home';
   if (routeName === 'UserConfig') return 'userConfig';
   if (routeName === 'BettingRecord') return 'bettingRecord';
+  if (routeName === 'PurchaseRecord') return 'purchaseRecord';
   return routeName.charAt(0).toLowerCase() + routeName.slice(1);
 };
 const activeIndex = ref(getMenuIndex(route.name?.toString()));
@@ -238,6 +245,8 @@ watch(route, (newRoute) => {
     activeIndex.value = 'userConfig';
   } else if (routeName === 'BettingRecord' || routePath === '/betting-record') {
     activeIndex.value = 'bettingRecord';
+  } else if (routeName === 'PurchaseRecord' || routePath === '/purchase-records') {
+    activeIndex.value = 'purchaseRecord';
   } else {
     activeIndex.value = routeName.charAt(0).toLowerCase() + routeName.slice(1);
   }
@@ -255,6 +264,8 @@ const handleSelect = (key: string) => {
   } else if (key === 'bettingRecord') {
     // 投注记录跳转到独立页面
     router.push({ path: '/betting-record', replace: false }).catch(() => { });
+  } else if (key === 'purchaseRecord') {
+    router.push({ path: '/purchase-records', replace: false }).catch(() => { });
   } else if (key === 'home') {
     router.push({ path: '/', replace: false }).catch(() => { });
   } else {

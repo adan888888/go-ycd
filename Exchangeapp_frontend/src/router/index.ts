@@ -3,6 +3,7 @@ import HomeView from '../views/HomeView.vue';
 import UserConfigView from '../views/UserConfigView.vue';
 import BettingRecord from '../views/BettingRecord.vue';
 import CurrencyExchangeView from '../views/CurrencyExchangeView.vue';
+import PurchaseRecordView from '../views/PurchaseRecordView.vue';
 import NewsView from '../views/NewsView.vue';
 import NewsDetailView from '../views/NewsDetailView.vue';
 import LoginView from '../views/LoginView.vue';
@@ -18,6 +19,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '投注记录' }
   },
   { path: '/exchange', name: 'CurrencyExchange', component: CurrencyExchangeView },
+  {
+    path: '/purchase-records',
+    name: 'PurchaseRecord',
+    component: PurchaseRecordView,
+    meta: { title: '购买记录' },
+  },
   { path: '/news', name: 'News', component: NewsView },
     /*:id 动态路由参数*/
   { path: '/news/:id', name: 'NewsDetail', component: NewsDetailView },
