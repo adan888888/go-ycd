@@ -11,7 +11,7 @@
         <div class="table-wrapper">
           <el-table :data="bettingList" stripe v-loading="loadingBetting" :height="tableHeight" empty-text="暂无记录"
             style="width: 100%">
-            <el-table-column type="index" label="序号" width="80" align="center">
+            <el-table-column type="index" label="用户内序号" width="100" align="center">
               <template #default="{ row, $index }">
                 <!-- 优先使用后端返回的 seq（每个用户自己的序号），没有时回退到原来的页内序号 -->
                 {{ row.seq !== undefined && row.seq !== null
