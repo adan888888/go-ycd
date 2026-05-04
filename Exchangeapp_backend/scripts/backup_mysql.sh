@@ -63,18 +63,46 @@ show_help() {
     echo "  $0 --restore      # 恢复备份"
 }
 
-# 检查 MySQL 服务是否运行
-check_mysql_service() {
+# 检查 MySQL 客户端工具
+check_mysql_tools() {
     if ! command -v mysqldump &> /dev/null; then
         log_error "mysqldump 命令未找到"
         log_info "请安装 MySQL 客户端: brew install mysql-client"
         exit 1
     fi
-    
-    # 检查 MySQL 连接
-    if ! mysqldump -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS --single-transaction --no-data $DB_NAME > /dev/null 2>&1; then
+
+    if ! command -v mysql &> /dev/null; then
+        log_error "mysql 命令未找到"
+        log_info "请安装 MySQL 客户端: brew install mysql-client"
+        exit 1
+    fi
+}
+
+# 检查 MySQL 服务是否可连接
+check_mysql_server() {
+    if ! mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS -e "SELECT 1;" > /dev/null 2>&1; then
         log_error "无法连接到 MySQL 服务器"
         log_info "请检查 MySQL 服务是否运行: $DB_HOST:$DB_PORT"
+        exit 1
+    fi
+}
+
+# 检查备份源数据库是否存在
+check_source_database() {
+    if ! mysqldump -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS --single-transaction --no-data $DB_NAME > /dev/null 2>&1; then
+        log_error "无法访问数据库: $DB_NAME"
+        log_info "请确认数据库存在且账号有权限访问"
+        exit 1
+    fi
+}
+
+# 确保恢复目标数据库存在
+ensure_target_database() {
+    if mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS \
+        -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" > /dev/null 2>&1; then
+        log_info "已确认目标数据库存在: $DB_NAME"
+    else
+        log_error "创建目标数据库失败: $DB_NAME"
         exit 1
     fi
 }
@@ -100,7 +128,7 @@ backup_database() {
     # 执行备份
     if [ "$compress" = true ]; then
         # 压缩备份
-        if mysqldump -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS --single-transaction --routines --triggers $DB_NAME | gzip > $backup_file; then
+        if mysqldump -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS --single-transaction --routines --triggers --databases $DB_NAME | gzip > $backup_file; then
             log_success "压缩备份成功: $backup_file"
         else
             log_error "压缩备份失败"
@@ -108,7 +136,7 @@ backup_database() {
         fi
     else
         # 普通备份
-        if mysqldump -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS --single-transaction --routines --triggers $DB_NAME > $backup_file; then
+        if mysqldump -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS --single-transaction --routines --triggers --databases $DB_NAME > $backup_file; then
             log_success "备份成功: $backup_file"
         else
             log_error "备份失败"
@@ -168,6 +196,9 @@ restore_backup() {
     fi
     
     log_warning "开始恢复数据库..."
+
+    # 如果目标数据库不存在，先自动创建
+    ensure_target_database
     
     # 执行恢复
     if [[ "$latest_backup" == *.gz ]]; then
@@ -224,9 +255,6 @@ clean_old_backups() {
 
 # 主函数
 main() {
-    # 检查 MySQL 服务
-    check_mysql_service
-    
     local compress=false
     local list_only=false
     local restore_only=false
@@ -267,8 +295,13 @@ main() {
     if [ "$list_only" = true ]; then
         list_backups
     elif [ "$restore_only" = true ]; then
+        check_mysql_tools
+        check_mysql_server
         restore_backup
     else
+        check_mysql_tools
+        check_mysql_server
+        check_source_database
         # 执行备份
         backup_database $compress
         

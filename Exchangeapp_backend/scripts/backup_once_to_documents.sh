@@ -1,5 +1,18 @@
 #!/bin/bash
 
+# MySQL 一次性备份脚本
+# 用途:
+#   手动执行一次数据库备份，将压缩后的 .sql.gz 文件保存到 /Users/a123123/Documents
+#   备份文件命名规则为 backup_YYYYMMDD_HHMMSS.sql.gz
+#
+# 使用命令:
+#   /bin/bash "/Users/a123123/GolandProjects/Web003Gin-01_gingormtutorials/Exchangeapp_backend/scripts/backup_once_to_documents.sh"
+#
+# 说明:
+#   1. 该脚本只执行“备份一次”，不会自动恢复数据
+#   2. 该脚本会进入 Docker 容器 mysql-test 内执行 mysqldump
+#   3. 备份文件保存在 Mac 本机的 Documents 目录，不会堆积在容器内部
+
 set -euo pipefail
 
 BACKUP_DIR="/Users/a123123/Documents"
@@ -9,7 +22,7 @@ DB_USER="root"
 DB_PASS="mima123"
 
 TIMESTAMP="$(date '+%Y%m%d_%H%M%S')"
-BACKUP_FILE="${BACKUP_DIR}/test_db_backup_${TIMESTAMP}.sql.gz"
+BACKUP_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.sql.gz"
 
 mkdir -p "${BACKUP_DIR}"
 
