@@ -1,4 +1,4 @@
-# MySQL（backup_mysql.sh） 备份脚本使用说明 （另外两个是用于mac电脑的定时任务，进入docker里面的命令进行的备份）
+# MySQL（backup_mysql.sh） 备份脚本使用说明 （另外几个是用于 Mac 电脑的定时任务和唤醒备份）
 
 这个目录包含了 MySQL 数据库备份脚本，用于备份和恢复 MySQL 数据库。
 
@@ -6,6 +6,15 @@
 
 ### `backup_mysql.sh` - MySQL 备份脚本
 用于备份和恢复 MySQL 数据库，支持多种环境（Docker、本地、远程、云数据库）。采用的是直接在命令行里面，进行的命令进行的。
+
+### `backup_once_to_documents.sh` - Mac 一次性备份脚本
+用于在 Mac 上手动执行一次数据库备份，或由 `launchd` 定时调用。该脚本会进入 Docker 容器 `mysql-test` 内执行 `mysqldump`，并把备份文件保存到 `/Users/a123123/Documents`。
+
+### `backup_on_wakeup.sh` - Mac 唤醒备份脚本
+用于在 Mac 每次开盖/唤醒时执行一次数据库备份。该脚本由 `SleepWatcher` 触发，内部会调用 `backup_once_to_documents.sh`，并把执行过程写入 `/Users/a123123/Documents/test_db_backup_wakeup.log`。
+
+### `com.a123123.test-db-backup.daily.plist` - Mac 每日定时任务
+这是 `launchd` 的配置文件，当前设置为每天 `0:00` 执行一次 `backup_once_to_documents.sh`。如果电脑在 `0:00` 处于睡眠状态，macOS 通常会在下次唤醒时补跑一次。
 
 ## 使用方法
 
@@ -55,6 +64,13 @@
 - **默认保留天数**: 30天
 
 ## 定时任务设置
+
+### 当前 Mac 自动备份方案
+
+- 每天 `0:00` 自动备份一次（`launchd`）
+- 每次电脑开盖/唤醒时再备份一次（`SleepWatcher`）
+- 定时备份日志：`/Users/a123123/Documents/test_db_backup_daily.out.log`
+- 唤醒备份日志：`/Users/a123123/Documents/test_db_backup_wakeup.log`
 
 ### 设置自动备份
 ```bash
