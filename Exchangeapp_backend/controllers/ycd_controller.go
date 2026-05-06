@@ -1540,11 +1540,11 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		if zt_syz < 0 {
 			value := (math.Abs(zt_syz) + d) / float64(p)
 			formattedValue := strconv.FormatFloat(value, 'f', 0, 64)
-			result = fmt.Sprintf(" 须%sx%d ", formattedValue, p)
+			result = fmt.Sprintf("须%sx%d ", formattedValue, p)
 		} else {
 			value := (math.Abs(zt_syz) - d) / float64(p)
 			formattedValue := strconv.FormatFloat(value, 'f', 0, 64)
-			result = fmt.Sprintf(" 可负%sx%d ", formattedValue, p)
+			result = fmt.Sprintf("可负%sx%d", formattedValue, p)
 		}
 	}
 	statisticalAreas[25] = result //还需要多少 加到50%的时候
@@ -1641,13 +1641,13 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		if parse == 0 {
 			statisticalAreas[26] = ""
 		} else {
-			statisticalAreas[26] = fmt.Sprintf(" 须%.1fx%d ", (jb_syz*-1+dJ)/float64(parse), parse)
+			statisticalAreas[26] = fmt.Sprintf("须%.1fx%d ", (jb_syz*-1+dJ)/float64(parse), parse)
 		}
 	} else {
 		if parse == 0 {
 			statisticalAreas[26] = ""
 		} else {
-			statisticalAreas[26] = fmt.Sprintf(" 可负%.1fx%d ", (jb_syz-dJ)/float64(parse), parse)
+			statisticalAreas[26] = fmt.Sprintf("可负%.1fx%d", (jb_syz-dJ)/float64(parse), parse)
 		}
 	}
 	// 填充第四列数据
