@@ -229,7 +229,7 @@ func Restart(ctx *gin.Context) {
 	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
 		tableYanchendao1.ColumnZhuangZhanBi = 50
 	}
-	E := global.Db.Table("table_yanchendao1").Omit("id").Create(tableYanchendao1) //.Omit忽略id插入数据
+	E := global.Db.Table("table_yanchendao1").Omit("id", "created_at").Create(tableYanchendao1) //.Omit忽略id和创建时间，插入时使用数据库当前时间
 	if E.Error != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
@@ -1398,6 +1398,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	newRecord := tableYanchendao1
 	newRecord.ID = 0 // 重置 ID，让数据库自动生成新 ID
 	newRecord.TempIndex = strconv.FormatInt(tempIndex, 10)
+	newRecord.CreatedAt = time.Now()
 	//防止取消局部平衡的时候再次存一次
 	if (tempIndex == -1 && newRecord.TempIndex != tableYanchendao1.TempIndex) || (tempIndex > 2 && newRecord.TempIndex != tableYanchendao1.TempIndex) {
 		if err := global.Db.Save(&newRecord).Error; err != nil {
