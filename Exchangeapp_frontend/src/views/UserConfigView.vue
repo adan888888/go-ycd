@@ -11,37 +11,43 @@
         <div class="table-wrapper">
           <el-table :data="table1List" stripe v-loading="loadingTable1" :height="tableHeight" empty-text="暂无记录"
             style="width: 100%">
-            <el-table-column type="index" label="序号" width="60" align="center">
+            <el-table-column type="index" label="序号" width="55" align="center">
               <template #default="{ $index }">
                 {{ (table1Page - 1) * table1PageSize + $index + 1 }}
               </template>
             </el-table-column>
-            <el-table-column prop="id" label="ID" width="80" align="center" show-overflow-tooltip>
+            <el-table-column prop="id" label="ID" width="70" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.id || '-' }}
               </template>
             </el-table-column>
-            <el-table-column prop="uid" label="用户ID" width="120" align="center" show-overflow-tooltip>
+            <el-table-column prop="uid" label="用户ID" width="118" align="right">
               <template #default="{ row }">
-                {{ row.uid }}
+                <span
+                  class="uid-copy"
+                  :title="userIdTooltip(row.uid)"
+                  @click.stop="copyUserId(row.uid)"
+                >
+                  {{ formatUserIdForDisplay(row.uid) }}
+                </span>
               </template>
             </el-table-column>
-            <el-table-column prop="username" label="用户名" width="100" align="center" show-overflow-tooltip>
+            <el-table-column prop="username" label="用户名" width="90" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.username || '-' }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_benjin" label="本金" width="100" align="center" show-overflow-tooltip>
+            <el-table-column prop="column_benjin" label="本金" width="90" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 ¥{{ formatAmount(parseFloat(row.column_benjin || 0)) }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_yongJin" label="俑金" width="100" align="center" show-overflow-tooltip>
+            <el-table-column prop="column_yongJin" label="俑金" width="90" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 ¥{{ formatAmount(parseFloat(row.column_yongJin || 0)) }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_mean" label="数学期望" width="110" align="center" show-overflow-tooltip>
+            <el-table-column prop="column_mean" label="数学期望" width="95" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 <span :style="{ color: parseFloat(row.column_mean || 0) >= 0 ? '#67c23a' : '#f56c6c' }">
                   {{ parseFloat(row.column_mean || 0) >= 0 ? '+' : '' }}{{ formatAmount(parseFloat(row.column_mean ||
@@ -49,28 +55,28 @@
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="column_restart_index" label="重启位置" width="100" align="center"
+            <el-table-column prop="column_restart_index" label="重启位置" width="90" align="center"
               show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.column_restart_index || '-' }}
               </template>
             </el-table-column>
-            <el-table-column prop="temp_index" label="临时索引" width="100" align="center" show-overflow-tooltip />
-            <el-table-column prop="column_liushui_index" label="流水位置" width="100" align="center"
+            <el-table-column prop="temp_index" label="临时索引" width="90" align="center" show-overflow-tooltip />
+            <el-table-column prop="column_liushui_index" label="流水位置" width="90" align="center"
               show-overflow-tooltip />
-            <el-table-column prop="column_zhuang_zhan_bi" label="庄占比" width="90" align="center">
+            <el-table-column prop="column_zhuang_zhan_bi" label="庄占比" width="80" align="center">
               <template #default="{ row }">
                 <el-tag :type="row.column_zhuang_zhan_bi >= 50 ? 'warning' : 'success'" size="small">
                   {{ row.column_zhuang_zhan_bi || 50 }}%
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" label="创建时间" width="140" align="center" show-overflow-tooltip>
+            <el-table-column prop="created_at" label="创建时间" width="180" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ formatDateTime(row.created_at) }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="100" align="center" fixed="right">
+            <el-table-column label="操作" width="80" align="center" fixed="right">
               <template #default="{ row }">
                 <el-button :icon="Edit" size="small" @click="handleEdit(row)" circle class="edit-btn" />
               </template>
@@ -210,6 +216,51 @@ const formatDateTime = (dateTime: string): string => {
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+/** 用户 ID 过长时显示：前面若干位 + … + 后面若干位（复制仍为完整值） */
+const userIdHeadChars = 4;
+const userIdTailChars = 6;
+
+const formatUserIdForDisplay = (uid: string | number | null | undefined): string => {
+  const s = uid == null || uid === '' ? '' : String(uid);
+  if (!s) return '-';
+  const minShow = userIdHeadChars + userIdTailChars;
+  if (s.length <= minShow) return s;
+  return `${s.slice(0, userIdHeadChars)}…${s.slice(-userIdTailChars)}`;
+};
+
+const userIdTooltip = (uid: string | number | null | undefined): string => {
+  const s = uid == null || uid === '' ? '' : String(uid);
+  if (!s) return '';
+  return `完整用户ID：${s}（点击复制）`;
+};
+
+/** 点击用户ID复制到剪贴板 */
+const copyUserId = async (uid: string | number | null | undefined) => {
+  const text = uid == null || uid === '' ? '' : String(uid);
+  if (!text) {
+    ElMessage.warning('无用户ID可复制');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    ElMessage.success(`已复制：${text}`);
+  } catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      ElMessage.success(`已复制：${text}`);
+    } catch {
+      ElMessage.error('复制失败，请手动选择复制');
+    }
+  }
 };
 
 // 刷新表格数据
@@ -448,6 +499,23 @@ onUnmounted(() => {
   padding: 8px 20px;
   margin-top: 0;
   margin-bottom: 0;
+}
+
+.uid-copy {
+  cursor: pointer;
+  color: var(--el-color-primary);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.uid-copy:hover {
+  opacity: 0.85;
 }
 
 /* table_yanchendao1 数据表格 */
