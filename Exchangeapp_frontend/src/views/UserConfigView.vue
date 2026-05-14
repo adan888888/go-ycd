@@ -23,11 +23,7 @@
             </el-table-column>
             <el-table-column prop="uid" label="用户ID" width="118" align="right">
               <template #default="{ row }">
-                <span
-                  class="uid-copy"
-                  :title="userIdTooltip(row.uid)"
-                  @click.stop="copyUserId(row.uid)"
-                >
+                <span class="uid-copy" :title="userIdTooltip(row.uid)" @click.stop="copyUserId(row.uid)">
                   {{ formatUserIdForDisplay(row.uid) }}
                 </span>
               </template>
@@ -39,31 +35,33 @@
             </el-table-column>
             <el-table-column prop="column_benjin" label="本金" width="90" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                ¥{{ formatAmount(parseFloat(row.column_benjin || 0)) }}
+                {{ formatAmount(parseFloat(row.column_benjin || 0)) }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_yongJin" label="俑金" width="90" align="center" show-overflow-tooltip>
+            <el-table-column prop="column_yongJin" label="俑金" width="60" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                ¥{{ formatAmount(parseFloat(row.column_yongJin || 0)) }}
+                {{ formatAmount(parseFloat(row.column_yongJin || 0)) }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_mean" label="数学期望" width="95" align="center" show-overflow-tooltip>
+            <el-table-column prop="column_mean" label="期望" width="60" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 <span :style="{ color: parseFloat(row.column_mean || 0) >= 0 ? '#67c23a' : '#f56c6c' }">
-                  {{ parseFloat(row.column_mean || 0) >= 0 ? '+' : '' }}{{ formatAmount(parseFloat(row.column_mean ||
-                    0)) }}
+                  {{ formatAmount(parseFloat(row.column_mean || 0)) }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="column_restart_index" label="重启位置" width="90" align="center"
-              show-overflow-tooltip>
+            <el-table-column prop="column_restart_index" label="重启位置" width="90" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.column_restart_index || '-' }}
               </template>
             </el-table-column>
+            <el-table-column label="回合手数" width="100" align="center" show-overflow-tooltip>
+              <template #default="{ row, $index }">
+                {{ restartSpacing(row, $index) }}
+              </template>
+            </el-table-column>
             <el-table-column prop="temp_index" label="临时索引" width="90" align="center" show-overflow-tooltip />
-            <el-table-column prop="column_liushui_index" label="流水位置" width="90" align="center"
-              show-overflow-tooltip />
+            <el-table-column prop="column_liushui_index" label="流水位置" width="90" align="center" show-overflow-tooltip />
             <el-table-column prop="column_zhuang_zhan_bi" label="庄占比" width="80" align="center">
               <template #default="{ row }">
                 <el-tag :type="row.column_zhuang_zhan_bi >= 50 ? 'warning' : 'success'" size="small">
@@ -195,6 +193,23 @@ const calculateTableHeight = () => {
 // 窗口大小改变时重新计算
 const handleResize = () => {
   calculateTableHeight();
+};
+
+/** 本次重启位置 − 上一条记录的重启位置（列表按 id 升序，上一行为同页 index-1；每页第一行无跨页数据时显示 -） */
+const restartSpacing = (row: any, index: number): string => {
+  if (index <= 0) return '-';
+  const list = table1List.value;
+  const prevRow = list[index - 1];
+  if (!prevRow) return '-';
+  const curRaw = String(row.column_restart_index ?? '').trim();
+  const prevRaw = String(prevRow.column_restart_index ?? '').trim();
+  if (!curRaw || !prevRaw) return '-';
+  const cur = Number.parseFloat(curRaw);
+  const prev = Number.parseFloat(prevRaw);
+  if (!Number.isFinite(cur) || !Number.isFinite(prev)) return '-';
+  const delta = cur - prev;
+  if (Object.is(delta, -0) || delta === 0) return '0';
+  return delta > 0 ? `+${delta}` : String(delta);
 };
 
 // 格式化金额
@@ -579,6 +594,13 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding-left: 0px;
+  padding-right: 0px;
+}
+
+.table-wrapper :deep(.el-table td .cell) {
+  padding-left: 0px;
+  padding-right: 0px;
 }
 
 .table-wrapper :deep(.el-table td) {
