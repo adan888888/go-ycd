@@ -1,8 +1,20 @@
 <template>
   <div class="betting-container">
     <div class="content-wrapper">
-      <!-- 刷新按钮 -->
+      <!-- 工具栏：按 ID 搜索（纯前端分页扫描，不改后端） -->
       <div class="refresh-header">
+        <div class="toolbar-left">
+          <el-input
+            v-model="searchIdQuery"
+            placeholder="记录 ID"
+            clearable
+            class="id-search-input"
+            @keyup.enter="handleSearchById"
+          />
+          <el-button type="primary" :loading="idSearchLoading" @click="handleSearchById">搜索</el-button>
+          <el-button v-if="idSearchActive" @click="clearIdSearch">清除搜索</el-button>
+          <span v-if="idSearchActive" class="id-search-hint">当前为搜索结果（仅 1 条），清除后恢复分页列表</span>
+        </div>
         <el-button type="primary" :icon="Refresh" @click="handleRefreshBetting" :loading="loadingBetting" circle />
       </div>
 
@@ -90,7 +102,7 @@
           <div class="footer-left">
             <span class="footer-info">本页共 {{ bettingList.length }} 条记录</span>
           </div>
-          <div class="table-pagination">
+          <div v-if="!idSearchActive" class="table-pagination">
             <el-pagination v-model:current-page="bettingPage" v-model:page-size="bettingPageSize"
               :page-sizes="[10, 20, 50, 100]" :total="bettingTotal" layout="total, sizes, prev, pager, next, jumper"
               @size-change="handleBettingSizeChange" @current-change="handleBettingPageChange" />
@@ -140,6 +152,11 @@ const isInitialLoadComplete = ref<boolean>(false); // 标记是否已完成初�
 const isRequesting = ref<boolean>(false); // 防止重复请求
 const bettingList = ref<any[]>([]);
 const tableHeight = ref<number>(400);
+
+/** 按记录 ID 搜索（前端逐页请求已有列表接口，匹配后只展示一条） */
+const searchIdQuery = ref<string>('');
+const idSearchActive = ref<boolean>(false);
+const idSearchLoading = ref<boolean>(false);
 
 // 编辑对话框相关
 const editDialogVisible = ref<boolean>(false);
@@ -229,6 +246,105 @@ const copyUserId = async (uid: string | number | null | undefined) => {
 
 // 刷新表格数据
 const handleRefreshBetting = () => {
+  idSearchActive.value = false;
+  searchIdQuery.value = '';
+  fetchBettingList();
+};
+
+/** 请求某一页列表（与列表接口一致，供分页与 ID 扫描共用） */
+const fetchBettingPageRaw = async (
+  page: number,
+  pageSize: number
+): Promise<{ list: any[]; total: number }> => {
+  const params = new URLSearchParams();
+  if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
+    params.append('user_id', String(selectedUserId.value));
+  }
+  params.append('page', String(page));
+  params.append('page_size', String(pageSize));
+  const url = `/ycd/betting-record/list?${params.toString()}`;
+  const response = await axios.get(url, { timeout: 10000 });
+  if (response.data.code !== 0) {
+    throw new Error(response.data.msg || '未知错误');
+  }
+  const data = response.data.data;
+  if (!data) {
+    return { list: [], total: 0 };
+  }
+  if (data.list && Array.isArray(data.list)) {
+    return { list: data.list, total: data.total || 0 };
+  }
+  if (Array.isArray(data)) {
+    return { list: data, total: data.length };
+  }
+  return { list: [], total: 0 };
+};
+
+const rowIdEqualsQuery = (row: any, q: string): boolean => {
+  const id = row?.id;
+  if (id === undefined || id === null) return false;
+  return String(id).trim() === q;
+};
+
+/** 按 ID 检索：优先当前表格内存，否则请求后端 /betting-record/by-id */
+const handleSearchById = async () => {
+  const q = searchIdQuery.value.trim();
+  if (!q) {
+    ElMessage.warning('请输入记录 ID');
+    return;
+  }
+
+  const hitLocal = bettingList.value.find((r) => rowIdEqualsQuery(r, q));
+  if (hitLocal) {
+    bettingList.value = [hitLocal];
+    bettingTotal.value = 1;
+    idSearchActive.value = true;
+    ElMessage.success('已在当前列表中找到该记录');
+    return;
+  }
+
+  idSearchLoading.value = true;
+  try {
+    const params = new URLSearchParams();
+    params.append('id', q);
+    if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
+      params.append('user_id', String(selectedUserId.value));
+    }
+    const url = `/ycd/betting-record/by-id?${params.toString()}`;
+    const response = await axios.get(url, { timeout: 10000 });
+
+    if (response.data.code !== 0) {
+      ElMessage.warning(response.data.msg || '查询失败');
+      return;
+    }
+
+    const data = response.data.data;
+    const list = data?.list;
+    if (list && Array.isArray(list) && list.length > 0) {
+      bettingList.value = list;
+      bettingTotal.value = 1;
+      idSearchActive.value = true;
+      ElMessage.success('已找到该记录');
+      return;
+    }
+
+    ElMessage.warning(response.data.msg || `未找到 ID 为「${q}」的记录`);
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED') {
+      ElMessage.warning('请求超时，请稍后重试');
+    } else if (error.message?.includes('Network Error')) {
+      ElMessage.error('网络连接失败，请检查后端服务是否运行');
+    } else {
+      ElMessage.error('搜索失败: ' + (error.response?.data?.msg || error.message));
+    }
+  } finally {
+    idSearchLoading.value = false;
+  }
+};
+
+const clearIdSearch = () => {
+  searchIdQuery.value = '';
+  idSearchActive.value = false;
   fetchBettingList();
 };
 
@@ -238,86 +354,45 @@ const fetchBettingList = async () => {
   if (isRequesting.value || loadingBetting.value) {
     return;
   }
+  idSearchActive.value = false;
   loadingBetting.value = true;
   isRequesting.value = true;
   try {
-    // 构建查询参数
-    const params = new URLSearchParams();
-    if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
-      params.append('user_id', String(selectedUserId.value));
-    }
-    params.append('page', String(bettingPage.value));
-    params.append('page_size', String(bettingPageSize.value));
+    const raw = await fetchBettingPageRaw(bettingPage.value, bettingPageSize.value);
 
-    const url = `/ycd/betting-record/list?${params.toString()}`;
-    const response = await axios.get(url, {
-      timeout: 10000 // 设置10秒超时
-    });
+    const newTotal = raw.total;
 
-    if (response.data.code === 0) {
-      if (response.data.data) {
-        const data = response.data.data;
-        // 处理新的返回格式（包含 list, total, page, page_size）
-        if (data.list && Array.isArray(data.list)) {
-          const newTotal = data.total || 0;
-          bettingTotal.value = newTotal;
-
-          // 如果是第一次加载且页码为1，自动跳转到最后一页
-          if (bettingPage.value === 1 && newTotal > 0 && !isInitialLoadComplete.value) {
-            const totalPages = Math.ceil(newTotal / bettingPageSize.value);
-            if (totalPages > 1) {
-              // 先重置请求标记和加载状态
-              isRequesting.value = false;
-              loadingBetting.value = false;
-              // 设置页码为最后一页
-              bettingPage.value = totalPages;
-              isInitialLoadComplete.value = true;
-              // 使用 setTimeout 确保页码更新后再请求
-              setTimeout(() => {
-                fetchBettingList();
-              }, 10);
-              return; // 不显示第一页的数据
-            }
-          }
-
-          // 正常显示数据
-          bettingList.value = data.list;
-          isInitialLoadComplete.value = true;
-
-          if (bettingList.value.length > 0) {
-            // 不显示成功消息，避免刷屏
-          } else {
-            ElMessage.info('暂无记录');
-          }
-        } else if (Array.isArray(data)) {
-          // 兼容旧格式（直接返回数组）
-          bettingList.value = data;
-          bettingTotal.value = data.length;
-        } else {
-          bettingList.value = [];
-          bettingTotal.value = 0;
-          ElMessage.info('暂无记录');
-        }
-      } else {
-        bettingList.value = [];
-        bettingTotal.value = 0;
-        ElMessage.info('暂无记录');
+    // 如果是第一次加载且页码为1，自动跳转到最后一页
+    if (bettingPage.value === 1 && newTotal > 0 && !isInitialLoadComplete.value) {
+      const totalPages = Math.ceil(newTotal / bettingPageSize.value);
+      if (totalPages > 1) {
+        isRequesting.value = false;
+        loadingBetting.value = false;
+        bettingPage.value = totalPages;
+        isInitialLoadComplete.value = true;
+        setTimeout(() => {
+          fetchBettingList();
+        }, 10);
+        return;
       }
-    } else {
-      bettingList.value = [];
-      bettingTotal.value = 0;
-      ElMessage.warning('获取记录失败: ' + (response.data.msg || '未知错误'));
+    }
+
+    bettingList.value = raw.list;
+    bettingTotal.value = newTotal;
+    isInitialLoadComplete.value = true;
+
+    if (bettingList.value.length === 0) {
+      ElMessage.info('暂无记录');
     }
   } catch (error: any) {
     bettingList.value = [];
     bettingTotal.value = 0;
-    // 只显示网络错误，不显示超时等错误（避免刷屏）
     if (error.code === 'ECONNABORTED') {
       // 请求超时，静默处理
     } else if (error.message?.includes('Network Error')) {
       ElMessage.error('网络连接失败，请检查后端服务是否运行');
     } else {
-      ElMessage.error('获取记录失败: ' + (error.response?.data?.msg || error.message));
+      ElMessage.warning('获取记录失败: ' + (error.message || '未知错误'));
     }
   } finally {
     loadingBetting.value = false;
@@ -391,6 +466,8 @@ watch(() => selectedUserId.value, (newValue, oldValue) => {
   if (newValue === oldValue) return;
 
   // 重置分页并重新加载
+  searchIdQuery.value = '';
+  idSearchActive.value = false;
   bettingPage.value = 1;
   isInitialLoadComplete.value = false;
   fetchBettingList();
@@ -429,8 +506,27 @@ onUnmounted(() => {
 
 .refresh-header {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 16px;
+}
+
+.toolbar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.id-search-input {
+  width: 160px;
+}
+
+.id-search-hint {
+  font-size: 13px;
+  color: #909399;
 }
 
 .uid-copy {

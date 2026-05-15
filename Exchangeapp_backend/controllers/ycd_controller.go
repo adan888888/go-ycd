@@ -1124,6 +1124,122 @@ func GetTable2List(ctx *gin.Context) {
 	})
 }
 
+// GetTable2ByID 按主键查询单条投注记录（后台检索）。可选 query user_id，与列表接口一致：传入则只在该用户下查找。
+func GetTable2ByID(ctx *gin.Context) {
+	idStr := strings.TrimSpace(ctx.Query("id"))
+	userIDStr := strings.TrimSpace(ctx.Query("user_id"))
+	if idStr == "" {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "请传入记录 id",
+			Data:   gin.H{},
+		})
+		return
+	}
+	recordID, err := strconv.Atoi(idStr)
+	if err != nil || recordID < 1 {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusBadRequest,
+			Code:   1,
+			Msg:    "记录 ID 格式错误",
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	var sql string
+	var args []interface{}
+
+	if userIDStr == "" {
+		sql = `
+WITH ranked AS (
+	SELECT *,
+		ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC) AS seq
+	FROM table_yanchendao2
+	WHERE deleted_at IS NULL
+)
+SELECT * FROM ranked WHERE id = ? LIMIT 1`
+		args = []interface{}{recordID}
+	} else {
+		userID, err := strconv.ParseInt(userIDStr, 10, 64)
+		if err != nil {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusBadRequest,
+				Code:   1,
+				Msg:    "用户ID格式错误: " + err.Error(),
+				Data:   gin.H{},
+			})
+			return
+		}
+		sql = `
+WITH ranked AS (
+	SELECT *,
+		ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC) AS seq
+	FROM table_yanchendao2
+	WHERE deleted_at IS NULL AND user_id = ?
+)
+SELECT * FROM ranked WHERE id = ? LIMIT 1`
+		args = []interface{}{userID, recordID}
+	}
+
+	var item TableYanchendao2WithSeq
+	if err := global.Db.Raw(sql, args...).Scan(&item).Error; err != nil {
+		Fail(ctx, ResponseJson{
+			Status: http.StatusInternalServerError,
+			Code:   1,
+			Msg:    "查询失败: " + err.Error(),
+			Data:   gin.H{},
+		})
+		return
+	}
+
+	if item.ID != recordID {
+		Ok(ctx, ResponseJson{
+			Status: http.StatusOK,
+			Code:   0,
+			Msg:    "未找到记录",
+			Data: gin.H{
+				"list":  []gin.H{},
+				"total": 0,
+			},
+		})
+		return
+	}
+
+	username := ""
+	var user models.User
+	if err := global.Db.Select("username").Where("uid = ?", item.UserID).First(&user).Error; err == nil {
+		username = user.Username
+	}
+
+	record := gin.H{
+		"id":                   item.ID,
+		"seq":                  item.Seq,
+		"user_id":              strconv.FormatInt(item.UserID, 10),
+		"username":             username,
+		"column_xiazhujine":    item.ColumnXiazhujine,
+		"colmun_shuyingzhi":    item.ColmunShuyingzhi,
+		"colmun_shuyingzhi_d":  item.ColmunShuyingzhiD,
+		"colmun_shengfulu":     item.ColmunShengfulu,
+		"colmun_zx":            item.ColmunZX,
+		"colmun_remark":        item.ColmunRemark,
+		"column_current_jin":   item.ColumnCurrentJin,
+		"created_at":           item.CreatedAt,
+		"deleted_at":           item.DeletedAt,
+	}
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "查询成功",
+		Data: gin.H{
+			"list":  []gin.H{record},
+			"total": 1,
+		},
+	})
+}
+
 // UpdateTable2Config 更新table_yanchendao2的输赢值和消数后输赢值
 func UpdateTable2Config(ctx *gin.Context) {
 	type UpdateTable2ConfigRequest struct {

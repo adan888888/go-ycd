@@ -102,7 +102,8 @@ func SetupRouter() *gin.Engine {
 		ycdStats.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi)   // 修改庄占比（无需认证）
 		ycdStats.GET("/table1/list", controllers.GetTable1List)                // 获取table_yanchendao1数据列表
 		ycdStats.PUT("/table1/config", controllers.UpdateTable1Config)         // 更新table_yanchendao1的临时索引和重启位置
-		ycdStats.GET("/betting-record/list", controllers.GetTable2List)        // 获取投注记录列表
+		ycdStats.GET("/betting-record/list", controllers.GetTable2List)          // 获取投注记录列表
+		ycdStats.GET("/betting-record/by-id", controllers.GetTable2ByID)        // 按主键查询单条投注记录（可选 user_id）
 		ycdStats.PUT("/betting-record/config", controllers.UpdateTable2Config) // 更新投注记录的输赢值和消数后输赢值
 	}
 
