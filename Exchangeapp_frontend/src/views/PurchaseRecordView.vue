@@ -270,8 +270,11 @@ onUnmounted(() => {
 <style scoped>
 .purchase-container {
   width: 100%;
-  min-height: 100%;
-  margin: -20px;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  margin: 0;
   padding: 20px;
   box-sizing: border-box;
 }

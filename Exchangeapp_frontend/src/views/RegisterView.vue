@@ -40,8 +40,10 @@ const register = async () => {
 .auth-container {  
   display: flex;  
   justify-content: center;  
-  align-items: center;  
-  height: 100vh; 
+  align-items: center;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   background-color: #f5f5f5; 
   padding: 20px;  
   box-sizing: border-box; 

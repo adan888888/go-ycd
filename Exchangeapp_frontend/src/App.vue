@@ -34,7 +34,7 @@
       </div>
     </el-header>
 
-    <el-container>
+    <el-container class="admin-body">
       <!-- 左侧边栏 -->
       <el-aside width="150px" class="admin-aside">
         <el-menu :default-active="activeIndex" class="admin-menu" background-color="#304156" text-color="#bfcbd9"
@@ -90,9 +90,11 @@
         </el-menu>
       </el-aside>
 
-      <!-- 主内容区 -->
+      <!-- 主内容区：无 padding，由各页面自控留白；内部铺满可视高度 -->
       <el-main class="admin-main">
-        <router-view></router-view>
+        <div class="router-view-fill">
+          <router-view />
+        </div>
       </el-main>
     </el-container>
   </el-container>
@@ -305,6 +307,14 @@ body {
 .admin-layout {
   height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 顶部导航栏 */
@@ -425,14 +435,24 @@ body {
   color: #fff !important;
 }
 
-/* 主内容区 */
+/* 主内容区：去掉原先 20px padding，避免四周大块灰边；高度铺满 aside 下方区域 */
 .admin-main {
   background-color: #f0f2f5;
-  padding: 20px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  height: calc(100vh - 60px);
-  position: relative;
+  padding: 0 !important;
+  overflow: hidden;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.router-view-fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 </style>

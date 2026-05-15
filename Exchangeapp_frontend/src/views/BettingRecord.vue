@@ -1,26 +1,21 @@
 <template>
   <div class="betting-container">
     <div class="content-wrapper">
-      <!-- 工具栏：按 ID 搜索（纯前端分页扫描，不改后端） -->
+      <!-- 工具栏：按记录 ID 全局检索（不按顶部用户筛选） -->
       <div class="refresh-header">
         <div class="toolbar-left">
-          <el-input
-            v-model="searchIdQuery"
-            placeholder="记录 ID"
-            clearable
-            class="id-search-input"
-            @keyup.enter="handleSearchById"
-          />
+          <el-input v-model="searchIdQuery" placeholder="记录 ID" clearable class="id-search-input"
+            @keyup.enter="handleSearchById" />
           <el-button type="primary" :loading="idSearchLoading" @click="handleSearchById">搜索</el-button>
           <el-button v-if="idSearchActive" @click="clearIdSearch">清除搜索</el-button>
-          <span v-if="idSearchActive" class="id-search-hint">当前为搜索结果（仅 1 条），清除后恢复分页列表</span>
+          <span v-if="idSearchActive" class="id-search-hint">当前为全局搜索结果（仅 1 条），清除后恢复为顶部所选用户的分页列表</span>
         </div>
         <el-button type="primary" :icon="Refresh" @click="handleRefreshBetting" :loading="loadingBetting" circle />
       </div>
 
       <!-- 投注记录 -->
       <el-card id="betting-record" class="table-card" shadow="always">
-        <div class="table-wrapper">
+        <div ref="tableWrapperRef" class="table-wrapper">
           <el-table :data="bettingList" stripe v-loading="loadingBetting" :height="tableHeight" empty-text="暂无记录"
             style="width: 100%">
             <el-table-column type="index" label="序号" width="90" align="center">
@@ -38,11 +33,7 @@
             </el-table-column>
             <el-table-column prop="user_id" label="用户ID" width="118" align="right">
               <template #default="{ row }">
-                <span
-                  class="uid-copy"
-                  :title="userIdTooltip(row.user_id)"
-                  @click.stop="copyUserId(row.user_id)"
-                >
+                <span class="uid-copy" :title="userIdTooltip(row.user_id)" @click.stop="copyUserId(row.user_id)">
                   {{ formatUserIdForDisplay(row.user_id) }}
                 </span>
               </template>
@@ -73,7 +64,7 @@
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="colmun_shengfulu" label="胜负路" width="64" align="center" show-overflow-tooltip />
+            <el-table-column prop="colmun_shengfulu" label="胜负路" width="66" align="center" show-overflow-tooltip />
             <el-table-column prop="colmun_zx" label="开奖" width="60" align="center">
               <template #default="{ row }">
                 <el-tag :type="row.colmun_zx === '庄' ? 'warning' : 'success'" size="small">
@@ -135,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, inject, watch, type Ref } from 'vue';
+import { ref, onMounted, onUnmounted, inject, watch, nextTick, type Ref } from 'vue';
 import { Refresh, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
@@ -152,6 +143,18 @@ const isInitialLoadComplete = ref<boolean>(false); // 标记是否已完成初�
 const isRequesting = ref<boolean>(false); // 防止重复请求
 const bettingList = ref<any[]>([]);
 const tableHeight = ref<number>(400);
+/** 表格可滚动区域：由 ResizeObserver 填满卡片剩余高度 */
+const tableWrapperRef = ref<HTMLElement | null>(null);
+let tableResizeObserver: ResizeObserver | null = null;
+
+const syncTableHeight = () => {
+  const el = tableWrapperRef.value;
+  if (!el) return;
+  const h = Math.floor(el.getBoundingClientRect().height);
+  if (h > 0) {
+    tableHeight.value = Math.max(120, h);
+  }
+};
 
 /** 按记录 ID 搜索（前端逐页请求已有列表接口，匹配后只展示一条） */
 const searchIdQuery = ref<string>('');
@@ -170,13 +173,6 @@ const editForm = ref<{
   colmun_shuyingzhi: '',
   colmun_shuyingzhi_d: ''
 });
-
-// 计算表格高度
-const calculateTableHeight = () => {
-  const windowHeight = window.innerHeight;
-  // 减去顶部导航、刷新按钮、分页器等的高度
-  tableHeight.value = Math.max(300, windowHeight - 250);
-};
 
 // 格式化金额
 const formatAmount = (amount: number): string => {
@@ -286,7 +282,7 @@ const rowIdEqualsQuery = (row: any, q: string): boolean => {
   return String(id).trim() === q;
 };
 
-/** 按 ID 检索：优先当前表格内存，否则请求后端 /betting-record/by-id */
+/** 按 ID 检索：优先当前表格内存；否则请求后端 /betting-record/by-id（仅 id，全局不按顶部用户过滤） */
 const handleSearchById = async () => {
   const q = searchIdQuery.value.trim();
   if (!q) {
@@ -305,11 +301,9 @@ const handleSearchById = async () => {
 
   idSearchLoading.value = true;
   try {
+    // 按产品约定：仅按记录主键 id 全局检索，不附带顶部用户筛选（避免「选人后搜不到、全部却能搜到」）
     const params = new URLSearchParams();
     params.append('id', q);
-    if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
-      params.append('user_id', String(selectedUserId.value));
-    }
     const url = `/ycd/betting-record/by-id?${params.toString()}`;
     const response = await axios.get(url, { timeout: 10000 });
 
@@ -475,33 +469,51 @@ watch(() => selectedUserId.value, (newValue, oldValue) => {
 
 // 组件挂载时自动加载数据
 onMounted(() => {
-  // 计算表格高度
-  calculateTableHeight();
-  window.addEventListener('resize', calculateTableHeight);
-  // 加载数据
+  window.addEventListener('resize', syncTableHeight);
   fetchBettingList();
+  nextTick(() => {
+    syncTableHeight();
+    tableResizeObserver = new ResizeObserver(() => syncTableHeight());
+    if (tableWrapperRef.value) {
+      tableResizeObserver.observe(tableWrapperRef.value);
+    }
+  });
 });
 
 // 组件卸载时移除事件监听
 onUnmounted(() => {
-  window.removeEventListener('resize', calculateTableHeight);
+  window.removeEventListener('resize', syncTableHeight);
+  tableResizeObserver?.disconnect();
+  tableResizeObserver = null;
 });
 </script>
 
 <style scoped>
 .betting-container {
   width: 100%;
-  min-height: 100%;
-  margin: -20px;
-  padding: 20px;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #f0f2f5;
   box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .content-wrapper {
   width: 100%;
   max-width: 100%;
-  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: hidden;
   box-sizing: border-box;
+  padding: 0;
 }
 
 .refresh-header {
@@ -510,7 +522,10 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .toolbar-left {
@@ -547,20 +562,32 @@ onUnmounted(() => {
 }
 
 .table-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   border-radius: 0;
   background: #ffffff;
   box-shadow: none;
   border: none;
   overflow: hidden;
+  margin-bottom: 0;
 }
 
 .table-card :deep(.el-card__body) {
   padding: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .table-wrapper {
   width: 100%;
+  flex: 1;
+  min-height: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   padding: 0;
 }
 
@@ -570,10 +597,11 @@ onUnmounted(() => {
 
 .table-footer {
   margin-top: 0;
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  padding: 12px 12px;
   border-top: 1px solid #ebeef5;
   background-color: #ffffff;
 }
@@ -598,6 +626,8 @@ onUnmounted(() => {
 :deep(.el-table) {
   font-size: 14px;
   border: none;
+  /* 与下面 th 的 #fafafa 一致；固定列表头大量用主题变量/白色 patch，需从源头对齐 */
+  --el-table-header-bg-color: #fafafa;
 }
 
 :deep(.el-table::before) {
@@ -612,6 +642,23 @@ onUnmounted(() => {
   border-bottom: 1px solid #ebeef5;
   padding: 6px 0;
   line-height: 1.3;
+}
+
+:deep(.el-table__header-wrapper thead tr) {
+  background-color: #fafafa;
+}
+
+/*
+ * EP 右侧固定列：主表头里是 th.el-table-fixed-column--right（background:inherit），
+ * 另有 th.el-table__fixed-right-patch 主题写死 background:#fff，仅用 .el-table__fixed-right 选不中。
+ */
+.table-wrapper :deep(th.el-table-fixed-column--right),
+.table-wrapper :deep(th.el-table__fixed-right-patch),
+.table-wrapper :deep(.el-table__fixed-right-patch),
+.table-wrapper :deep(.el-table__fixed-right th.el-table__cell),
+.table-wrapper :deep(.el-table__fixed-right th) {
+  background: #fafafa !important;
+  background-color: #fafafa !important;
 }
 
 :deep(.el-table td) {

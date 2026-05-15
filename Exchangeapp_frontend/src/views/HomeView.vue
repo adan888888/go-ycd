@@ -694,7 +694,12 @@ onMounted(() => {
 <style scoped>
 .home-container {
   width: 100%;
-  /* 增加底部间距，确保表格完全可见 */
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .content-wrapper {

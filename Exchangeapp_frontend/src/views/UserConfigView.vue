@@ -1,14 +1,9 @@
 <template>
   <div class="user-config-container">
     <div class="content-wrapper">
-      <!-- 刷新按钮 -->
-      <div class="refresh-header">
-        <el-button type="primary" :icon="Refresh" @click="handleRefreshTable1" :loading="loadingTable1" circle />
-      </div>
-
       <!-- 操作日志 -->
       <el-card id="user-config" class="table-card" shadow="always">
-        <div class="table-wrapper">
+        <div ref="tableWrapperRef" class="table-wrapper">
           <el-table :data="table1List" stripe v-loading="loadingTable1" :height="tableHeight" empty-text="暂无记录"
             style="width: 100%">
             <el-table-column type="index" label="序号" width="55" align="center">
@@ -124,8 +119,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, inject, watch, type Ref } from 'vue';
-import { Refresh, Edit } from '@element-plus/icons-vue';
+import { ref, onMounted, onUnmounted, inject, watch, nextTick, type Ref } from 'vue';
+import { Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
 
@@ -143,8 +138,19 @@ const table1List = ref<any[]>([]); // table_yanchendao1 数据列表
 // 防止重复请求的标记
 const isRequesting = ref<boolean>(false);
 
-// 动态计算表格高度
+// 动态计算表格高度（随 wrapper 实际高度变化，铺满剩余区域）
 const tableHeight = ref<number>(600);
+const tableWrapperRef = ref<HTMLElement | null>(null);
+let tableResizeObserver: ResizeObserver | null = null;
+
+const syncTableHeight = () => {
+  const el = tableWrapperRef.value;
+  if (!el) return;
+  const h = Math.floor(el.getBoundingClientRect().height);
+  if (h > 0) {
+    tableHeight.value = Math.max(120, h);
+  }
+};
 
 // 编辑对话框相关
 const editDialogVisible = ref<boolean>(false);
@@ -162,38 +168,6 @@ const editForm = ref<{
   temp_index: '',
   restart_index: ''
 });
-
-// 计算表格高度
-const calculateTableHeight = () => {
-  // 视口高度
-  const viewportHeight = window.innerHeight;
-  // 顶部导航栏高度（App.vue 中的 header）
-  const headerHeight = 60;
-  // 刷新按钮区域高度
-  const refreshHeaderHeight = 60;
-  // 卡片内边距（上下各20px）
-  const cardPadding = 40;
-  // 分页组件高度
-  const paginationHeight = 60;
-  // 底部间距
-  const bottomMargin = 40;
-  // 其他边距和间距
-  const otherSpacing = 20;
-
-  // 计算表格可用高度
-  const availableHeight = viewportHeight - headerHeight - refreshHeaderHeight - cardPadding - paginationHeight - bottomMargin - otherSpacing;
-
-  // 最小高度 400px，最大高度 900px
-  const minHeight = 400;
-  const maxHeight = 900;
-
-  tableHeight.value = Math.max(minHeight, Math.min(maxHeight, availableHeight));
-};
-
-// 窗口大小改变时重新计算
-const handleResize = () => {
-  calculateTableHeight();
-};
 
 /** 本次重启位置 − 上一条记录的重启位置（列表按 id 升序，上一行为同页 index-1；每页第一行无跨页数据时显示 -） */
 const restartSpacing = (row: any, index: number): string => {
@@ -276,11 +250,6 @@ const copyUserId = async (uid: string | number | null | undefined) => {
       ElMessage.error('复制失败，请手动选择复制');
     }
   }
-};
-
-// 刷新表格数据
-const handleRefreshTable1 = () => {
-  fetchTable1List();
 };
 
 // 获取 table_yanchendao1 数据列表（支持分页）
@@ -463,57 +432,57 @@ watch(() => selectedUserId.value, (newValue, oldValue) => {
 
 // 组件挂载时自动加载数据
 onMounted(() => {
-  // 计算初始表格高度
-  calculateTableHeight();
+  window.addEventListener('resize', syncTableHeight);
 
-  // 监听窗口大小变化
-  window.addEventListener('resize', handleResize);
-
-  // 加载数据：如果选择了用户，加载用户相关数据；否则加载所有用户的数据
   fetchTable1List();
+
+  nextTick(() => {
+    syncTableHeight();
+    tableResizeObserver = new ResizeObserver(() => syncTableHeight());
+    if (tableWrapperRef.value) {
+      tableResizeObserver.observe(tableWrapperRef.value);
+    }
+  });
 });
 
 // 组件卸载时移除监听器
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize);
+  window.removeEventListener('resize', syncTableHeight);
+  tableResizeObserver?.disconnect();
+  tableResizeObserver = null;
 });
 </script>
 
 <style scoped>
 .user-config-container {
   width: 100%;
+  flex: 1;
+  min-height: 0;
   height: 100%;
-  max-height: calc(100vh - 60px);
-  margin: -20px;
+  margin: 0;
   padding: 0;
   padding-top: 0;
   padding-bottom: 0;
   background-color: #f0f2f5;
   box-sizing: border-box;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .content-wrapper {
   width: 100%;
   max-width: 100%;
-  height: 100%;
-  max-height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow-x: hidden;
   overflow-y: hidden;
   box-sizing: border-box;
-  padding: 0 20px;
+  padding: 0;
   padding-top: 0;
-  padding-bottom: 20px;
-}
-
-/* 刷新按钮区域 */
-.refresh-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding: 8px 20px;
-  margin-top: 0;
-  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
 .uid-copy {
@@ -533,10 +502,14 @@ onUnmounted(() => {
   opacity: 0.85;
 }
 
-/* table_yanchendao1 数据表格 */
+/* table_yanchendao1 数据表格：占满主区域剩余高度 */
 .table-card {
   margin-top: 0 !important;
-  margin-bottom: 20px !important;
+  margin-bottom: 0 !important;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   border-radius: 0;
   background: #ffffff;
   box-shadow: none;
@@ -544,7 +517,6 @@ onUnmounted(() => {
   overflow: hidden;
   position: relative;
   z-index: 10;
-  display: block !important;
   visibility: visible !important;
   width: 100%;
 }
@@ -553,10 +525,16 @@ onUnmounted(() => {
   padding: 0;
   width: 100%;
   box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .table-wrapper {
   width: 100%;
+  flex: 1;
+  min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0;
@@ -567,6 +545,7 @@ onUnmounted(() => {
   min-width: 100%;
   border: none;
   font-size: 14px;
+  --el-table-header-bg-color: #fafafa;
 }
 
 .table-wrapper :deep(.el-table::before) {
@@ -578,6 +557,10 @@ onUnmounted(() => {
 }
 
 /* 防止表格标题换行 */
+.table-wrapper :deep(.el-table__header-wrapper thead tr) {
+  background-color: #fafafa;
+}
+
 .table-wrapper :deep(.el-table th) {
   white-space: nowrap;
   overflow: hidden;
@@ -588,6 +571,15 @@ onUnmounted(() => {
   border-bottom: 1px solid #ebeef5;
   padding: 6px 0;
   line-height: 1.3;
+}
+
+.table-wrapper :deep(th.el-table-fixed-column--right),
+.table-wrapper :deep(th.el-table__fixed-right-patch),
+.table-wrapper :deep(.el-table__fixed-right-patch),
+.table-wrapper :deep(.el-table__fixed-right th.el-table__cell),
+.table-wrapper :deep(.el-table__fixed-right th) {
+  background: #fafafa !important;
+  background-color: #fafafa !important;
 }
 
 .table-wrapper :deep(.el-table th .cell) {
@@ -624,10 +616,11 @@ onUnmounted(() => {
 
 .table-footer {
   margin-top: 0;
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  padding: 12px 12px;
   border-top: 1px solid #ebeef5;
   background-color: #ffffff;
 }
