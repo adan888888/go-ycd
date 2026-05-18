@@ -1821,21 +1821,23 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	//	statisticalAreas[24] = pVal2()
 	//}
 
+	// [30] 减10%/30%/50%（与 [29] 庄闲显示位置对调）
 	if statisticalAreas[22] == "-" {
-		statisticalAreas[29] = "-"
+		statisticalAreas[30] = "-"
 	} else {
 		num22, err := strconv.ParseFloat(statisticalAreas[22], 64)
 		if err == nil {
 			value90Percent := int(num22 * 0.90)
 			value70Percent := int(num22 * 0.70)
 			value50Percent := int(num22 * 0.50)
-			statisticalAreas[29] = fmt.Sprintf("%d/%d/%d", value90Percent, value70Percent, value50Percent)
+			statisticalAreas[30] = fmt.Sprintf("%d/%d/%d", value90Percent, value70Percent, value50Percent)
 		} else {
-			statisticalAreas[29] = "-"
+			statisticalAreas[30] = "-"
 		}
 	}
+	// [29] 局部平衡锚点 id（庄闲由客户端写入同一格）
 	if CurrentTempIndex > 2 {
-		statisticalAreas[30] = fmt.Sprintf("%d", CurrentTempIndex)
+		statisticalAreas[29] = fmt.Sprintf("%d", CurrentTempIndex)
 	}
 	Ok(ctx, ResponseJson{
 		Status: http.StatusOK,
