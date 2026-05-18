@@ -6,14 +6,15 @@ import (
 	"exchangeapp/models"
 	. "exchangeapp/utils"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"math"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // TableYanchendao2WithSeq 带有序号的投注记录结构体（seq 为每个用户自己的序号，从 1 开始）
@@ -1214,19 +1215,19 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 	}
 
 	record := gin.H{
-		"id":                   item.ID,
-		"seq":                  item.Seq,
-		"user_id":              strconv.FormatInt(item.UserID, 10),
-		"username":             username,
-		"column_xiazhujine":    item.ColumnXiazhujine,
-		"colmun_shuyingzhi":    item.ColmunShuyingzhi,
-		"colmun_shuyingzhi_d":  item.ColmunShuyingzhiD,
-		"colmun_shengfulu":     item.ColmunShengfulu,
-		"colmun_zx":            item.ColmunZX,
-		"colmun_remark":        item.ColmunRemark,
-		"column_current_jin":   item.ColumnCurrentJin,
-		"created_at":           item.CreatedAt,
-		"deleted_at":           item.DeletedAt,
+		"id":                  item.ID,
+		"seq":                 item.Seq,
+		"user_id":             strconv.FormatInt(item.UserID, 10),
+		"username":            username,
+		"column_xiazhujine":   item.ColumnXiazhujine,
+		"colmun_shuyingzhi":   item.ColmunShuyingzhi,
+		"colmun_shuyingzhi_d": item.ColmunShuyingzhiD,
+		"colmun_shengfulu":    item.ColmunShengfulu,
+		"colmun_zx":           item.ColmunZX,
+		"colmun_remark":       item.ColmunRemark,
+		"column_current_jin":  item.ColumnCurrentJin,
+		"created_at":          item.CreatedAt,
+		"deleted_at":          item.DeletedAt,
 	}
 
 	Ok(ctx, ResponseJson{
@@ -1804,7 +1805,10 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		if len(parts) > 0 {
 			num26, _ := strconv.ParseFloat(parts[0], 64)
 			num23, _ := strconv.ParseFloat(yongJinValue, 64)
-			statisticalAreas[27] = fmt.Sprintf("%.2f", num26/num23)
+			main27 := int(math.Ceil(num26 / num23))
+			plus10 := int(math.Ceil(float64(main27) * 1.1)) // 原值 + 10%
+			plus20 := int(math.Ceil(float64(main27) * 1.2)) // 原值 + 20%
+			statisticalAreas[27] = fmt.Sprintf("%d/%d/%d", main27, plus10, plus20)
 		}
 	}
 	// 佣金值直接放到31位置
