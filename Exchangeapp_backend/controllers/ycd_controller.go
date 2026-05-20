@@ -933,6 +933,15 @@ func GetTable1List(ctx *gin.Context) {
 		}
 	}
 
+	// 跨页「回合手数」：当前页第一条需对比上一页最后一条的重启位置
+	var prevRestartIndex string
+	if offset > 0 {
+		var prevItem models.TableYanchendao1
+		if err := query.Session(&gorm.Session{}).Order("id ASC").Offset(offset - 1).Limit(1).First(&prevItem).Error; err == nil {
+			prevRestartIndex = prevItem.ColumnRestartIdx
+		}
+	}
+
 	// 构建返回数据，添加用户名，并确保 uid 是字符串
 	var resultList []gin.H
 	for _, item := range tableYanchendao1s {
@@ -962,10 +971,11 @@ func GetTable1List(ctx *gin.Context) {
 		Code:   0,
 		Msg:    "查询成功",
 		Data: gin.H{
-			"list":      resultList,
-			"total":     total,
-			"page":      page,
-			"page_size": pageSize,
+			"list":                resultList,
+			"total":               total,
+			"page":                page,
+			"page_size":           pageSize,
+			"prev_restart_index":  prevRestartIndex,
 		},
 	})
 }

@@ -134,6 +134,8 @@ const table1PageSize = ref<number>(20);
 const table1Total = ref<number>(0);
 const isInitialLoadComplete = ref<boolean>(false); // 标记是否已完成初始加载
 const table1List = ref<any[]>([]); // table_yanchendao1 数据列表
+/** 上一页最后一条的重启位置，用于本页第一行计算回合手数 */
+const prevPageRestartIndex = ref<string>('');
 
 // 防止重复请求的标记
 const isRequesting = ref<boolean>(false);
@@ -169,14 +171,7 @@ const editForm = ref<{
   restart_index: ''
 });
 
-/** 本次重启位置 − 上一条记录的重启位置（列表按 id 升序，上一行为同页 index-1；每页第一行无跨页数据时显示 -） */
-const restartSpacing = (row: any, index: number): string => {
-  if (index <= 0) return '-';
-  const list = table1List.value;
-  const prevRow = list[index - 1];
-  if (!prevRow) return '-';
-  const curRaw = String(row.column_restart_index ?? '').trim();
-  const prevRaw = String(prevRow.column_restart_index ?? '').trim();
+const formatRestartDelta = (curRaw: string, prevRaw: string): string => {
   if (!curRaw || !prevRaw) return '-';
   const cur = Number.parseFloat(curRaw);
   const prev = Number.parseFloat(prevRaw);
@@ -184,6 +179,23 @@ const restartSpacing = (row: any, index: number): string => {
   const delta = cur - prev;
   if (Object.is(delta, -0) || delta === 0) return '0';
   return delta > 0 ? `+${delta}` : String(delta);
+};
+
+/** 本次重启位置 − 上一条记录的重启位置（同页上一行；本页第一行用上一页最后一条） */
+const restartSpacing = (row: any, index: number): string => {
+  const curRaw = String(row.column_restart_index ?? '').trim();
+  if (!curRaw) return '-';
+
+  const list = table1List.value;
+  let prevRaw = '';
+  if (index > 0) {
+    const prevRow = list[index - 1];
+    if (!prevRow) return '-';
+    prevRaw = String(prevRow.column_restart_index ?? '').trim();
+  } else {
+    prevRaw = String(prevPageRestartIndex.value ?? '').trim();
+  }
+  return formatRestartDelta(curRaw, prevRaw);
 };
 
 // 格式化金额
@@ -302,6 +314,10 @@ const fetchTable1List = async () => {
 
           // 正常显示数据
           table1List.value = data.list;
+          prevPageRestartIndex.value =
+            data.prev_restart_index != null && data.prev_restart_index !== ''
+              ? String(data.prev_restart_index)
+              : '';
           isInitialLoadComplete.value = true;
 
           if (table1List.value.length > 0) {
@@ -316,21 +332,25 @@ const fetchTable1List = async () => {
         } else {
           table1List.value = [];
           table1Total.value = 0;
+          prevPageRestartIndex.value = '';
           ElMessage.info('暂无记录');
         }
       } else {
         table1List.value = [];
         table1Total.value = 0;
+        prevPageRestartIndex.value = '';
         ElMessage.info('暂无记录');
       }
     } else {
       table1List.value = [];
       table1Total.value = 0;
+      prevPageRestartIndex.value = '';
       ElMessage.warning('获取记录失败: ' + (response.data.msg || '未知错误'));
     }
   } catch (error: any) {
     table1List.value = [];
     table1Total.value = 0;
+    prevPageRestartIndex.value = '';
     // 只显示网络错误，不显示超时等错误（避免刷屏）
     if (error.code === 'ECONNABORTED') {
       // 请求超时，静默处理
