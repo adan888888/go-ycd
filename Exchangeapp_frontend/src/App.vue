@@ -37,51 +37,51 @@
     <el-container class="admin-body">
       <!-- 左侧边栏 -->
       <el-aside width="150px" class="admin-aside">
-        <el-menu :default-active="activeIndex" class="admin-menu" background-color="#304156" text-color="#bfcbd9"
-          active-text-color="#409eff" @select="handleSelect">
-          <el-menu-item index="home">
+        <el-menu v-if="menuReady" :key="menuActivePath" router :default-active="menuActivePath" class="admin-menu"
+          background-color="#304156" text-color="#bfcbd9" active-text-color="#409eff" @select="handleSelect">
+          <el-menu-item index="/">
             <el-icon>
               <House />
             </el-icon>
             <span>首页</span>
           </el-menu-item>
-          <el-menu-item index="userConfig">
+          <el-menu-item index="/user-config">
             <el-icon>
               <Tickets />
             </el-icon>
             <span>操作日志</span>
           </el-menu-item>
-          <el-menu-item index="bettingRecord">
+          <el-menu-item index="/betting-record">
             <el-icon>
               <Money />
             </el-icon>
             <span>投注记录</span>
           </el-menu-item>
-          <el-menu-item index="currencyExchange">
+          <el-menu-item index="/exchange">
             <el-icon>
               <Switch />
             </el-icon>
             <span>兑换货币</span>
           </el-menu-item>
-          <el-menu-item index="purchaseRecord">
+          <el-menu-item index="/purchase-records">
             <el-icon>
               <ShoppingCart />
             </el-icon>
             <span>购买记录</span>
           </el-menu-item>
-          <el-menu-item index="news">
+          <el-menu-item index="/news">
             <el-icon>
               <Document />
             </el-icon>
             <span>查看新闻</span>
           </el-menu-item>
-          <el-menu-item index="login" v-if="!authStore.isAuthenticated">
+          <el-menu-item index="/login" v-if="!authStore.isAuthenticated">
             <el-icon>
               <User />
             </el-icon>
             <span>登录</span>
           </el-menu-item>
-          <el-menu-item index="register" v-if="!authStore.isAuthenticated">
+          <el-menu-item index="/register" v-if="!authStore.isAuthenticated">
             <el-icon>
               <Edit />
             </el-icon>
@@ -115,15 +115,22 @@ interface UserInfo {
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
-// 初始化 activeIndex，将路由名称转换为菜单 index 格式
-const getMenuIndex = (routeName: string | undefined): string => {
-  if (!routeName) return 'home';
-  if (routeName === 'UserConfig') return 'userConfig';
-  if (routeName === 'BettingRecord') return 'bettingRecord';
-  if (routeName === 'PurchaseRecord') return 'purchaseRecord';
-  return routeName.charAt(0).toLowerCase() + routeName.slice(1);
-};
-const activeIndex = ref(getMenuIndex(route.name?.toString()));
+
+/** 与 el-menu-item 的 index（路由 path）一致 */
+const menuActivePath = computed(() => {
+  const path = route.path;
+  if (typeof window === 'undefined') return path || '/';
+  const loc = window.location.pathname;
+  // 刷新首帧 route.path 可能短暂为 /，地址栏已是目标页，避免先亮「首页」
+  if (path === '/' && loc !== '/') return loc;
+  return path || loc || '/';
+});
+
+/** 等路由就绪后再挂载菜单，避免 default-active 在错误路径上初始化 */
+const menuReady = ref(false);
+void router.isReady().then(() => {
+  menuReady.value = true;
+});
 
 // 用户选择相关状态
 // 从 localStorage 恢复用户选择（根据当前页面）
@@ -239,40 +246,13 @@ watch(route, (newRoute) => {
     }
   }
 
-  //保证亮度状态和页面是一致的
-  const routeName = newRoute.name?.toString() || 'home';
-  const routePath = newRoute.path;
-  // 将路由名称转换为菜单 index 格式（首字母小写）
-  if (routeName === 'UserConfig' || routePath === '/user-config') {
-    activeIndex.value = 'userConfig';
-  } else if (routeName === 'BettingRecord' || routePath === '/betting-record') {
-    activeIndex.value = 'bettingRecord';
-  } else if (routeName === 'PurchaseRecord' || routePath === '/purchase-records') {
-    activeIndex.value = 'purchaseRecord';
-  } else {
-    activeIndex.value = routeName.charAt(0).toLowerCase() + routeName.slice(1);
-  }
 });
 
-//当用户在下拉框中选择一个选项时，handleSelect 方法会被调用，并将选中的值作为参数传递进去
+// router 模式下菜单点击会自动跳转；此处仅处理非路由项
 const handleSelect = (key: string) => {
-  // 阻止默认行为，手动处理路由跳转
   if (key === 'logout') {
     authStore.logout();
     router.push({ name: 'Home' }).catch(() => { });
-  } else if (key === 'userConfig') {
-    // 操作日志跳转到独立页面
-    router.push({ path: '/user-config', replace: false }).catch(() => { });
-  } else if (key === 'bettingRecord') {
-    // 投注记录跳转到独立页面
-    router.push({ path: '/betting-record', replace: false }).catch(() => { });
-  } else if (key === 'purchaseRecord') {
-    router.push({ path: '/purchase-records', replace: false }).catch(() => { });
-  } else if (key === 'home') {
-    router.push({ path: '/', replace: false }).catch(() => { });
-  } else {
-    const routeName = key.charAt(0).toUpperCase() + key.slice(1);
-    router.push({ name: routeName }).catch(() => { });
   }
 };
 
