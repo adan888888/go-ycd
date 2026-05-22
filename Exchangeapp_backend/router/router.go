@@ -74,6 +74,7 @@ func SetupRouter() *gin.Engine {
 		ycd.GET("/table2", controllers.GetTable2)
 		ycd.PUT("/inserttable1", controllers.InsertTable1)
 		ycd.PUT("/inserttable2", controllers.InsertTable2)
+		ycd.PUT("/updaterestartstatsnapshot", controllers.UpdateLastRowRestartStatSnapshot)
 		ycd.DELETE("/deletelast", controllers.DeleteLast)
 		ycd.POST("/restart", controllers.Restart)
 		ycd.POST("/sortxiaoshu", controllers.SortXiaoShu)

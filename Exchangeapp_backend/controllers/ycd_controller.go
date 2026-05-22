@@ -1095,9 +1095,10 @@ func GetTable2List(ctx *gin.Context) {
 			"colmun_shengfulu":    item.ColmunShengfulu,
 			"colmun_zx":           item.ColmunZX,
 			"colmun_remark":       item.ColmunRemark,
-			"column_current_jin":  item.ColumnCurrentJin,
-			"created_at":          item.CreatedAt,
-			"deleted_at":          item.DeletedAt,
+			"column_current_jin":      item.ColumnCurrentJin,
+			"restartStatSnapshot":     item.RestartStatSnapshot,
+			"created_at":              item.CreatedAt,
+			"deleted_at":              item.DeletedAt,
 		})
 	}
 
@@ -1226,9 +1227,10 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 		"colmun_shengfulu":    item.ColmunShengfulu,
 		"colmun_zx":           item.ColmunZX,
 		"colmun_remark":       item.ColmunRemark,
-		"column_current_jin":  item.ColumnCurrentJin,
-		"created_at":          item.CreatedAt,
-		"deleted_at":          item.DeletedAt,
+		"column_current_jin":      item.ColumnCurrentJin,
+		"restartStatSnapshot":     item.RestartStatSnapshot,
+		"created_at":              item.CreatedAt,
+		"deleted_at":              item.DeletedAt,
 	}
 
 	Ok(ctx, ResponseJson{
@@ -1316,6 +1318,50 @@ func UpdateTable2Config(ctx *gin.Context) {
 			"id":                  tableYanchendao2.ID,
 			"colmun_shuyingzhi":   tableYanchendao2.ColmunShuyingzhi,
 			"colmun_shuyingzhi_d": tableYanchendao2.ColmunShuyingzhiD,
+		},
+	})
+}
+
+// UpdateLastRowRestartStatSnapshot 更新当前用户最后一条投注记录的重启统计快照
+func UpdateLastRowRestartStatSnapshot(ctx *gin.Context) {
+	uid, err := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64)
+	if err != nil || uid == 0 {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "用户ID无效", Data: gin.H{}})
+		return
+	}
+
+	var body struct {
+		RestartStatSnapshot string `json:"restartStatSnapshot" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "参数错误: " + err.Error(), Data: gin.H{}})
+		return
+	}
+
+	var row models.TableYanchendao2
+	if err := global.Db.Where("user_id = ?", uid).Order("id DESC").First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(ctx, ResponseJson{Code: 1, Msg: "暂无投注记录", Data: gin.H{}})
+			return
+		}
+		ServerFail(ctx, ResponseJson{Code: 1, Msg: "查询失败: " + err.Error(), Data: gin.H{}})
+		return
+	}
+
+	snapshot := strings.TrimSpace(body.RestartStatSnapshot)
+	if err := global.Db.Model(&row).Update("restart_stat_snapshot", snapshot).Error; err != nil {
+		ServerFail(ctx, ResponseJson{Code: 1, Msg: "更新失败: " + err.Error(), Data: gin.H{}})
+		return
+	}
+	row.RestartStatSnapshot = snapshot
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "更新成功",
+		Data: gin.H{
+			"id":                    row.ID,
+			"restartStatSnapshot": row.RestartStatSnapshot,
 		},
 	})
 }
