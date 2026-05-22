@@ -18,10 +18,10 @@
             <el-table-column prop="user_id" label="用户ID" min-width="160" align="center" show-overflow-tooltip />
             <el-table-column prop="username" label="用户名" width="140" align="center" show-overflow-tooltip />
             <el-table-column prop="created_at" label="注册时间" width="170" align="center" show-overflow-tooltip />
-            <el-table-column prop="expires_at_display" label="到期时间" width="170" align="center" show-overflow-tooltip>
+            <el-table-column prop="expires_at" label="到期时间" width="170" align="center" show-overflow-tooltip>
               <template #default="{ row }">
                 <el-tag v-if="row.is_permanent" type="success">永久</el-tag>
-                <span v-else :class="{ 'expired-text': !row.ycd_allowed }">{{ row.expires_at_display || '未设置' }}</span>
+                <span v-else :class="{ 'expired-text': !row.ycd_allowed }">{{ formatExpireTime(row) }}</span>
               </template>
             </el-table-column>
             <el-table-column label="剩余天数" width="100" align="center">
@@ -115,7 +115,6 @@ interface UserRow {
   username: string;
   created_at: string;
   expires_at?: string;
-  expires_at_display?: string;
   is_permanent?: boolean;
   ycd_allowed?: boolean;
 }
@@ -172,10 +171,16 @@ const normalizeUserId = (id: string | number | undefined): string => {
   return String(id);
 };
 
-/** 剩余天数：永久 / 未设置 / 已过期显示 0天 / 未到期向上取整天数 */
+const formatExpireTime = (row: UserRow): string => {
+  const raw = (row.expires_at || '').trim();
+  if (!raw) return '未设置';
+  return raw;
+};
+
+/** 剩余天数：永久 / 无到期时间 / 已过期显示 0天 / 未到期向上取整天数 */
 const formatRemainingDays = (row: UserRow): string => {
   if (row.is_permanent) return '永久';
-  const raw = (row.expires_at_display || row.expires_at || '').trim();
+  const raw = (row.expires_at || '').trim();
   if (!raw || raw === '未设置' || raw === '永久') return '-';
   const end = new Date(raw.replace(/-/g, '/'));
   if (Number.isNaN(end.getTime())) return '-';
@@ -229,7 +234,7 @@ const openExpiresDialog = (row: UserRow) => {
     ElMessage.warning('超级管理员为永久有效');
     return;
   }
-  let defaultExpires = row.expires_at_display || '';
+  let defaultExpires = (row.expires_at || '').trim();
   if (defaultExpires === '未设置') defaultExpires = '';
   expiresForm.value = {
     user_id: row.user_id,

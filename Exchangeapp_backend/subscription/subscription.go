@@ -7,6 +7,8 @@ import (
 
 const SuperAdminUsername = "Admin"
 const YcdExpiredMsg = "请充值"
+// ExpiresAtNotSet 仅管理端展示，勿下发给 Flutter 等客户端
+const ExpiresAtNotSet = "未设置"
 
 // CodeYcdExpired 业务码：ycd 服务已到期
 const CodeYcdExpired = 2202
@@ -27,13 +29,22 @@ func IsYcdAllowed(user models.User) bool {
 	return !time.Now().After(*user.ExpiresAt)
 }
 
-// FormatExpiresAt 返回展示用到期时间
+// FormatExpiresAt 客户端（登录等）展示：无到期时间为空字符串，不含「未设置」
 func FormatExpiresAt(user models.User) (display string, expiresAt *time.Time, isPermanent bool) {
 	if IsPermanentUser(user.Username) {
 		return "永久", nil, true
 	}
 	if user.ExpiresAt == nil {
-		return "未设置", nil, false
+		return "", nil, false
 	}
 	return user.ExpiresAt.Format("2006-01-02 15:04:05"), user.ExpiresAt, false
+}
+
+// FormatExpiresAtForAdmin 管理端列表/编辑：无到期时间返回「未设置」
+func FormatExpiresAtForAdmin(user models.User) string {
+	display, _, _ := FormatExpiresAt(user)
+	if display == "" {
+		return ExpiresAtNotSet
+	}
+	return display
 }

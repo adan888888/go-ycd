@@ -37,25 +37,23 @@ func AdminListUsers(ctx *gin.Context) {
 	}
 
 	type userItem struct {
-		UserID           string `json:"user_id"`
-		Username         string `json:"username"`
-		CreatedAt        string `json:"created_at"`
-		ExpiresAt        string `json:"expires_at"`
-		ExpiresAtDisplay string `json:"expires_at_display"`
-		IsPermanent      bool   `json:"is_permanent"`
-		YcdAllowed       bool   `json:"ycd_allowed"`
+		UserID      string `json:"user_id"`
+		Username    string `json:"username"`
+		CreatedAt   string `json:"created_at"`
+		ExpiresAt   string `json:"expires_at"`
+		IsPermanent bool   `json:"is_permanent"`
+		YcdAllowed  bool   `json:"ycd_allowed"`
 	}
 	items := make([]userItem, 0, len(users))
 	for _, u := range users {
-		display, _, isPermanent := subscription.FormatExpiresAt(u)
+		_, _, isPermanent := subscription.FormatExpiresAt(u)
 		items = append(items, userItem{
-			UserID:           strconv.FormatInt(u.Uid, 10),
-			Username:         u.Username,
-			CreatedAt:        u.CreatedAt.Format("2006-01-02 15:04:05"),
-			ExpiresAt:        display,
-			ExpiresAtDisplay: display,
-			IsPermanent:      isPermanent,
-			YcdAllowed:       subscription.IsYcdAllowed(u),
+			UserID:      strconv.FormatInt(u.Uid, 10),
+			Username:    u.Username,
+			CreatedAt:   u.CreatedAt.Format("2006-01-02 15:04:05"),
+			ExpiresAt:   subscription.FormatExpiresAtForAdmin(u),
+			IsPermanent: isPermanent,
+			YcdAllowed:  subscription.IsYcdAllowed(u),
 		})
 	}
 
@@ -289,16 +287,14 @@ func AdminUpdateExpiresAt(ctx *gin.Context) {
 		return
 	}
 
-	display, _, _ := subscription.FormatExpiresAt(user)
 	Ok(ctx, ResponseJson{
 		Status: http.StatusOK,
 		Code:   0,
 		Msg:    "到期时间修改成功",
 		Data: gin.H{
-			"user_id":            strconv.FormatInt(uid, 10),
-			"expires_at":         display,
-			"expires_at_display": display,
-			"ycd_allowed":        subscription.IsYcdAllowed(user),
+			"user_id":     strconv.FormatInt(uid, 10),
+			"expires_at":  subscription.FormatExpiresAtForAdmin(user),
+			"ycd_allowed": subscription.IsYcdAllowed(user),
 		},
 	})
 }

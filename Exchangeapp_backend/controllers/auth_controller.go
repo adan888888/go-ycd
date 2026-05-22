@@ -174,9 +174,8 @@ func Login(ctx *gin.Context) {
 func subscriptionPayload(user models.User) gin.H {
 	display, expiresAt, isPermanent := subscription.FormatExpiresAt(user)
 	payload := gin.H{
-		"expires_at_display": display,
-		"is_permanent":       isPermanent,
-		"ycd_allowed":        subscription.IsYcdAllowed(user),
+		"is_permanent": isPermanent,
+		"ycd_allowed":  subscription.IsYcdAllowed(user),
 	}
 	if isPermanent {
 		payload["expires_at"] = "永久"
