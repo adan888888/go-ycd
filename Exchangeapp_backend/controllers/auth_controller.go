@@ -4,12 +4,15 @@ import (
 	"errors"
 	"exchangeapp/global"
 	"exchangeapp/models"
+	"exchangeapp/subscription"
 	"exchangeapp/utils"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"net/http"
 	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // @Summary      注册
@@ -52,6 +55,10 @@ func Register(ctx *gin.Context) {
 
 	user.Password = hashedPwd
 	user.Uid = utils.GetUid() //雪花算法
+	if !subscription.IsPermanentUser(user.Username) {
+		exp := time.Now().AddDate(0, 0, 30) // 新用户默认 30 天
+		user.ExpiresAt = &exp
+	}
 	token, err := utils.GenerateJWT(user.Username)
 
 	if err != nil {
@@ -143,14 +150,39 @@ func Login(ctx *gin.Context) {
 		return
 	}
 
+	data := gin.H{
+		"token":    token,
+		"userId":   strconv.FormatInt(user.Uid, 10),
+		"nickname": user.Username,
+	}
+	for k, v := range subscriptionPayload(user) {
+		data[k] = v
+	}
 	Ok(ctx, ResponseJson{
 		Status: http.StatusOK,
 		Code:   0,
 		Msg:    "登录成功",
-		Data:   gin.H{"token": token, "userId": strconv.FormatInt(user.Uid, 10), "nickname": user.Username},
+		Data:   data,
 	})
 	ctx.SetCookie(
 		"token", user.Username,
 		3600, //3600秒=1小时
 		"/api/auth/", "", true, false)
+}
+
+func subscriptionPayload(user models.User) gin.H {
+	display, expiresAt, isPermanent := subscription.FormatExpiresAt(user)
+	payload := gin.H{
+		"expires_at_display": display,
+		"is_permanent":       isPermanent,
+		"ycd_allowed":        subscription.IsYcdAllowed(user),
+	}
+	if isPermanent {
+		payload["expires_at"] = "永久"
+	} else if expiresAt != nil {
+		payload["expires_at"] = display
+	} else {
+		payload["expires_at"] = ""
+	}
+	return payload
 }

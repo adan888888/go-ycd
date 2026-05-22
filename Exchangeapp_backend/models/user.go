@@ -19,6 +19,7 @@ type User struct {
 	Username          string `gorm:"unique"`
 	Password          string
 	Token             string
+	ExpiresAt         *time.Time         `gorm:"column:expires_at;comment:'服务到期时间'" json:"expires_at"`
 	DeletedAt         gorm.DeletedAt     `gorm:"index" json:"deleted_at"`
 	TableYanchendao1s []TableYanchendao1 `gorm:"foreignKey:Uid;references:Uid"`    // 一个用户可以有多个表1数据
 	TableYanchendao2s []TableYanchendao2 `gorm:"foreignKey:UserID;references:Uid"` // foreignKey:UserID 是外键

@@ -7,7 +7,7 @@
       </div>
 
       <el-alert type="info" :closable="false" show-icon class="tip-alert">
-        仅超级管理员 <strong>Admin</strong> 可管理其他用户（修改用户名、修改密码、删除用户）。
+        仅超级管理员 <strong>Admin</strong> 可管理其他用户（修改用户名、修改密码、修改到期时间、删除用户）。超级管理员为永久有效。
       </el-alert>
 
       <el-card class="table-card" shadow="always">
@@ -17,11 +17,18 @@
             <el-table-column type="index" label="序号" width="70" align="center" />
             <el-table-column prop="user_id" label="用户ID" min-width="160" align="center" show-overflow-tooltip />
             <el-table-column prop="username" label="用户名" width="140" align="center" show-overflow-tooltip />
-            <el-table-column prop="created_at" label="注册时间" width="180" align="center" show-overflow-tooltip />
-            <el-table-column label="操作" width="280" align="center" fixed="right">
+            <el-table-column prop="created_at" label="注册时间" width="170" align="center" show-overflow-tooltip />
+            <el-table-column prop="expires_at_display" label="到期时间" width="170" align="center" show-overflow-tooltip>
+              <template #default="{ row }">
+                <el-tag v-if="row.is_permanent" type="success">永久</el-tag>
+                <span v-else :class="{ 'expired-text': !row.ycd_allowed }">{{ row.expires_at_display || '未设置' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="360" align="center" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link @click="openUsernameDialog(row)">修改用户名</el-button>
                 <el-button type="warning" link @click="openPasswordDialog(row)">修改密码</el-button>
+                <el-button type="success" link :disabled="row.is_permanent" @click="openExpiresDialog(row)">修改到期</el-button>
                 <el-button type="danger" link :disabled="row.username === 'Admin'"
                   @click="handleDelete(row)">删除</el-button>
               </template>
@@ -47,6 +54,23 @@
       <template #footer>
         <el-button @click="usernameDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitting" @click="submitUsername">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="expiresDialogVisible" title="修改到期时间" width="460px" :close-on-click-modal="false"
+      @closed="resetExpiresForm">
+      <el-form ref="expiresFormRef" :model="expiresForm" :rules="expiresRules" label-width="100px">
+        <el-form-item label="用户">
+          <el-input :model-value="expiresForm.username" disabled />
+        </el-form-item>
+        <el-form-item label="到期时间" prop="expires_at">
+          <el-date-picker v-model="expiresForm.expires_at" type="datetime" placeholder="选择到期时间"
+            format="YYYY-MM-DD HH:mm:ss" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="expiresDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitExpires">确定</el-button>
       </template>
     </el-dialog>
 
@@ -84,6 +108,10 @@ interface UserRow {
   user_id: string;
   username: string;
   created_at: string;
+  expires_at?: string;
+  expires_at_display?: string;
+  is_permanent?: boolean;
+  ycd_allowed?: boolean;
 }
 
 const loading = ref(false);
@@ -93,14 +121,21 @@ const tableHeight = ref(400);
 
 const usernameDialogVisible = ref(false);
 const passwordDialogVisible = ref(false);
+const expiresDialogVisible = ref(false);
 const usernameFormRef = ref<FormInstance>();
 const passwordFormRef = ref<FormInstance>();
+const expiresFormRef = ref<FormInstance>();
 
 const usernameForm = ref({ user_id: '', username: '' });
 const passwordForm = ref({ user_id: '', username: '', password: '', confirmPassword: '' });
+const expiresForm = ref({ user_id: '', username: '', expires_at: '' });
 
 const usernameRules: FormRules = {
   username: [{ required: true, message: '请输入新用户名', trigger: 'blur' }],
+};
+
+const expiresRules: FormRules = {
+  expires_at: [{ required: true, message: '请选择到期时间', trigger: 'change' }],
 };
 
 const validateConfirmPassword = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
@@ -161,6 +196,21 @@ const openUsernameDialog = (row: UserRow) => {
   usernameDialogVisible.value = true;
 };
 
+const openExpiresDialog = (row: UserRow) => {
+  if (row.is_permanent) {
+    ElMessage.warning('超级管理员为永久有效');
+    return;
+  }
+  let defaultExpires = row.expires_at_display || '';
+  if (defaultExpires === '未设置') defaultExpires = '';
+  expiresForm.value = {
+    user_id: row.user_id,
+    username: row.username,
+    expires_at: defaultExpires,
+  };
+  expiresDialogVisible.value = true;
+};
+
 const openPasswordDialog = (row: UserRow) => {
   passwordForm.value = {
     user_id: row.user_id,
@@ -181,6 +231,11 @@ const resetPasswordForm = () => {
   passwordFormRef.value?.resetFields();
 };
 
+const resetExpiresForm = () => {
+  expiresForm.value = { user_id: '', username: '', expires_at: '' };
+  expiresFormRef.value?.resetFields();
+};
+
 const submitUsername = async () => {
   const valid = await usernameFormRef.value?.validate().catch(() => false);
   if (!valid) return;
@@ -192,6 +247,28 @@ const submitUsername = async () => {
     if (res.data?.code === 0) {
       ElMessage.success('用户名修改成功');
       usernameDialogVisible.value = false;
+      await fetchList();
+    } else {
+      ElMessage.error(res.data?.msg || '修改失败');
+    }
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.msg || e.message || '修改失败');
+  } finally {
+    submitting.value = false;
+  }
+};
+
+const submitExpires = async () => {
+  const valid = await expiresFormRef.value?.validate().catch(() => false);
+  if (!valid) return;
+  submitting.value = true;
+  try {
+    const res = await axios.put(`/admin/users/${expiresForm.value.user_id}/expires-at`, {
+      expires_at: expiresForm.value.expires_at,
+    });
+    if (res.data?.code === 0) {
+      ElMessage.success('到期时间修改成功');
+      expiresDialogVisible.value = false;
       await fetchList();
     } else {
       ElMessage.error(res.data?.msg || '修改失败');
@@ -324,5 +401,9 @@ onUnmounted(() => {
   text-align: right;
   color: #909399;
   font-size: 13px;
+}
+
+.expired-text {
+  color: #f56c6c;
 }
 </style>

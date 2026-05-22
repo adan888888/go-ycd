@@ -4,11 +4,13 @@ import (
 	"errors"
 	"exchangeapp/global"
 	"exchangeapp/models"
+	"exchangeapp/subscription"
 	"exchangeapp/utils"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -35,16 +37,25 @@ func AdminListUsers(ctx *gin.Context) {
 	}
 
 	type userItem struct {
-		UserID    string `json:"user_id"`
-		Username  string `json:"username"`
-		CreatedAt string `json:"created_at"`
+		UserID           string `json:"user_id"`
+		Username         string `json:"username"`
+		CreatedAt        string `json:"created_at"`
+		ExpiresAt        string `json:"expires_at"`
+		ExpiresAtDisplay string `json:"expires_at_display"`
+		IsPermanent      bool   `json:"is_permanent"`
+		YcdAllowed       bool   `json:"ycd_allowed"`
 	}
 	items := make([]userItem, 0, len(users))
 	for _, u := range users {
+		display, _, isPermanent := subscription.FormatExpiresAt(u)
 		items = append(items, userItem{
-			UserID:    strconv.FormatInt(u.Uid, 10),
-			Username:  u.Username,
-			CreatedAt: u.CreatedAt.Format("2006-01-02 15:04:05"),
+			UserID:           strconv.FormatInt(u.Uid, 10),
+			Username:         u.Username,
+			CreatedAt:        u.CreatedAt.Format("2006-01-02 15:04:05"),
+			ExpiresAt:        display,
+			ExpiresAtDisplay: display,
+			IsPermanent:      isPermanent,
+			YcdAllowed:       subscription.IsYcdAllowed(u),
 		})
 	}
 
@@ -222,6 +233,67 @@ func AdminUpdatePassword(ctx *gin.Context) {
 		Code:   0,
 		Msg:    "密码修改成功",
 		Data:   gin.H{"user_id": strconv.FormatInt(uid, 10)},
+	})
+}
+
+// AdminUpdateExpiresAt 超级管理员修改用户到期时间（超管账号永久，不可改）
+func AdminUpdateExpiresAt(ctx *gin.Context) {
+	if !requireSuperAdmin(ctx) {
+		return
+	}
+
+	uid, err := parsePathUID(ctx.Param("uid"))
+	if err != nil {
+		Fail(ctx, ResponseJson{Code: 1, Msg: err.Error(), Data: gin.H{}})
+		return
+	}
+
+	var body struct {
+		ExpiresAt string `json:"expires_at" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "参数错误: " + err.Error(), Data: gin.H{}})
+		return
+	}
+
+	var user models.User
+	if err := global.Db.Where("uid = ?", uid).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(ctx, ResponseJson{Code: 1, Msg: "用户不存在", Data: gin.H{}})
+			return
+		}
+		ServerFail(ctx, ResponseJson{Code: 1, Msg: "查询用户失败: " + err.Error(), Data: gin.H{}})
+		return
+	}
+
+	if user.Username == superAdminUsername {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "超级管理员账号为永久有效，无需设置到期时间", Data: gin.H{}})
+		return
+	}
+
+	exp, err := time.ParseInLocation("2006-01-02 15:04:05", strings.TrimSpace(body.ExpiresAt), time.Local)
+	if err != nil {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "到期时间格式应为 YYYY-MM-DD HH:mm:ss", Data: gin.H{}})
+		return
+	}
+
+	if err := global.Db.Model(&user).Update("expires_at", exp).Error; err != nil {
+		ServerFail(ctx, ResponseJson{Code: 1, Msg: "修改到期时间失败: " + err.Error(), Data: gin.H{}})
+		return
+	}
+	user.ExpiresAt = &exp
+
+	display, _, _ := subscription.FormatExpiresAt(user)
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "到期时间修改成功",
+		Data: gin.H{
+			"user_id":            strconv.FormatInt(uid, 10),
+			"expires_at":         display,
+			"expires_at_display": display,
+			"ycd_allowed":        subscription.IsYcdAllowed(user),
+		},
 	})
 }
 

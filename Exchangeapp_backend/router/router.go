@@ -65,7 +65,8 @@ func SetupRouter() *gin.Engine {
 	}
 	// 第3组：需要认证
 	ycd := r.Group("/api/ycd")
-	ycd.Use(middlewares.AuthMiddleWare()) // 添加认证中间件
+	ycd.Use(middlewares.AuthMiddleWare())
+	ycd.Use(middlewares.YcdSubscriptionMiddleware()) // 到期用户不可用 ycd
 	{
 		//ycd 部分
 		ycd.POST("/createtable", controllers.CreateTables)
@@ -111,6 +112,7 @@ func SetupRouter() *gin.Engine {
 		adminUsers.DELETE("/:uid", controllers.AdminDeleteUser)
 		adminUsers.PUT("/:uid/username", controllers.AdminUpdateUsername)
 		adminUsers.PUT("/:uid/password", controllers.AdminUpdatePassword)
+		adminUsers.PUT("/:uid/expires-at", controllers.AdminUpdateExpiresAt)
 	}
 
 	// 第5组：买币记录管理（需认证）
