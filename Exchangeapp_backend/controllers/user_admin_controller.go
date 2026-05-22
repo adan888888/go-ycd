@@ -23,9 +23,9 @@ func AdminListUsers(ctx *gin.Context) {
 	}
 
 	var users []models.User
-	if err := global.Db.Model(&models.User{}).
+	if err := global.Db.Unscoped().Model(&models.User{}).
 		Where("uid IS NOT NULL").
-		Order("username ASC").
+		Order("deleted_at IS NULL DESC, username ASC").
 		Find(&users).Error; err != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
@@ -36,25 +36,9 @@ func AdminListUsers(ctx *gin.Context) {
 		return
 	}
 
-	type userItem struct {
-		UserID      string `json:"user_id"`
-		Username    string `json:"username"`
-		CreatedAt   string `json:"created_at"`
-		ExpiresAt   string `json:"expires_at"`
-		IsPermanent bool   `json:"is_permanent"`
-		YcdAllowed  bool   `json:"ycd_allowed"`
-	}
-	items := make([]userItem, 0, len(users))
+	items := make([]adminUserItem, 0, len(users))
 	for _, u := range users {
-		_, _, isPermanent := subscription.FormatExpiresAt(u)
-		items = append(items, userItem{
-			UserID:      strconv.FormatInt(u.Uid, 10),
-			Username:    u.Username,
-			CreatedAt:   u.CreatedAt.Format("2006-01-02 15:04:05"),
-			ExpiresAt:   subscription.FormatExpiresAtForAdmin(u),
-			IsPermanent: isPermanent,
-			YcdAllowed:  subscription.IsYcdAllowed(u),
-		})
+		items = append(items, buildAdminUserItem(u))
 	}
 
 	Ok(ctx, ResponseJson{
@@ -77,13 +61,13 @@ func AdminDeleteUser(ctx *gin.Context) {
 		return
 	}
 
-	var user models.User
-	if err := global.Db.Where("uid = ?", uid).First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{Code: 1, Msg: "用户不存在", Data: gin.H{}})
-			return
-		}
-		ServerFail(ctx, ResponseJson{Code: 1, Msg: "查询用户失败: " + err.Error(), Data: gin.H{}})
+	user, ok := findAdminUserByUID(uid)
+	if !ok {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "用户不存在", Data: gin.H{}})
+		return
+	}
+	if user.DeletedAt.Valid {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "用户已删除", Data: gin.H{}})
 		return
 	}
 
@@ -113,6 +97,50 @@ func AdminDeleteUser(ctx *gin.Context) {
 		Code:   0,
 		Msg:    "删除成功",
 		Data:   gin.H{"user_id": strconv.FormatInt(uid, 10)},
+	})
+}
+
+// AdminRestoreUser 超级管理员恢复已软删除的用户
+func AdminRestoreUser(ctx *gin.Context) {
+	if !requireSuperAdmin(ctx) {
+		return
+	}
+
+	uid, err := parsePathUID(ctx.Param("uid"))
+	if err != nil {
+		Fail(ctx, ResponseJson{Code: 1, Msg: err.Error(), Data: gin.H{}})
+		return
+	}
+
+	user, ok := findAdminUserByUID(uid)
+	if !ok {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "用户不存在", Data: gin.H{}})
+		return
+	}
+	if !user.DeletedAt.Valid {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "用户未删除，无需恢复", Data: gin.H{}})
+		return
+	}
+	if user.Username == superAdminUsername {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "不能操作超级管理员账号", Data: gin.H{}})
+		return
+	}
+
+	if err := global.Db.Unscoped().Model(&user).Update("deleted_at", nil).Error; err != nil {
+		ServerFail(ctx, ResponseJson{Code: 1, Msg: "恢复用户失败: " + err.Error(), Data: gin.H{}})
+		return
+	}
+	if err := global.Db.Unscoped().Select("uid", "username", "expires_at", "deleted_at").
+		Where("uid = ?", uid).First(&user).Error; err != nil {
+		ServerFail(ctx, ResponseJson{Code: 1, Msg: "读取恢复后用户失败: " + err.Error(), Data: gin.H{}})
+		return
+	}
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "恢复成功",
+		Data:   buildAdminUserItem(user),
 	})
 }
 
@@ -297,6 +325,46 @@ func AdminUpdateExpiresAt(ctx *gin.Context) {
 			"ycd_allowed": subscription.IsYcdAllowed(user),
 		},
 	})
+}
+
+type adminUserItem struct {
+	UserID      string `json:"user_id"`
+	Username    string `json:"username"`
+	CreatedAt   string `json:"created_at"`
+	ExpiresAt   string `json:"expires_at"`
+	IsPermanent bool   `json:"is_permanent"`
+	YcdAllowed  bool   `json:"ycd_allowed"`
+	IsDeleted   bool   `json:"is_deleted"`
+	Status      string `json:"status"`
+}
+
+func buildAdminUserItem(u models.User) adminUserItem {
+	_, _, isPermanent := subscription.FormatExpiresAt(u)
+	deleted := u.DeletedAt.Valid
+	status := "正常"
+	ycdAllowed := subscription.IsYcdAllowed(u)
+	if deleted {
+		status = "已删除"
+		ycdAllowed = false
+	}
+	return adminUserItem{
+		UserID:      strconv.FormatInt(u.Uid, 10),
+		Username:    u.Username,
+		CreatedAt:   u.CreatedAt.Format("2006-01-02 15:04:05"),
+		ExpiresAt:   subscription.FormatExpiresAtForAdmin(u),
+		IsPermanent: isPermanent,
+		YcdAllowed:  ycdAllowed,
+		IsDeleted:   deleted,
+		Status:      status,
+	}
+}
+
+func findAdminUserByUID(uid int64) (models.User, bool) {
+	var user models.User
+	if err := global.Db.Unscoped().Where("uid = ?", uid).First(&user).Error; err != nil {
+		return user, false
+	}
+	return user, true
 }
 
 func parsePathUID(uidStr string) (int64, error) {

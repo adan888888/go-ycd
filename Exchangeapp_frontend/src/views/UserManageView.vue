@@ -1,15 +1,10 @@
 <template>
   <div class="user-manage-container">
     <div class="content-wrapper">
-      <div class="toolbar">
-        <span class="page-title">用户管理</span>
-        <el-button :icon="Refresh" circle @click="fetchList" :loading="loading" />
-      </div>
-
       <el-card class="table-card" shadow="always">
         <div class="table-wrapper">
           <el-table :data="list" stripe v-loading="loading" :height="tableHeight" empty-text="暂无用户"
-            style="width: 100%">
+            :row-class-name="userRowClassName" style="width: 100%">
             <el-table-column type="index" label="序号" width="70" align="center" />
             <el-table-column prop="user_id" label="用户ID" min-width="160" align="center" show-overflow-tooltip />
             <el-table-column prop="username" label="用户名" width="140" align="center" show-overflow-tooltip />
@@ -24,16 +19,29 @@
             <el-table-column label="剩余天数" width="100" align="center">
               <template #default="{ row }">
                 <el-tag v-if="row.is_permanent" type="success">永久</el-tag>
+                <span v-else-if="row.is_deleted">-</span>
                 <span v-else :class="remainingDaysClass(row)">{{ formatRemainingDays(row) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="360" align="center" fixed="right">
+            <el-table-column prop="status" label="状态" width="90" align="center">
               <template #default="{ row }">
-                <el-button type="primary" link @click="openUsernameDialog(row)">修改用户名</el-button>
-                <el-button type="warning" link @click="openPasswordDialog(row)">修改密码</el-button>
-                <el-button type="success" link :disabled="row.is_permanent" @click="openExpiresDialog(row)">修改到期</el-button>
-                <el-button type="danger" link :disabled="row.username === 'Admin'"
-                  @click="handleDelete(row)">删除</el-button>
+                <el-tag v-if="row.is_deleted" type="info">已删除</el-tag>
+                <el-tag v-else type="success">正常</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="380" align="center" fixed="right">
+              <template #default="{ row }">
+                <template v-if="row.is_deleted">
+                  <el-button type="primary" link :disabled="row.username === 'Admin'"
+                    @click="handleRestore(row)">恢复</el-button>
+                </template>
+                <template v-else>
+                  <el-button type="primary" link @click="openUsernameDialog(row)">修改用户名</el-button>
+                  <el-button type="warning" link @click="openPasswordDialog(row)">修改密码</el-button>
+                  <el-button type="success" link :disabled="row.is_permanent" @click="openExpiresDialog(row)">修改到期</el-button>
+                  <el-button type="danger" link :disabled="row.username === 'Admin'"
+                    @click="handleDelete(row)">删除</el-button>
+                </template>
               </template>
             </el-table-column>
           </el-table>
@@ -111,7 +119,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
-import { Refresh } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import axios from '../axios';
 import { SUPER_ADMIN_USERNAME } from '../store/auth';
@@ -123,6 +130,8 @@ interface UserRow {
   expires_at?: string;
   is_permanent?: boolean;
   ycd_allowed?: boolean;
+  is_deleted?: boolean;
+  status?: string;
 }
 
 const loading = ref(false);
@@ -204,7 +213,7 @@ const passwordRules: FormRules = {
 };
 
 const calculateTableHeight = () => {
-  tableHeight.value = Math.max(300, window.innerHeight - 260);
+  tableHeight.value = Math.max(300, window.innerHeight - 230);
 };
 
 const normalizeUserId = (id: string | number | undefined): string => {
@@ -261,7 +270,10 @@ const fetchList = async () => {
   }
 };
 
+const userRowClassName = ({ row }: { row: UserRow }) => (row.is_deleted ? 'row-deleted' : '');
+
 const openUsernameDialog = (row: UserRow) => {
+  if (row.is_deleted) return;
   if (row.username === SUPER_ADMIN_USERNAME) {
     ElMessage.warning('不能修改超级管理员 Admin 的用户名');
     return;
@@ -271,6 +283,7 @@ const openUsernameDialog = (row: UserRow) => {
 };
 
 const openExpiresDialog = (row: UserRow) => {
+  if (row.is_deleted) return;
   if (row.is_permanent) {
     ElMessage.warning('超级管理员为永久有效');
     return;
@@ -286,6 +299,7 @@ const openExpiresDialog = (row: UserRow) => {
 };
 
 const openPasswordDialog = (row: UserRow) => {
+  if (row.is_deleted) return;
   passwordForm.value = {
     user_id: row.user_id,
     username: row.username,
@@ -376,13 +390,14 @@ const submitPassword = async () => {
 };
 
 const handleDelete = async (row: UserRow) => {
+  if (row.is_deleted) return;
   if (row.username === SUPER_ADMIN_USERNAME) {
     ElMessage.warning('不能删除超级管理员账号');
     return;
   }
   try {
     await ElMessageBox.confirm(
-      `确定删除用户「${row.username}」？将同时删除该用户的操作日志与投注记录，且不可恢复。`,
+      `确定删除用户「${row.username}」？将清除该用户的操作日志与投注记录；账号可稍后在列表中点击「恢复」重新启用。`,
       '删除确认',
       { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
     );
@@ -400,6 +415,37 @@ const handleDelete = async (row: UserRow) => {
     }
   } catch (e: any) {
     ElMessage.error(e.response?.data?.msg || e.message || '删除失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleRestore = async (row: UserRow) => {
+  if (!row.is_deleted) return;
+  if (row.username === SUPER_ADMIN_USERNAME) {
+    ElMessage.warning('不能操作超级管理员账号');
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确定恢复用户「${row.username}」？恢复后可重新登录使用（历史操作日志与投注记录不会自动还原）。`,
+      '恢复确认',
+      { type: 'info', confirmButtonText: '恢复', cancelButtonText: '取消' }
+    );
+  } catch {
+    return;
+  }
+  loading.value = true;
+  try {
+    const res = await axios.post(`/admin/users/${row.user_id}/restore`);
+    if (res.data?.code === 0) {
+      ElMessage.success(res.data?.msg || '恢复成功');
+      await fetchList();
+    } else {
+      ElMessage.error(res.data?.msg || '恢复失败');
+    }
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.msg || e.message || '恢复失败');
   } finally {
     loading.value = false;
   }
@@ -431,19 +477,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.page-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
 }
 
 .table-card {
@@ -480,6 +513,10 @@ onUnmounted(() => {
 .warn-text {
   color: #e6a23c;
   font-weight: 500;
+}
+
+:deep(.row-deleted) {
+  color: #909399;
 }
 
 .expires-quick-btns {

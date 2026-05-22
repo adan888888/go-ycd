@@ -110,6 +110,7 @@ func SetupRouter() *gin.Engine {
 	{
 		adminUsers.GET("", controllers.AdminListUsers)
 		adminUsers.DELETE("/:uid", controllers.AdminDeleteUser)
+		adminUsers.POST("/:uid/restore", controllers.AdminRestoreUser)
 		adminUsers.PUT("/:uid/username", controllers.AdminUpdateUsername)
 		adminUsers.PUT("/:uid/password", controllers.AdminUpdatePassword)
 		adminUsers.PUT("/:uid/expires-at", controllers.AdminUpdateExpiresAt)
