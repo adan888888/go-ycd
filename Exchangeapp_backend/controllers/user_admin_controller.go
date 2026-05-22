@@ -277,11 +277,17 @@ func AdminUpdateExpiresAt(ctx *gin.Context) {
 		return
 	}
 
-	if err := global.Db.Model(&user).Update("expires_at", exp).Error; err != nil {
+	if err := global.Db.Model(&user).Select("expires_at").Updates(map[string]interface{}{
+		"expires_at": exp,
+	}).Error; err != nil {
 		ServerFail(ctx, ResponseJson{Code: 1, Msg: "修改到期时间失败: " + err.Error(), Data: gin.H{}})
 		return
 	}
-	user.ExpiresAt = &exp
+	// 写库后重新读取，确保返回与 ycd 校验一致
+	if err := global.Db.Select("uid", "username", "expires_at").Where("uid = ?", uid).First(&user).Error; err != nil {
+		ServerFail(ctx, ResponseJson{Code: 1, Msg: "读取更新后用户失败: " + err.Error(), Data: gin.H{}})
+		return
+	}
 
 	display, _, _ := subscription.FormatExpiresAt(user)
 	Ok(ctx, ResponseJson{

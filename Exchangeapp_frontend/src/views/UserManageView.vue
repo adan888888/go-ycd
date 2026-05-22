@@ -24,6 +24,12 @@
                 <span v-else :class="{ 'expired-text': !row.ycd_allowed }">{{ row.expires_at_display || '未设置' }}</span>
               </template>
             </el-table-column>
+            <el-table-column label="剩余天数" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag v-if="row.is_permanent" type="success">永久</el-tag>
+                <span v-else :class="remainingDaysClass(row)">{{ formatRemainingDays(row) }}</span>
+              </template>
+            </el-table-column>
             <el-table-column label="操作" width="360" align="center" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link @click="openUsernameDialog(row)">修改用户名</el-button>
@@ -166,6 +172,28 @@ const normalizeUserId = (id: string | number | undefined): string => {
   return String(id);
 };
 
+/** 剩余天数：永久 / 未设置 / 已过期显示 0天 / 未到期向上取整天数 */
+const formatRemainingDays = (row: UserRow): string => {
+  if (row.is_permanent) return '永久';
+  const raw = (row.expires_at_display || row.expires_at || '').trim();
+  if (!raw || raw === '未设置' || raw === '永久') return '-';
+  const end = new Date(raw.replace(/-/g, '/'));
+  if (Number.isNaN(end.getTime())) return '-';
+  const diffMs = end.getTime() - Date.now();
+  if (diffMs <= 0) return '0天';
+  const days = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+  return `${days}天`;
+};
+
+const remainingDaysClass = (row: UserRow): string => {
+  if (row.is_permanent) return '';
+  const text = formatRemainingDays(row);
+  if (text === '0天' || text === '-') return 'expired-text';
+  const days = parseInt(text, 10);
+  if (!Number.isNaN(days) && days <= 7) return 'warn-text';
+  return '';
+};
+
 const fetchList = async () => {
   loading.value = true;
   try {
@@ -267,7 +295,7 @@ const submitExpires = async () => {
       expires_at: expiresForm.value.expires_at,
     });
     if (res.data?.code === 0) {
-      ElMessage.success('到期时间修改成功');
+      ElMessage.success(res.data?.msg || '到期时间修改成功');
       expiresDialogVisible.value = false;
       await fetchList();
     } else {
@@ -405,5 +433,10 @@ onUnmounted(() => {
 
 .expired-text {
   color: #f56c6c;
+}
+
+.warn-text {
+  color: #e6a23c;
+  font-weight: 500;
 }
 </style>

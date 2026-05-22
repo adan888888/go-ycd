@@ -105,8 +105,9 @@ func Login(ctx *gin.Context) {
 
 	var user models.User
 
-	// 验证用户名（区分大小写，避免 collation 导致 admin 匹配 Admin）
-	if err := global.Db.Where(usernameCaseSensitiveSQL, input.Username).First(&user).Error; err != nil {
+	// 验证用户名（区分大小写）；每次登录重新读 expires_at
+	if err := global.Db.Select("uid", "username", "password", "expires_at").
+		Where(usernameCaseSensitiveSQL, input.Username).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrInvalidDB) {
 			Fail(ctx, ResponseJson{
 				Status: http.StatusUnauthorized,
