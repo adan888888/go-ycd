@@ -6,10 +6,6 @@
         <el-button :icon="Refresh" circle @click="fetchList" :loading="loading" />
       </div>
 
-      <el-alert type="info" :closable="false" show-icon class="tip-alert">
-        仅超级管理员 <strong>Admin</strong> 可管理其他用户（修改用户名、修改密码、修改到期时间、删除用户）。超级管理员为永久有效。
-      </el-alert>
-
       <el-card class="table-card" shadow="always">
         <div class="table-wrapper">
           <el-table :data="list" stripe v-loading="loading" :height="tableHeight" empty-text="暂无用户"
@@ -18,7 +14,8 @@
             <el-table-column prop="user_id" label="用户ID" min-width="160" align="center" show-overflow-tooltip />
             <el-table-column prop="username" label="用户名" width="140" align="center" show-overflow-tooltip />
             <el-table-column prop="created_at" label="注册时间" width="170" align="center" show-overflow-tooltip />
-            <el-table-column prop="expires_at" label="到期时间" width="170" align="center" show-overflow-tooltip>
+            <el-table-column prop="expires_at" label="到期时间" min-width="210" width="210" align="center"
+              show-overflow-tooltip>
               <template #default="{ row }">
                 <el-tag v-if="row.is_permanent" type="success">永久</el-tag>
                 <span v-else :class="{ 'expired-text': !row.ycd_allowed }">{{ formatExpireTime(row) }}</span>
@@ -72,6 +69,15 @@
         <el-form-item label="到期时间" prop="expires_at">
           <el-date-picker v-model="expiresForm.expires_at" type="datetime" placeholder="选择到期时间"
             format="YYYY-MM-DD HH:mm:ss" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="快捷续期">
+          <div class="expires-quick-btns">
+            <el-button v-for="item in expiresQuickOptions" :key="item.months" size="small"
+              @click="applyExpiresQuick(item.months)">
+              {{ item.label }}
+            </el-button>
+          </div>
+          <div class="expires-quick-tip">在现有到期日基础上顺延；未设置或已过期则从当前时间起算</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -141,6 +147,41 @@ const usernameRules: FormRules = {
 
 const expiresRules: FormRules = {
   expires_at: [{ required: true, message: '请选择到期时间', trigger: 'change' }],
+};
+
+const expiresQuickOptions = [
+  { label: '+1个月', months: 1 },
+  { label: '+2个月', months: 2 },
+  { label: '+3个月', months: 3 },
+  { label: '+半年', months: 6 },
+  { label: '+1年', months: 12 },
+];
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+const formatDateTime = (d: Date): string =>
+  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+
+const parseExpiresAt = (raw: string): Date | null => {
+  const s = raw.trim();
+  if (!s || s === '未设置') return null;
+  const d = new Date(s.replace(/-/g, '/'));
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const addMonths = (date: Date, months: number): Date => {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + months);
+  return d;
+};
+
+/** 快捷续期：未到期则在原到期日上顺延，否则从当前时间起算 */
+const applyExpiresQuick = (months: number) => {
+  const now = new Date();
+  const current = parseExpiresAt(expiresForm.value.expires_at);
+  const base = current && current.getTime() > now.getTime() ? current : now;
+  expiresForm.value.expires_at = formatDateTime(addMonths(base, months));
+  expiresFormRef.value?.validateField('expires_at').catch(() => undefined);
 };
 
 const validateConfirmPassword = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
@@ -405,10 +446,6 @@ onUnmounted(() => {
   color: #303133;
 }
 
-.tip-alert {
-  margin-bottom: 12px;
-}
-
 .table-card {
   flex: 1;
   display: flex;
@@ -443,5 +480,18 @@ onUnmounted(() => {
 .warn-text {
   color: #e6a23c;
   font-weight: 500;
+}
+
+.expires-quick-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.expires-quick-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.4;
 }
 </style>
