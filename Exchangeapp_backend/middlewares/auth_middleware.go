@@ -30,6 +30,7 @@ func AuthMiddleWare() gin.HandlerFunc {
 		}
 
 		ctx.Set("username", username)
+		AttachLoginUser(ctx, username)
 		ctx.Next()
 	}
 }

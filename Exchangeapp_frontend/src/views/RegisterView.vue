@@ -29,7 +29,7 @@ const router = useRouter();
 const register = async () => {
   try {
     await authStore.register(form.value.username, form.value.password);
-    router.push({ name: 'News' });
+    await router.push('/');
   } catch {
     ElMessage.error('注册失败，请重试。');
   }
@@ -40,12 +40,13 @@ const register = async () => {
 .auth-container {  
   display: flex;  
   justify-content: center;  
-  align-items: center;
+  align-items: flex-start;
   flex: 1;
   min-height: 0;
   width: 100%;
   background-color: #f5f5f5; 
-  padding: 20px;  
+  padding: 20px;
+  padding-top: 18vh;
   box-sizing: border-box; 
 }  
 

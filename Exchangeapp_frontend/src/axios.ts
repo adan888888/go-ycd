@@ -1,4 +1,7 @@
 import axios from 'axios';
+import { ElMessage } from 'element-plus';
+import router from './router';
+import { useAuthStore } from './store/auth';
 
 // 开发：.env.development → http://localhost:3000/api
 // 生产构建：.env.production → /api（由 Nginx 反代到 Gin）
@@ -70,7 +73,25 @@ instance.interceptors.response.use(response => {
   }
   return response;
 }, error => {
-  // 统一错误处理
+  const status = error.response?.status;
+  const url = String(error.config?.url ?? '');
+  if (status === 401 && !url.includes('/auth/login') && !url.includes('/auth/register')) {
+    try {
+      useAuthStore().logout();
+    } catch {
+      localStorage.removeItem('token');
+    }
+    const current = router.currentRoute.value;
+    if (current.name !== 'Login') {
+      ElMessage.warning('请先登录');
+      void router.push({
+        name: 'Login',
+        query: current.fullPath && current.fullPath !== '/login'
+          ? { redirect: current.fullPath }
+          : {},
+      });
+    }
+  }
   return Promise.reject(error);
 });
 

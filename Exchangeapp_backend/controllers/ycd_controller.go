@@ -698,18 +698,15 @@ func UpdateZhuangZhanBi(ctx *gin.Context) {
 // @Router       /api/ycd/zhuangzhanbi [get]
 func GetZhuangZhanBi(ctx *gin.Context) {
 	userIDStr := ctx.Query("user_id")
-	if userIDStr == "" {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "用户ID不能为空",
-			Data:   gin.H{},
-		})
+	scopedUID, _, status, msg := resolveListUserScope(ctx, userIDStr)
+	if status != 0 {
+		forbidScope(ctx, status, msg)
 		return
 	}
+	userIDStr = strconv.FormatInt(scopedUID, 10)
 
 	var tableYanchendao1 models.TableYanchendao1
-	if err := global.Db.Where("uid=?", userIDStr).Last(&tableYanchendao1).Error; err != nil {
+	if err := global.Db.Where("uid=?", scopedUID).Last(&tableYanchendao1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			Fail(ctx, ResponseJson{
 				Status: http.StatusNotFound,
@@ -755,15 +752,12 @@ func GetZhuangZhanBi(ctx *gin.Context) {
 // @Router       /api/ycd/zhuangzhanbi [post]
 func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
 	userIDStr := ctx.Query("user_id")
-	if userIDStr == "" {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "用户ID不能为空",
-			Data:   gin.H{},
-		})
+	scopedUID, _, status, msg := resolveListUserScope(ctx, userIDStr)
+	if status != 0 {
+		forbidScope(ctx, status, msg)
 		return
 	}
+	userIDStr = strconv.FormatInt(scopedUID, 10)
 
 	type TempValues struct {
 		ZhuangZhanBi *int `json:"zhuangZhanBi"` // 庄占比，范围0-100
@@ -799,7 +793,7 @@ func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
 	}
 
 	var tableYanchendao1 models.TableYanchendao1
-	if err := global.Db.Where("uid=?", userIDStr).Last(&tableYanchendao1).Error; err != nil {
+	if err := global.Db.Where("uid=?", scopedUID).Last(&tableYanchendao1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			Fail(ctx, ResponseJson{
 				Status: http.StatusNotFound,
@@ -844,6 +838,11 @@ func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
 // GetTable1List 获取table_yanchendao1数据列表（无需认证，支持分页）
 func GetTable1List(ctx *gin.Context) {
 	userIDStr := ctx.Query("user_id")
+	scopedUID, queryAll, status, msg := resolveListUserScope(ctx, userIDStr)
+	if status != 0 {
+		forbidScope(ctx, status, msg)
+		return
+	}
 
 	// 获取分页参数
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
@@ -864,24 +863,11 @@ func GetTable1List(ctx *gin.Context) {
 	var total int64
 	var query *gorm.DB
 
-	// 如果 user_id 为空，查询所有用户的记录；否则查询指定用户的记录
-	if userIDStr == "" {
-		// 查询所有用户的记录，按创建时间倒序排列
+	if queryAll {
 		query = global.Db.Model(&models.TableYanchendao1{}).Where("deleted_at IS NULL")
 	} else {
-		// 查询该用户的所有记录，按创建时间倒序排列
-		// 将字符串转换为 int64，避免大整数查询问题
-		userID, err := strconv.ParseInt(userIDStr, 10, 64)
-		if err != nil {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusBadRequest,
-				Code:   1,
-				Msg:    "用户ID格式错误: " + err.Error(),
-				Data:   gin.H{},
-			})
-			return
-		}
-		query = global.Db.Model(&models.TableYanchendao1{}).Where("uid = ? AND deleted_at IS NULL", userID)
+		query = global.Db.Model(&models.TableYanchendao1{}).Where("uid = ? AND deleted_at IS NULL", scopedUID)
+		userIDStr = strconv.FormatInt(scopedUID, 10)
 	}
 
 	// 获取总数
@@ -983,6 +969,11 @@ func GetTable1List(ctx *gin.Context) {
 // GetTable2List 获取table_yanchendao2数据列表（无需认证，支持分页）给后台接口用，app上用的是LoadMore这个接口
 func GetTable2List(ctx *gin.Context) {
 	userIDStr := ctx.Query("user_id")
+	scopedUID, queryAll, status, msg := resolveListUserScope(ctx, userIDStr)
+	if status != 0 {
+		forbidScope(ctx, status, msg)
+		return
+	}
 
 	// 获取分页参数
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
@@ -1003,23 +994,11 @@ func GetTable2List(ctx *gin.Context) {
 	var total int64
 	var query *gorm.DB
 
-	// 如果 user_id 为空，查询所有用户的记录；否则查询指定用户的记录
-	if userIDStr == "" {
-		// 查询所有用户的记录
+	if queryAll {
 		query = global.Db.Model(&models.TableYanchendao2{}).Where("deleted_at IS NULL")
 	} else {
-		// 查询该用户的所有记录
-		userID, err := strconv.ParseInt(userIDStr, 10, 64)
-		if err != nil {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusBadRequest,
-				Code:   1,
-				Msg:    "用户ID格式错误: " + err.Error(),
-				Data:   gin.H{},
-			})
-			return
-		}
-		query = global.Db.Model(&models.TableYanchendao2{}).Where("user_id = ? AND deleted_at IS NULL", userID)
+		query = global.Db.Model(&models.TableYanchendao2{}).Where("user_id = ? AND deleted_at IS NULL", scopedUID)
+		userIDStr = strconv.FormatInt(scopedUID, 10)
 	}
 
 	// 获取总数
@@ -1037,7 +1016,7 @@ func GetTable2List(ctx *gin.Context) {
 	offset := (page - 1) * pageSize
 	// 使用 MySQL 8 的窗口函数 ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC)
 	// 为每个用户的投注记录计算一个从 1 开始的序号 seq
-	if userIDStr == "" {
+	if queryAll {
 		// 查询所有用户的记录：按 user_id、created_at 排序，并在每个 user_id 分组内计算序号
 		sql := `
 			SELECT
@@ -1139,6 +1118,14 @@ func GetTable2List(ctx *gin.Context) {
 func GetTable2ByID(ctx *gin.Context) {
 	idStr := strings.TrimSpace(ctx.Query("id"))
 	userIDStr := strings.TrimSpace(ctx.Query("user_id"))
+	scopedUID, queryAll, status, msg := resolveListUserScope(ctx, userIDStr)
+	if status != 0 {
+		forbidScope(ctx, status, msg)
+		return
+	}
+	if !queryAll {
+		userIDStr = strconv.FormatInt(scopedUID, 10)
+	}
 	if idStr == "" {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusBadRequest,
@@ -1217,6 +1204,10 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 		})
 		return
 	}
+	if !isSuperAdmin(ctx) && item.UserID != loginUID(ctx) {
+		forbidScope(ctx, http.StatusForbidden, "无权查看其他用户数据")
+		return
+	}
 
 	username := ""
 	var user models.User
@@ -1287,6 +1278,10 @@ func UpdateTable2Config(ctx *gin.Context) {
 			Msg:    "查询失败: " + err.Error(),
 			Data:   gin.H{},
 		})
+		return
+	}
+	if !isSuperAdmin(ctx) && tableYanchendao2.UserID != loginUID(ctx) {
+		forbidScope(ctx, http.StatusForbidden, "无权修改其他用户数据")
 		return
 	}
 
@@ -1364,6 +1359,10 @@ func UpdateTable1Config(ctx *gin.Context) {
 			Msg:    "查询失败: " + err.Error(),
 			Data:   gin.H{},
 		})
+		return
+	}
+	if !isSuperAdmin(ctx) && tableYanchendao1.Uid != loginUID(ctx) {
+		forbidScope(ctx, http.StatusForbidden, "无权修改其他用户数据")
 		return
 	}
 
@@ -1943,14 +1942,21 @@ func Getusers(ctx *gin.Context) {
 // @Success      200  {object}  ResponseJson{data=[]object}
 // @Router       /api/ycd/today/users [get]
 func GetTodayBettingUsers(ctx *gin.Context) {
-	// 查询所有用户列表
 	var users []models.User
+	db := global.Db.Unscoped().Model(&models.User{}).Where("uid IS NOT NULL")
 
-	// 使用User模型查询所有用户（包括软删除的记录）
-	if err := global.Db.Unscoped().Model(&models.User{}).
-		Where("uid IS NOT NULL").
-		Order("username ASC").
-		Find(&users).Error; err != nil {
+	if isSuperAdmin(ctx) {
+		db = db.Order("username ASC")
+	} else {
+		uid := loginUID(ctx)
+		if uid == 0 {
+			forbidScope(ctx, http.StatusUnauthorized, "无法识别当前登录用户")
+			return
+		}
+		db = db.Where("uid = ?", uid)
+	}
+
+	if err := db.Find(&users).Error; err != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
 			Code:   1,
@@ -2005,18 +2011,18 @@ func GetTodayBettingAmount(ctx *gin.Context) {
 		endDateStr = startDateStr
 	}
 
-	// 获取可选的用户ID参数
 	userIDStr := ctx.Query("user_id")
+	scopedUID, queryAll, status, msg := resolveListUserScope(ctx, userIDStr)
+	if status != 0 {
+		forbidScope(ctx, status, msg)
+		return
+	}
 
-	// 构建查询条件：日期范围
 	query := global.Db.Model(&models.TableYanchendao2{}).
 		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
-
-	// 如果提供了用户ID，则按用户筛选
-	if userIDStr != "" {
-		if userID, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
-			query = query.Where("user_id = ?", userID)
-		}
+	if !queryAll {
+		query = query.Where("user_id = ?", scopedUID)
+		userIDStr = strconv.FormatInt(scopedUID, 10)
 	}
 
 	var records []models.TableYanchendao2
@@ -2075,18 +2081,18 @@ func GetTodayBettingCount(ctx *gin.Context) {
 		endDateStr = startDateStr
 	}
 
-	// 获取可选的用户ID参数
 	userIDStr := ctx.Query("user_id")
+	scopedUID, queryAll, status, msg := resolveListUserScope(ctx, userIDStr)
+	if status != 0 {
+		forbidScope(ctx, status, msg)
+		return
+	}
 
-	// 构建查询条件：日期范围
 	query := global.Db.Model(&models.TableYanchendao2{}).
 		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
-
-	// 如果提供了用户ID，则按用户筛选
-	if userIDStr != "" {
-		if userID, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
-			query = query.Where("user_id = ?", userID)
-		}
+	if !queryAll {
+		query = query.Where("user_id = ?", scopedUID)
+		userIDStr = strconv.FormatInt(scopedUID, 10)
 	}
 
 	var count int64
@@ -2136,18 +2142,18 @@ func GetBettingStats(ctx *gin.Context) {
 		endDateStr = startDateStr
 	}
 
-	// 获取可选的用户ID参数
 	userIDStr := ctx.Query("user_id")
+	scopedUID, queryAll, status, msg := resolveListUserScope(ctx, userIDStr)
+	if status != 0 {
+		forbidScope(ctx, status, msg)
+		return
+	}
 
-	// 构建查询条件：日期范围
 	query := global.Db.Model(&models.TableYanchendao2{}).
 		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
-
-	// 如果提供了用户ID，则按用户筛选
-	if userIDStr != "" {
-		if userID, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
-			query = query.Where("user_id = ?", userID)
-		}
+	if !queryAll {
+		query = query.Where("user_id = ?", scopedUID)
+		userIDStr = strconv.FormatInt(scopedUID, 10)
 	}
 
 	var records []models.TableYanchendao2

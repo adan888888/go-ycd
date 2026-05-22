@@ -1,4 +1,5 @@
 <template>
+  <!-- 超级管理员账号Admin/admin123 -->
   <el-container class="admin-layout">
     <!-- 顶部导航栏 -->
     <el-header class="admin-header">
@@ -8,18 +9,21 @@
         </div>
       </div>
       <div class="header-right">
-        <!-- 用户选择下拉框（在首页和操作日志页面显示） -->
-        <el-select v-if="showUserSelect" v-model="selectedUserId" placeholder="选择用户" clearable
-          @change="handleUserSelectChange" style="width: 200px; margin-right: 16px;" size="default">
+        <!-- 超级管理员 Admin 可选择用户；普通用户仅查看本人数据 -->
+        <el-select v-if="showUserSelect && authStore.isSuperAdmin" v-model="selectedUserId" placeholder="选择用户"
+          clearable @change="handleUserSelectChange" style="width: 200px; margin-right: 16px;" size="default">
           <el-option label="全部用户" value="" />
           <el-option v-for="(user, index) in userList" :key="`user-${index}-${user.user_id}`"
             :label="user.username || `用户 ${user.user_id}`" :value="String(user.user_id)" />
         </el-select>
+        <span v-else-if="showUserSelect && authStore.userId" class="scoped-user-hint">
+          当前用户：{{ authStore.displayName }}
+        </span>
 
         <el-dropdown @command="handleCommand">
           <span class="user-info">
             <el-avatar :size="32" class="user-avatar">A</el-avatar>
-            <span class="username">{{ authStore.isAuthenticated ? 'admin' : '游客' }}</span>
+            <span class="username">{{ authStore.displayName }}</span>
             <el-icon>
               <ArrowDown />
             </el-icon>
@@ -162,12 +166,34 @@ const selectedUserId = ref<string | null>(getStoredUserId());
 const userList = ref<UserInfo[]>([]);
 // 是否显示用户选择框（在首页、操作日志页面和表2页面显示）
 const showUserSelect = computed(() => {
+  if (!authStore.isAuthenticated) return false;
   const routeName = route.name?.toString();
   const routePath = route.path;
   return routeName === 'Home' || routePath === '/' ||
     routeName === 'UserConfig' || routePath === '/user-config' ||
     routeName === 'BettingRecord' || routePath === '/betting-record';
 });
+
+/** 普通用户锁定为本人 uid；Admin 可自由选择或查全部 */
+const applyScopedUserSelection = () => {
+  if (!authStore.isAuthenticated) {
+    selectedUserId.value = null;
+    return;
+  }
+  if (authStore.isSuperAdmin) {
+    return;
+  }
+  if (authStore.userId) {
+    selectedUserId.value = authStore.userId;
+    const routeName = route.name?.toString();
+    const routePath = route.path;
+    if (routeName === 'UserConfig' || routePath === '/user-config') {
+      localStorage.setItem('userConfig_selectedUserId', authStore.userId);
+    } else if (routeName === 'BettingRecord' || routePath === '/betting-record') {
+      localStorage.setItem('bettingRecord_selectedUserId', authStore.userId);
+    }
+  }
+};
 
 // 通过 provide 共享用户选择状态给子组件
 provide<Ref<string | null>>('selectedUserId', selectedUserId);
@@ -185,8 +211,12 @@ const fetchUserList = async () => {
   }
 };
 
-// 用户选择改变时的处理
+// 用户选择改变时的处理（仅超级管理员可操作）
 const handleUserSelectChange = (value: string | null) => {
+  if (!authStore.isSuperAdmin) {
+    applyScopedUserSelection();
+    return;
+  }
   if (value === null || value === '' || value === undefined) {
     selectedUserId.value = null;
     // 清除 localStorage 中的选择（根据当前页面）
@@ -222,10 +252,21 @@ const handleUserSelectChange = (value: string | null) => {
 
 // 页面加载时获取用户列表（在首页和操作日志页面）
 watch(showUserSelect, (shouldShow) => {
-  if (shouldShow && userList.value.length === 0) {
-    fetchUserList();
+  if (shouldShow && authStore.isAuthenticated) {
+    applyScopedUserSelection();
+    if (authStore.isSuperAdmin && userList.value.length === 0) {
+      fetchUserList();
+    }
   }
 }, { immediate: true });
+
+watch(
+  () => [authStore.isAuthenticated, authStore.isSuperAdmin, authStore.userId] as const,
+  () => {
+    applyScopedUserSelection();
+  },
+  { immediate: true }
+);
 
 // 监听路由变化，在进入操作日志页面或投注记录页面时恢复用户选择
 watch(route, (newRoute) => {
@@ -234,15 +275,13 @@ watch(route, (newRoute) => {
   const isUserConfigPage = currentRouteName === 'UserConfig' || currentRoutePath === '/user-config';
   const isBettingRecordPage = currentRouteName === 'BettingRecord' || currentRoutePath === '/betting-record';
 
-  // 如果是操作日志页面或投注记录页面，从 localStorage 恢复用户选择
   if (isUserConfigPage || isBettingRecordPage) {
-    const pageType = isUserConfigPage ? 'userConfig' : 'bettingRecord';
-    const storedUserId = getStoredUserId(pageType);
-    if (storedUserId) {
+    if (authStore.isSuperAdmin) {
+      const pageType = isUserConfigPage ? 'userConfig' : 'bettingRecord';
+      const storedUserId = getStoredUserId(pageType);
       selectedUserId.value = storedUserId;
     } else {
-      // 如果没有存储的选择，设置为 null
-      selectedUserId.value = null;
+      applyScopedUserSelection();
     }
   }
 
@@ -252,7 +291,7 @@ watch(route, (newRoute) => {
 const handleSelect = (key: string) => {
   if (key === 'logout') {
     authStore.logout();
-    router.push({ name: 'Home' }).catch(() => { });
+    router.push({ name: 'Login' }).catch(() => { });
   }
 };
 
@@ -260,7 +299,7 @@ const handleSelect = (key: string) => {
 const handleCommand = (command: string) => {
   if (command === 'logout') {
     authStore.logout();
-    router.push({ name: 'Home' });
+    router.push({ name: 'Login' });
   } else if (command === 'login') {
     router.push({ name: 'Login' });
   }
@@ -355,6 +394,12 @@ body {
   margin-right: 8px;
   font-size: 14px;
   color: #333;
+}
+
+.scoped-user-hint {
+  margin-right: 16px;
+  font-size: 14px;
+  color: #606266;
 }
 
 /* 左侧边栏 */

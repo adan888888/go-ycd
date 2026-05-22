@@ -88,27 +88,24 @@ func SetupRouter() *gin.Engine {
 		ycd.GET("/linechartData", controllers.LinechartData)              //折线图数据
 		ycd.POST("/cleanDataD", controllers.CleanDataD)                   //清除数据（消数列数据全部清除）
 		ycd.GET("/randomBankerPlayer", controllers.GetRandomBankerPlayer) //随机庄闲接口
+		// 管理后台统计与列表（需登录）
+		ycd.GET("/today/users", controllers.GetTodayBettingUsers)
+		ycd.GET("/today/amount", controllers.GetTodayBettingAmount)
+		ycd.GET("/today/count", controllers.GetTodayBettingCount)
+		ycd.GET("/stats", controllers.GetBettingStats)
+		ycd.GET("/zhuangzhanbi", controllers.GetZhuangZhanBi)
+		ycd.POST("/zhuangzhanbi", controllers.UpdateZhuangZhanBiPublic)
+		ycd.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi)
+		ycd.GET("/table1/list", controllers.GetTable1List)
+		ycd.PUT("/table1/config", controllers.UpdateTable1Config)
+		ycd.GET("/betting-record/list", controllers.GetTable2List)
+		ycd.GET("/betting-record/by-id", controllers.GetTable2ByID)
+		ycd.PUT("/betting-record/config", controllers.UpdateTable2Config)
 	}
 
-	// 第3.5组：ycd投注记录统计（无需认证）
-	ycdStats := r.Group("/api/ycd")
-	{
-		ycdStats.GET("/today/users", controllers.GetTodayBettingUsers)         // 获取今天有投注记录的用户列表
-		ycdStats.GET("/today/amount", controllers.GetTodayBettingAmount)       // 查询今天流水
-		ycdStats.GET("/today/count", controllers.GetTodayBettingCount)         // 查询今天下注次数
-		ycdStats.GET("/stats", controllers.GetBettingStats)                    // 查询净胜负和输赢金额
-		ycdStats.GET("/zhuangzhanbi", controllers.GetZhuangZhanBi)             // 获取用户庄占比
-		ycdStats.POST("/zhuangzhanbi", controllers.UpdateZhuangZhanBiPublic)   // 更新用户庄占比
-		ycdStats.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi)   // 修改庄占比（无需认证）
-		ycdStats.GET("/table1/list", controllers.GetTable1List)                // 获取table_yanchendao1数据列表
-		ycdStats.PUT("/table1/config", controllers.UpdateTable1Config)         // 更新table_yanchendao1的临时索引和重启位置
-		ycdStats.GET("/betting-record/list", controllers.GetTable2List)          // 获取投注记录列表
-		ycdStats.GET("/betting-record/by-id", controllers.GetTable2ByID)        // 按主键查询单条投注记录（可选 user_id）
-		ycdStats.PUT("/betting-record/config", controllers.UpdateTable2Config) // 更新投注记录的输赢值和消数后输赢值
-	}
-
-	// 第4组：买币记录管理（无需认证）
+	// 第4组：买币记录管理（需认证）
 	buyRecords := r.Group("/api/buyRecords")
+	buyRecords.Use(middlewares.AuthMiddleWare())
 	{
 		buyRecords.GET("", controllers.GetBuyRecords)           // 获取买币记录列表
 		buyRecords.POST("", controllers.CreateBuyRecord)      // 录入买币记录

@@ -8,28 +8,31 @@ import NewsView from '../views/NewsView.vue';
 import NewsDetailView from '../views/NewsDetailView.vue';
 import LoginView from '../views/LoginView.vue';
 import RegisterView from '../views/RegisterView.vue';
+import { useAuthStore } from '../store/auth';
+import { ElMessage } from 'element-plus';
+
+const publicRouteNames = new Set(['Login', 'Register']);
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', name: 'Home', component: HomeView },
-  { path: '/user-config', name: 'UserConfig', component: UserConfigView },
-  { 
-    path: '/betting-record', 
-    name: 'BettingRecord', 
+  { path: '/', name: 'Home', component: HomeView, meta: { requiresAuth: true } },
+  { path: '/user-config', name: 'UserConfig', component: UserConfigView, meta: { requiresAuth: true } },
+  {
+    path: '/betting-record',
+    name: 'BettingRecord',
     component: BettingRecord,
-    meta: { title: '投注记录' }
+    meta: { requiresAuth: true, title: '投注记录' },
   },
-  { path: '/exchange', name: 'CurrencyExchange', component: CurrencyExchangeView },
+  { path: '/exchange', name: 'CurrencyExchange', component: CurrencyExchangeView, meta: { requiresAuth: true } },
   {
     path: '/purchase-records',
     name: 'PurchaseRecord',
     component: PurchaseRecordView,
-    meta: { title: '购买记录' },
+    meta: { requiresAuth: true, title: '购买记录' },
   },
-  { path: '/news', name: 'News', component: NewsView },
-    /*:id 动态路由参数*/
-  { path: '/news/:id', name: 'NewsDetail', component: NewsDetailView },
-  { path: '/login', name: 'Login', component: LoginView },
-  { path: '/register', name: 'Register', component: RegisterView },
+  { path: '/news', name: 'News', component: NewsView, meta: { requiresAuth: true } },
+  { path: '/news/:id', name: 'NewsDetail', component: NewsDetailView, meta: { requiresAuth: true } },
+  { path: '/login', name: 'Login', component: LoginView, meta: { requiresAuth: false } },
+  { path: '/register', name: 'Register', component: RegisterView, meta: { requiresAuth: false } },
 ];
 
 const router = createRouter({
@@ -37,6 +40,29 @@ const router = createRouter({
   routes,
 });
 
+router.beforeEach((to, _from, next) => {
+  const auth = useAuthStore();
+  const isPublic = publicRouteNames.has(String(to.name ?? ''));
 
-//导出
-export default router;//向外暴露路由好引用
+  if (isPublic) {
+    if (auth.isAuthenticated && (to.name === 'Login' || to.name === 'Register')) {
+      next({ path: '/' });
+      return;
+    }
+    next();
+    return;
+  }
+
+  if (!auth.isAuthenticated) {
+    ElMessage.warning('请先登录');
+    next({
+      name: 'Login',
+      query: to.fullPath !== '/' && to.path !== '/login' ? { redirect: to.fullPath } : {},
+    });
+    return;
+  }
+
+  next();
+});
+
+export default router;
