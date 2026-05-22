@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const superAdminUsername = "Admin"
+
 func isSuperAdmin(ctx *gin.Context) bool {
 	v, ok := ctx.Get("isSuperAdmin")
 	return ok && v == true

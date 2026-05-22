@@ -25,6 +25,9 @@ func HttpResponse(ctx *gin.Context, status int, resp ResponseJson) {
 	//AbortWithStatusJSON这个接口请求完了，停止后续动作（也就是不会返回 两个ctx json去前端）
 	ctx.AbortWithStatusJSON(status, resp)
 }
+
+// 如果resp.Status为0，则返回nDefaultStatus 也就是http.StatusOK 200， 失败时http.StatusBadRequest 400
+// 如果resp.Status不为0，则返回resp.Status 也就是自己写的网络状态
 func buildStatus(resp ResponseJson, nDefaultStatus int) int {
 	if 0 == resp.Status {
 		return nDefaultStatus

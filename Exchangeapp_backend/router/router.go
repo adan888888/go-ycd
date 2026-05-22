@@ -103,7 +103,17 @@ func SetupRouter() *gin.Engine {
 		ycd.PUT("/betting-record/config", controllers.UpdateTable2Config)
 	}
 
-	// 第4组：买币记录管理（需认证）
+	// 第4组：用户管理（仅超级管理员 Admin，需认证）
+	adminUsers := r.Group("/api/admin/users")
+	adminUsers.Use(middlewares.AuthMiddleWare())
+	{
+		adminUsers.GET("", controllers.AdminListUsers)
+		adminUsers.DELETE("/:uid", controllers.AdminDeleteUser)
+		adminUsers.PUT("/:uid/username", controllers.AdminUpdateUsername)
+		adminUsers.PUT("/:uid/password", controllers.AdminUpdatePassword)
+	}
+
+	// 第5组：买币记录管理（需认证）
 	buyRecords := r.Group("/api/buyRecords")
 	buyRecords.Use(middlewares.AuthMiddleWare())
 	{
@@ -112,7 +122,7 @@ func SetupRouter() *gin.Engine {
 		buyRecords.DELETE("/:id", controllers.DeleteBuyRecord) // 删除买币记录
 	}
 
-	// 第5组：密码本管理（无需认证）
+	// 第6组：密码本管理（无需认证）
 	passwordBook := r.Group("/api/password-book")
 	{
 		passwordBook.POST("", controllers.CreatePasswordItem)                    // 创建密码项
@@ -123,7 +133,7 @@ func SetupRouter() *gin.Engine {
 		passwordBook.POST("/batch-delete", controllers.BatchDeletePasswordItems) // 批量删除密码项
 	}
 
-	// 第6组：数据库备份管理（无需认证）
+	// 第7组：数据库备份管理（无需认证）
 	backupController := controllers.NewBackupController()
 	backup := r.Group("/api/backup")
 	{
