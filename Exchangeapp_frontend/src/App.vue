@@ -4,7 +4,7 @@
     <el-header class="admin-header">
       <div class="header-left">
         <div class="logo">
-          <span class="logo-text">Admin Better</span>
+          <span class="logo-text">{{ headerLogoText }}</span>
         </div>
       </div>
       <div class="header-right">
@@ -124,6 +124,13 @@ interface UserInfo {
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
+
+/** 左上角标题：超级管理员 / 普通用户 / 未登录默认文案 */
+const headerLogoText = computed(() => {
+  if (authStore.isSuperAdmin) return '超级管理员';
+  if (authStore.isAuthenticated) return '普通用户';
+  return 'Admin Better';
+});
 
 /** 与 el-menu-item 的 index（路由 path）一致 */
 const menuActivePath = computed(() => {

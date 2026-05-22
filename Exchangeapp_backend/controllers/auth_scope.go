@@ -9,6 +9,9 @@ import (
 
 const superAdminUsername = "Admin"
 
+// usernameCaseSensitiveSQL MySQL 下按字节区分大小写匹配用户名
+const usernameCaseSensitiveSQL = "BINARY username = ?"
+
 func isSuperAdmin(ctx *gin.Context) bool {
 	v, ok := ctx.Get("isSuperAdmin")
 	return ok && v == true

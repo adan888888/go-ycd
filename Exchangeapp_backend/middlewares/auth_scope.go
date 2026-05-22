@@ -15,7 +15,7 @@ func AttachLoginUser(ctx *gin.Context, username string) {
 	ctx.Set("isSuperAdmin", username == SuperAdminUsername)
 
 	var user models.User
-	if err := global.Db.Select("uid").Where("username = ?", username).First(&user).Error; err == nil && user.Uid != 0 {
+	if err := global.Db.Select("uid").Where("BINARY username = ?", username).First(&user).Error; err == nil && user.Uid != 0 {
 		ctx.Set("loginUid", user.Uid)
 		return
 	}
