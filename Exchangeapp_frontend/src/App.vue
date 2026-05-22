@@ -1,5 +1,4 @@
 <template>
-  <!-- 超级管理员账号Admin/admin123 -->
   <el-container class="admin-layout">
     <!-- 顶部导航栏 -->
     <el-header class="admin-header">
@@ -10,8 +9,8 @@
       </div>
       <div class="header-right">
         <!-- 超级管理员 Admin 可选择用户；普通用户仅查看本人数据 -->
-        <el-select v-if="showUserSelect && authStore.isSuperAdmin" v-model="selectedUserId" placeholder="选择用户"
-          clearable @change="handleUserSelectChange" style="width: 200px; margin-right: 16px;" size="default">
+        <el-select v-if="showUserSelect && authStore.isSuperAdmin" v-model="selectedUserId" placeholder="选择用户" clearable
+          @change="handleUserSelectChange" style="width: 200px; margin-right: 16px;" size="default">
           <el-option label="全部用户" value="" />
           <el-option v-for="(user, index) in userList" :key="`user-${index}-${user.user_id}`"
             :label="user.username || `用户 ${user.user_id}`" :value="String(user.user_id)" />

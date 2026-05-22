@@ -20,18 +20,27 @@ import (
 // @Success      200  {object}  models.User
 // @Router       /api/exchangeRates/articles [post]
 func Register(ctx *gin.Context) {
-	var user1 models.UserBody
 	var user models.User
 
 	if err := ctx.ShouldBindJSON(&user); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	//先查询是否注册过
-	global.Db.Debug().Where("username = ?", user.Username).First(&user1)
-	if len(user1.Username) != 0 || user1.Username != "" {
-		utils.Logger.Errorln("Username is already taken:", user1)
-		ctx.JSON(http.StatusNotImplemented, gin.H{"error": "该用户已注册过"})
+	// 查询是否已注册（含软删除记录，便于释放用户名后重新注册）
+	var existing models.User
+	if err := global.Db.Unscoped().Where("username = ?", user.Username).First(&existing).Error; err == nil {
+		if existing.DeletedAt.Valid {
+			if err := global.Db.Unscoped().Delete(&existing).Error; err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "清理已删除用户失败: " + err.Error()})
+				return
+			}
+		} else {
+			utils.Logger.Errorln("Username is already taken:", existing.Username)
+			ctx.JSON(http.StatusNotImplemented, gin.H{"error": "该用户已注册过"})
+			return
+		}
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	hashedPwd, err := utils.HashPassword(user.Password)

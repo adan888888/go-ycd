@@ -21,8 +21,7 @@ func AdminListUsers(ctx *gin.Context) {
 	}
 
 	var users []models.User
-	if err := global.Db.Unscoped().
-		Model(&models.User{}).
+	if err := global.Db.Model(&models.User{}).
 		Where("uid IS NOT NULL").
 		Order("username ASC").
 		Find(&users).Error; err != nil {
@@ -92,7 +91,8 @@ func AdminDeleteUser(ctx *gin.Context) {
 		if err := tx.Unscoped().Where("user_id = ?", uid).Delete(&models.TableYanchendao2{}).Error; err != nil {
 			return err
 		}
-		return tx.Unscoped().Where("uid = ?", uid).Delete(&models.User{}).Error
+		// 用户表软删除（设置 deleted_at，不物理删行）
+		return tx.Delete(&user).Error
 	})
 	if err != nil {
 		ServerFail(ctx, ResponseJson{Code: 1, Msg: "删除用户失败: " + err.Error(), Data: gin.H{}})

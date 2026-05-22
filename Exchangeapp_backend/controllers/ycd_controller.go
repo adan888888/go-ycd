@@ -1943,7 +1943,7 @@ func Getusers(ctx *gin.Context) {
 // @Router       /api/ycd/today/users [get]
 func GetTodayBettingUsers(ctx *gin.Context) {
 	var users []models.User
-	db := global.Db.Unscoped().Model(&models.User{}).Where("uid IS NOT NULL")
+	db := global.Db.Model(&models.User{}).Where("uid IS NOT NULL")
 
 	if isSuperAdmin(ctx) {
 		db = db.Order("username ASC")
