@@ -77,10 +77,10 @@
                 ¥{{ formatAmount(parseFloat(row.column_current_jin || 0)) }}
               </template>
             </el-table-column>
-            <el-table-column prop="restartStatSnapshot" label="重启快照" width="110" align="center" show-overflow-tooltip>
+            <el-table-column prop="restartStatSnapshot" label="重启快照" width="140" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                <span v-if="formatRestartSnapshot(row.restartStatSnapshot)" class="restart-snapshot-text">
-                  {{ formatRestartSnapshot(row.restartStatSnapshot) }}
+                <span v-if="row.restartStatSnapshot" class="restart-snapshot-text">
+                  {{ row.restartStatSnapshot }}
                 </span>
                 <span v-else>-</span>
               </template>
@@ -188,12 +188,6 @@ const formatAmount = (amount: number): string => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
-};
-
-/** 重启统计快照（2/6/14/18 拼接），无值返回空字符串 */
-const formatRestartSnapshot = (raw: string | null | undefined): string => {
-  const s = (raw ?? '').trim();
-  return s;
 };
 
 // 格式化日期时间
