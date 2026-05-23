@@ -119,10 +119,9 @@ func SetupRouter() *gin.Engine {
 
 	// 第5组：买币记录管理（需认证）
 	buyRecords := r.Group("/api/buyRecords")
-	buyRecords.Use(middlewares.AuthMiddleWare())
 	{
-		buyRecords.GET("", controllers.GetBuyRecords)           // 获取买币记录列表
-		buyRecords.POST("", controllers.CreateBuyRecord)      // 录入买币记录
+		buyRecords.GET("", controllers.GetBuyRecords)          // 获取买币记录列表
+		buyRecords.POST("", controllers.CreateBuyRecord)       // 录入买币记录
 		buyRecords.DELETE("/:id", controllers.DeleteBuyRecord) // 删除买币记录
 	}
 
