@@ -3,24 +3,31 @@
     <div class="gc-layout">
       <!-- 左侧：换算区 -->
       <div class="gc-converter">
-        <div v-if="loadingConvert" class="gc-hero gc-hero--loading">
-          <el-icon class="is-loading">
-            <Loading />
-          </el-icon>
-        </div>
-        <div v-else-if="errorMsg" class="gc-hero gc-hero--error">{{ errorMsg }}</div>
-        <template v-else>
-          <div v-if="exchangeRate > 0" class="gc-rate-top">
-            <p class="gc-rate-from">1 {{ fromInfo?.name ?? fromCurrency }} 等于</p>
-            <p class="gc-rate-result">
-              <span class="gc-rate-value">{{ formatRate(exchangeRate) }} {{ toInfo?.name ?? toCurrency }}</span>
-            </p>
+        <div class="gc-rate-head">
+          <el-button type="primary" link :icon="Refresh" :loading="refreshingRate" @click="handleRefreshRate"
+            class="gc-refresh-btn">
+            刷新
+          </el-button>
+
+          <div v-if="loadingConvert && exchangeRate <= 0" class="gc-hero gc-hero--loading">
+            <el-icon class="is-loading">
+              <Loading />
+            </el-icon>
           </div>
-          <p v-if="exchangeRate > 0" class="gc-meta">
-            {{ metaTimeText }}
-            <span class="gc-disclaimer">· 汇率仅供参考</span>
-          </p>
-        </template>
+          <div v-else-if="errorMsg" class="gc-hero gc-hero--error">{{ errorMsg }}</div>
+          <template v-else>
+            <div v-if="exchangeRate > 0" class="gc-rate-top">
+              <p class="gc-rate-from">1 {{ fromInfo?.name ?? fromCurrency }} 等于</p>
+              <p class="gc-rate-result">
+                <span class="gc-rate-value">{{ formatRate(exchangeRate) }} {{ toInfo?.name ?? toCurrency }}</span>
+              </p>
+            </div>
+            <p v-if="exchangeRate > 0" class="gc-meta">
+              {{ metaTimeText }}
+              <span class="gc-disclaimer">· 汇率仅供参考</span>
+            </p>
+          </template>
+        </div>
 
         <div class="gc-rows">
           <div class="gc-rows-body">
@@ -138,7 +145,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { Loading, Switch } from '@element-plus/icons-vue';
+import { Loading, Refresh, Switch } from '@element-plus/icons-vue';
 import { CURRENCIES, getCurrency } from '../data/currencies';
 
 const chartCurrencies = [...CURRENCIES].sort((a, b) => {
@@ -179,6 +186,7 @@ const exchangeRate = ref(0);
 const errorMsg = ref('');
 const loadingConvert = ref(false);
 const loadingChart = ref(false);
+const refreshingRate = ref(false);
 const focusField = ref<'from' | 'to'>('from');
 const chartRange = ref<ChartRangeKey>('1m');
 const ratesUpdatedAt = ref<Date | null>(null);
@@ -303,8 +311,14 @@ function formatLocalDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-async function fetchRatesForBase(base: string): Promise<Record<string, number> | null> {
-  if (ratesCache.value[base]) return ratesCache.value[base];
+async function fetchRatesForBase(base: string, force = false): Promise<Record<string, number> | null> {
+  if (force) {
+    const next = { ...ratesCache.value };
+    delete next[base];
+    ratesCache.value = next;
+  } else if (ratesCache.value[base]) {
+    return ratesCache.value[base];
+  }
   const urls = [
     `https://open.er-api.com/v6/latest/${base}`,
     `https://api.exchangerate-api.com/v4/latest/${base}`,
@@ -360,14 +374,26 @@ async function fetchHistoricalRate(from: string, to: string, date: string): Prom
   }
 }
 
-async function refreshRate() {
+async function handleRefreshRate() {
+  if (refreshingRate.value || loadingConvert.value) return;
+  await refreshRate(true);
+}
+
+async function refreshRate(force = false) {
+  const isInitialLoad = exchangeRate.value <= 0;
   errorMsg.value = '';
-  loadingConvert.value = true;
+  if (isInitialLoad) {
+    loadingConvert.value = true;
+  } else if (force) {
+    refreshingRate.value = true;
+  } else {
+    loadingConvert.value = true;
+  }
   try {
     if (fromCurrency.value === toCurrency.value) {
       exchangeRate.value = 1;
     } else {
-      const rates = await fetchRatesForBase(fromCurrency.value);
+      const rates = await fetchRatesForBase(fromCurrency.value, force);
       const r = rates?.[toCurrency.value];
       if (r == null) {
         errorMsg.value = '暂不支持该货币对';
@@ -377,9 +403,23 @@ async function refreshRate() {
       exchangeRate.value = r;
     }
     ratesUpdatedAt.value = new Date();
-    syncFromAmount();
+    // 手动刷新：以上方金额为准，用最新汇率重算下方
+    if (force) {
+      syncFromAmount();
+    } else {
+      recalculateAmounts();
+    }
   } finally {
     loadingConvert.value = false;
+    refreshingRate.value = false;
+  }
+}
+
+function recalculateAmounts() {
+  if (focusField.value === 'to') {
+    syncToAmount();
+  } else {
+    syncFromAmount();
   }
 }
 
@@ -542,6 +582,22 @@ onMounted(async () => {
   color: #d93025;
 }
 
+.gc-rate-head {
+  position: relative;
+  min-height: 72px;
+  margin-bottom: 6px;
+  padding-right: 56px;
+}
+
+.gc-refresh-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  font-size: 14px;
+  padding: 0 4px;
+}
+
 .gc-meta {
   margin: 0 0 28px;
   font-size: 13px;
@@ -549,7 +605,7 @@ onMounted(async () => {
 }
 
 .gc-rate-top {
-  margin: 0 0 6px;
+  margin: 0;
 }
 
 .gc-rate-from {
