@@ -23,7 +23,12 @@ const routes: RouteRecordRaw[] = [
     component: BettingRecord,
     meta: { requiresAuth: true, title: '投注记录' },
   },
-  { path: '/exchange', name: 'CurrencyExchange', component: CurrencyExchangeView, meta: { requiresAuth: true } },
+  {
+    path: '/exchange',
+    name: 'CurrencyExchange',
+    component: CurrencyExchangeView,
+    meta: { requiresAuth: true, title: '汇率换算' },
+  },
   {
     path: '/purchase-records',
     name: 'PurchaseRecord',

@@ -221,6 +221,14 @@ import { Refresh, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
 
+/** 本地日期 YYYY-MM-DD（勿用 toISOString，东八区会差一天） */
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // 从 App.vue 注入用户选择状态
 const selectedUserId = inject<Ref<string | null>>('selectedUserId')!;
 
@@ -539,11 +547,11 @@ const detectQuickDate = (): 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | n
   const [start, end] = dateRange.value;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = formatLocalDate(today);
 
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayStr = formatLocalDate(yesterday);
 
   // 判断是否是今天
   if (start === todayStr && end === todayStr) {
@@ -559,14 +567,14 @@ const detectQuickDate = (): 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | n
   const dayOfWeek = today.getDay();
   const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
   const weekStart = new Date(today.getFullYear(), today.getMonth(), diff);
-  const weekStartStr = weekStart.toISOString().split('T')[0];
+  const weekStartStr = formatLocalDate(weekStart);
   if (start === weekStartStr && end === todayStr) {
     return 'thisWeek';
   }
 
   // 判断是否是本月
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const monthStartStr = monthStart.toISOString().split('T')[0];
+  const monthStartStr = formatLocalDate(monthStart);
   if (start === monthStartStr && end === todayStr) {
     return 'thisMonth';
   }
@@ -619,14 +627,7 @@ const selectQuickDate = (type: 'today' | 'yesterday' | 'thisWeek' | 'thisMonth')
       endDate = new Date(today);
   }
 
-  const formatDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  dateRange.value = [formatDate(startDate), formatDate(endDate)];
+  dateRange.value = [formatLocalDate(startDate), formatLocalDate(endDate)];
   activeQuickDate.value = type; // 更新激活状态
   fetchTodayAmount();
   fetchTodayCount();
@@ -640,10 +641,10 @@ const getDateRangeLabel = (): string => {
   }
 
   const [start, end] = dateRange.value;
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatLocalDate(new Date());
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayStr = formatLocalDate(yesterday);
 
   if (start === today && end === today) {
     return '今天';
@@ -677,7 +678,7 @@ watch(() => selectedUserId.value, (newValue, oldValue) => {
 // 组件挂载时自动加载数据
 onMounted(() => {
   // 初始化日期为今天
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatLocalDate(new Date());
   dateRange.value = [today, today];
   activeQuickDate.value = 'today'; // 默认选中"今天"
 

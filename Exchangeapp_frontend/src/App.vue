@@ -64,7 +64,7 @@
             <el-icon>
               <Switch />
             </el-icon>
-            <span>兑换货币</span>
+            <span>汇率换算</span>
           </el-menu-item>
           <el-menu-item index="/purchase-records">
             <el-icon>
