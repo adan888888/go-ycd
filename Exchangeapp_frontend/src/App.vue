@@ -280,6 +280,18 @@ watch(
   { immediate: true }
 );
 
+/** 未登录时若仍在业务页，强制跳转登录（兜底） */
+watch(
+  () => authStore.isAuthenticated,
+  (authed) => {
+    if (authed || authStore.loggingOut) return;
+    const name = route.name?.toString();
+    if (name !== 'Login' && name !== 'Register') {
+      void router.replace({ name: 'Login' });
+    }
+  }
+);
+
 // 监听路由变化，在进入操作日志页面或投注记录页面时恢复用户选择
 watch(route, (newRoute) => {
   const currentRouteName = newRoute.name?.toString();
@@ -302,16 +314,29 @@ watch(route, (newRoute) => {
 // router 模式下菜单点击会自动跳转；此处仅处理非路由项
 const handleSelect = (key: string) => {
   if (key === 'logout') {
-    authStore.logout();
-    router.push({ name: 'Login' }).catch(() => { });
+    void doLogout();
+  }
+};
+
+const doLogout = async () => {
+  if (authStore.loggingOut) return;
+  authStore.beginLogout();
+  selectedUserId.value = null;
+  userList.value = [];
+  authStore.logout();
+  try {
+    await router.replace({ name: 'Login' });
+  } catch {
+    // 忽略重复导航
+  } finally {
+    authStore.finishLogout();
   }
 };
 
 // 处理下拉菜单命令
 const handleCommand = (command: string) => {
   if (command === 'logout') {
-    authStore.logout();
-    router.push({ name: 'Login' });
+    void doLogout();
   } else if (command === 'login') {
     router.push({ name: 'Login' });
   }

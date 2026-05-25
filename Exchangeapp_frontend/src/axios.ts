@@ -75,21 +75,26 @@ instance.interceptors.response.use(response => {
 }, error => {
   const status = error.response?.status;
   const url = String(error.config?.url ?? '');
+  const auth = useAuthStore();
   if (status === 401 && !url.includes('/auth/login') && !url.includes('/auth/register')) {
-    try {
-      useAuthStore().logout();
-    } catch {
-      localStorage.removeItem('token');
-    }
-    const current = router.currentRoute.value;
-    if (current.name !== 'Login') {
-      ElMessage.warning('请先登录');
-      void router.push({
-        name: 'Login',
-        query: current.fullPath && current.fullPath !== '/login'
-          ? { redirect: current.fullPath }
-          : {},
-      });
+    if (!auth.loggingOut) {
+      try {
+        auth.logout();
+      } catch {
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        localStorage.removeItem('userId');
+      }
+      const current = router.currentRoute.value;
+      if (current.name !== 'Login') {
+        ElMessage.warning('请先登录');
+        void router.push({
+          name: 'Login',
+          query: current.fullPath && current.fullPath !== '/login'
+            ? { redirect: current.fullPath }
+            : {},
+        });
+      }
     }
   }
   return Promise.reject(error);

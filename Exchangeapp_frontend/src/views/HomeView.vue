@@ -37,28 +37,30 @@
         </div>
       </el-card>
 
-      <!-- 庄占比设置 -->
+      <!-- 庄占比：超管可设置，普通用户只读 -->
       <el-card class="zhuangzhanbi-card" shadow="hover"
         v-if="selectedUserId && selectedUserId !== '' && selectedUserId !== null">
         <div class="zhuangzhanbi-content">
-          <span class="zhuangzhanbi-label">庄占比设置：</span>
+          <span class="zhuangzhanbi-label">{{ authStore.isSuperAdmin ? '庄占比设置：' : '庄占比：' }}</span>
           <div class="zhuangzhanbi-input-wrapper">
-            <el-input-number v-model="zhuangZhanBi" :min="0" :max="100" :precision="0" :step="10"
-              :style="getZhuangZhanBiStyle()" class="zhuangzhanbi-input" placeholder="请输入庄占比(0-100)" />
+            <el-input-number v-if="authStore.isSuperAdmin" v-model="zhuangZhanBi" :min="0" :max="100" :precision="0"
+              :step="10" :style="getZhuangZhanBiStyle()" class="zhuangzhanbi-input" placeholder="请输入庄占比(0-100)" />
+            <span v-else class="zhuangzhanbi-readonly" :style="{ color: getZhuangZhanBiColor() }">
+              {{ zhuangZhanBi }}
+            </span>
             <span class="zhuangzhanbi-unit">%</span>
           </div>
-          <!-- 渐变指示条 -->
           <div class="zhuangzhanbi-gradient-bar" :style="getGradientBarStyle()"></div>
-          <el-button type="primary" @click="updateZhuangZhanBi" :loading="loadingZhuangZhanBi" class="save-button"
-            size="default">
+          <el-button v-if="authStore.isSuperAdmin" type="primary" @click="updateZhuangZhanBi"
+            :loading="loadingZhuangZhanBi" class="save-button" size="default">
             保存设置
           </el-button>
         </div>
       </el-card>
 
-      <!-- 提示信息：未选择用户时显示 -->
-      <el-alert v-if="!selectedUserId || selectedUserId === '' || selectedUserId === null" title="提示" type="info"
-        :closable="false" show-icon class="info-alert">
+      <!-- 提示信息：仅超管未选择用户时显示 -->
+      <el-alert v-if="authStore.isSuperAdmin && (!selectedUserId || selectedUserId === '' || selectedUserId === null)"
+        title="提示" type="info" :closable="false" show-icon class="info-alert">
         <template #default>
           请先选择一个用户，然后可以设置该用户的庄占比
         </template>
@@ -220,6 +222,9 @@ import { ref, onMounted, inject, watch, computed, type Ref } from 'vue';
 import { Refresh, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
+import { useAuthStore } from '../store/auth';
+
+const authStore = useAuthStore();
 
 /** 本地日期 YYYY-MM-DD（勿用 toISOString，东八区会差一天） */
 const formatLocalDate = (date: Date): string => {
@@ -326,28 +331,33 @@ const formatAmount = (amount: number): string => {
   });
 };
 
-// 根据庄占比值计算渐变色（0=绿色，50=黄色，100=红色）
-const getZhuangZhanBiStyle = (): Record<string, string> => {
+// 根据庄占比值计算 RGB 颜色（0=绿色，50=黄色，100=红色）
+const getZhuangZhanBiColor = (): string => {
   const value = zhuangZhanBi.value;
   let r: number, g: number, b: number;
 
   if (value <= 50) {
-    // 0-50: 绿色(0,255,0) -> 黄色(255,255,0)
     const ratio = value / 50;
     r = Math.round(255 * ratio);
     g = 255;
     b = 0;
   } else {
-    // 50-100: 黄色(255,255,0) -> 红色(255,0,0)
     const ratio = (value - 50) / 50;
     r = 255;
     g = Math.round(255 * (1 - ratio));
     b = 0;
   }
 
-  const color = `rgb(${r}, ${g}, ${b})`;
-  // 计算阴影颜色（带透明度）
-  const shadowColor = `rgba(${r}, ${g}, ${b}, 0.2)`;
+  return `rgb(${r}, ${g}, ${b})`;
+};
+
+// 根据庄占比值计算渐变色（0=绿色，50=黄色，100=红色）
+const getZhuangZhanBiStyle = (): Record<string, string> => {
+  const color = getZhuangZhanBiColor();
+  const match = color.match(/\d+/g);
+  const shadowColor = match
+    ? `rgba(${match[0]}, ${match[1]}, ${match[2]}, 0.2)`
+    : 'rgba(0, 255, 0, 0.2)';
 
   return {
     '--zhuangzhanbi-color': color,
@@ -392,6 +402,7 @@ const getGradientBarStyle = (): Record<string, string> => {
 
 // 获取流水（支持日期范围）
 const fetchTodayAmount = async () => {
+  if (!authStore.isAuthenticated) return;
   loadingAmount.value = true;
   try {
     const params = new URLSearchParams();
@@ -425,6 +436,7 @@ const fetchTodayAmount = async () => {
 
 // 获取下注次数（支持日期范围）
 const fetchTodayCount = async () => {
+  if (!authStore.isAuthenticated) return;
   loadingCount.value = true;
   try {
     const params = new URLSearchParams();
@@ -458,6 +470,7 @@ const fetchTodayCount = async () => {
 
 // 获取净胜负和输赢金额（支持日期范围和用户筛选）
 const fetchBettingStats = async () => {
+  if (!authStore.isAuthenticated) return;
   loadingStats.value = true;
   try {
     const params = new URLSearchParams();
@@ -494,6 +507,7 @@ const fetchBettingStats = async () => {
 
 // 获取用户庄占比
 const fetchZhuangZhanBi = async () => {
+  if (!authStore.isAuthenticated) return;
   if (!selectedUserId.value || selectedUserId.value === '' || selectedUserId.value === 'null') {
     return;
   }
@@ -511,8 +525,12 @@ const fetchZhuangZhanBi = async () => {
   }
 };
 
-// 更新用户庄占比
+// 更新用户庄占比（仅超级管理员）
 const updateZhuangZhanBi = async () => {
+  if (!authStore.isSuperAdmin) {
+    ElMessage.warning('仅超级管理员 Admin 可修改庄占比');
+    return;
+  }
   if (!selectedUserId.value || selectedUserId.value === '' || selectedUserId.value === 'null') {
     return;
   }
@@ -663,6 +681,7 @@ const getDateRangeLabel = (): string => {
 watch(() => selectedUserId.value, (newValue, oldValue) => {
   // 避免初始化时触发
   if (newValue === oldValue) return;
+  if (!authStore.isAuthenticated || authStore.loggingOut) return;
 
   // 重新查询数据
   fetchTodayAmount();
@@ -895,6 +914,14 @@ onMounted(() => {
   font-size: 16px;
   font-weight: 600;
   color: #606266;
+}
+
+.zhuangzhanbi-readonly {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+  min-width: 48px;
+  text-align: center;
 }
 
 .save-button {

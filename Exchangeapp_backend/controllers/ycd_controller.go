@@ -618,6 +618,9 @@ func UpdateBenjin(ctx *gin.Context) {
 
 // 修改庄占比
 func UpdateZhuangZhanBi(ctx *gin.Context) {
+	if !requireSuperAdmin(ctx) {
+		return
+	}
 	type TempValues struct {
 		ZhuangZhanBi *int `json:"zhuangZhanBi"` // 庄占比，范围0-100
 	}
@@ -751,6 +754,9 @@ func GetZhuangZhanBi(ctx *gin.Context) {
 // @Success      200  {object}  ResponseJson{data=object}
 // @Router       /api/ycd/zhuangzhanbi [post]
 func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
+	if !requireSuperAdmin(ctx) {
+		return
+	}
 	userIDStr := ctx.Query("user_id")
 	scopedUID, _, status, msg := resolveListUserScope(ctx, userIDStr)
 	if status != 0 {

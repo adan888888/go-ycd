@@ -44,6 +44,8 @@ export const useAuthStore = defineStore('auth', () => {
     return username.value || '用户';
   });
 
+  const loggingOut = ref(false);
+
   const setSession = (nextToken: string | null, nextUsername = '', nextUserId = '') => {
     token.value = nextToken;
     username.value = nextUsername;
@@ -81,6 +83,16 @@ export const useAuthStore = defineStore('auth', () => {
     setSession(null, '', '');
   };
 
+  const beginLogout = () => {
+    loggingOut.value = true;
+  };
+
+  const finishLogout = () => {
+    window.setTimeout(() => {
+      loggingOut.value = false;
+    }, 800);
+  };
+
   return {
     token,
     username,
@@ -88,8 +100,11 @@ export const useAuthStore = defineStore('auth', () => {
     displayName,
     isSuperAdmin,
     isAuthenticated,
+    loggingOut,
     login,
     register,
     logout,
+    beginLogout,
+    finishLogout,
   };
 });

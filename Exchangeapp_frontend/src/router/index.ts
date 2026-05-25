@@ -57,7 +57,7 @@ router.beforeEach((to, _from, next) => {
   const isPublic = publicRouteNames.has(String(to.name ?? ''));
 
   if (isPublic) {
-    if (auth.isAuthenticated && (to.name === 'Login' || to.name === 'Register')) {
+    if (auth.isAuthenticated && !auth.loggingOut && (to.name === 'Login' || to.name === 'Register')) {
       next({ path: '/' });
       return;
     }
@@ -66,7 +66,9 @@ router.beforeEach((to, _from, next) => {
   }
 
   if (!auth.isAuthenticated) {
-    ElMessage.warning('请先登录');
+    if (!auth.loggingOut) {
+      ElMessage.warning('请先登录');
+    }
     next({
       name: 'Login',
       query: to.fullPath !== '/' && to.path !== '/login' ? { redirect: to.fullPath } : {},
