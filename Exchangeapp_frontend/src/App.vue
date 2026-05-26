@@ -6,22 +6,8 @@
         <div class="logo">
           <span class="logo-text">{{ headerLogoText }}</span>
         </div>
-      </div>
-      <div class="header-right">
-        <!-- 超级管理员 Admin 可选择用户；普通用户仅查看本人数据 -->
-        <el-select v-if="showUserSelect && authStore.isSuperAdmin" v-model="selectedUserId" placeholder="选择用户" clearable
-          @change="handleUserSelectChange" style="width: 200px; margin-right: 16px;" size="default">
-          <el-option label="全部用户" value="" />
-          <el-option v-for="(user, index) in userList" :key="`user-${index}-${user.user_id}`"
-            :label="user.username || `用户 ${user.user_id}`" :value="String(user.user_id)" />
-        </el-select>
-        <span v-else-if="showUserSelect && authStore.userId" class="scoped-user-hint">
-          当前用户：{{ authStore.displayName }}
-        </span>
-
         <el-dropdown @command="handleCommand">
           <span class="user-info">
-            <el-avatar :size="32" class="user-avatar">A</el-avatar>
             <span class="username">{{ authStore.displayName }}</span>
             <el-icon>
               <ArrowDown />
@@ -34,6 +20,14 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+      </div>
+      <div v-if="showUserSelect && authStore.isSuperAdmin" class="header-right">
+        <el-select v-model="selectedUserId" placeholder="选择用户" clearable @change="handleUserSelectChange"
+          class="header-user-select" size="default">
+          <el-option label="全部用户" value="" />
+          <el-option v-for="(user, index) in userList" :key="`user-${index}-${user.user_id}`"
+            :label="user.username || `用户 ${user.user_id}`" :value="String(user.user_id)" />
+        </el-select>
       </div>
     </el-header>
 
@@ -78,6 +72,7 @@
             </el-icon>
             <span>查看新闻</span>
           </el-menu-item>
+
           <el-menu-item v-if="authStore.isSuperAdmin" index="/user-manage">
             <el-icon>
               <Setting />
@@ -337,6 +332,12 @@ body {
 .header-left {
   display: flex;
   align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.header-user-select {
+  width: 200px;
 }
 
 .logo {
@@ -370,22 +371,10 @@ body {
   background-color: #f5f5f5;
 }
 
-.user-avatar {
-  margin-right: 8px;
-  background: #1890ff;
-  color: #fff;
-}
-
 .username {
   margin-right: 8px;
   font-size: 14px;
   color: #333;
-}
-
-.scoped-user-hint {
-  margin-right: 16px;
-  font-size: 14px;
-  color: #606266;
 }
 
 /* 左侧边栏 */

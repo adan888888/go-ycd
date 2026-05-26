@@ -1,71 +1,124 @@
 <template>
-  <el-container>
-    <el-main>
-      <el-card v-if="article" class="article-detail">
-        <h1>{{ article.Title }}</h1>
-        <p>{{ article.Content }}</p>
-        <div>
-          <el-button type="primary" @click="likeArticle">点赞</el-button>
-          <p>点赞数: {{ likes }}</p>
+  <div class="news-detail-container">
+    <div class="content-wrapper">
+      <el-card v-if="loading" shadow="never">
+        <el-skeleton :rows="6" animated />
+      </el-card>
+
+      <el-card v-else-if="article" class="article-detail" shadow="hover">
+        <el-button type="primary" link :icon="ArrowLeft" @click="goBack">返回列表</el-button>
+        <h1 class="article-title">{{ article.Title }}</h1>
+        <p class="article-content">{{ article.Content }}</p>
+        <div class="like-row">
+          <el-button type="primary" @click="likeArticle" :loading="liking">点赞</el-button>
+          <span class="like-count">点赞数：{{ likes }}</span>
         </div>
       </el-card>
-      <div v-else class="no-data">您必须登录/注册才可以阅读文章</div>
-    </el-main>
-  </el-container>
+
+      <el-empty v-else description="文章不存在或加载失败" />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { useRoute } from "vue-router";
-import axios from "../axios";
-import type { Article, Like } from "../types/Article";
+import { ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { ArrowLeft } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+import axios from '../axios';
+import type { Article } from '../types/Article';
 
 const article = ref<Article | null>(null);
+const loading = ref(false);
+const liking = ref(false);
+const likes = ref(0);
 const route = useRoute();
-const likes = ref<number>(0)
+const router = useRouter();
 
-const { id } = route.params;
+const articleId = String(route.params.id ?? '');
 
 const fetchArticle = async () => {
+  if (!articleId) return;
+  loading.value = true;
   try {
-    const response = await axios.get<Article>(`/articles/${id}`);
+    const response = await axios.get<Article>(`/articles/${articleId}`);
     article.value = response.data;
-  } catch (error) {
-    // 加载失败，静默处理
+  } catch {
+    article.value = null;
+    ElMessage.error('加载文章失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
+const fetchLike = async () => {
+  if (!articleId) return;
+  try {
+    const res = await axios.get<{ likes: string | number }>(`/articles/${articleId}/like`);
+    likes.value = Number(res.data.likes) || 0;
+  } catch {
+    likes.value = 0;
   }
 };
 
 const likeArticle = async () => {
+  if (!articleId) return;
+  liking.value = true;
   try {
-    const res = await axios.post<Like>(`articles/${id}/like`)
-    likes.value = res.data.likes
-    await fetchLike()
-  } catch (error) {
-    // 点赞失败，静默处理
+    await axios.post(`/articles/${articleId}/like`);
+    await fetchLike();
+    ElMessage.success('点赞成功');
+  } catch {
+    ElMessage.error('点赞失败');
+  } finally {
+    liking.value = false;
   }
 };
 
-const fetchLike = async ()=>{
-  try{
-    const res = await axios.get<Like>(`articles/${id}/like`)
-    likes.value = res.data.likes
-  }catch(error){
-    // 获取点赞数失败，静默处理
-  }
-}
+const goBack = () => {
+  router.push({ name: 'News' });
+};
 
-onMounted(fetchArticle);
-onMounted(fetchLike)
+onMounted(async () => {
+  await fetchArticle();
+  await fetchLike();
+});
 </script>
 
 <style scoped>
-.article-detail {
-  margin: 20px 0;
+.news-detail-container {
+  height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  background: #f0f2f5;
+  overflow-y: auto;
 }
 
-.no-data {
-  text-align: center;
-  font-size: 1.2em;
-  color: #999;
+.content-wrapper {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.article-title {
+  margin: 16px 0;
+  font-size: 24px;
+  color: #303133;
+}
+
+.article-content {
+  margin: 0 0 24px;
+  color: #606266;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.like-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.like-count {
+  color: #909399;
 }
 </style>
