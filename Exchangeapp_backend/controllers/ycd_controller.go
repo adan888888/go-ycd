@@ -744,7 +744,7 @@ func GetZhuangZhanBi(ctx *gin.Context) {
 	})
 }
 
-// 更新用户庄占比（需登录且仅超级管理员 Admin；通过 user_id 指定目标用户）
+// 更新用户庄占比（需登录且仅超级管理员；通过 user_id 指定目标用户）
 // @Summary      更新用户庄占比
 // @Tags         ycd投注记录
 // @Accept       json

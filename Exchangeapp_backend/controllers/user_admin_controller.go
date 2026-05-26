@@ -71,7 +71,7 @@ func AdminDeleteUser(ctx *gin.Context) {
 		return
 	}
 
-	if user.Username == superAdminUsername {
+	if models.IsSuperAdminRole(user.Role) {
 		Fail(ctx, ResponseJson{Code: 1, Msg: "不能删除超级管理员账号", Data: gin.H{}})
 		return
 	}
@@ -121,7 +121,7 @@ func AdminRestoreUser(ctx *gin.Context) {
 		Fail(ctx, ResponseJson{Code: 1, Msg: "用户未删除，无需恢复", Data: gin.H{}})
 		return
 	}
-	if user.Username == superAdminUsername {
+	if models.IsSuperAdminRole(user.Role) {
 		Fail(ctx, ResponseJson{Code: 1, Msg: "不能操作超级管理员账号", Data: gin.H{}})
 		return
 	}
@@ -176,11 +176,6 @@ func AdminUpdateUsername(ctx *gin.Context) {
 			return
 		}
 		ServerFail(ctx, ResponseJson{Code: 1, Msg: "查询用户失败: " + err.Error(), Data: gin.H{}})
-		return
-	}
-
-	if user.Username == superAdminUsername && newName != superAdminUsername {
-		Fail(ctx, ResponseJson{Code: 1, Msg: "不能修改超级管理员账号的用户名", Data: gin.H{}})
 		return
 	}
 
@@ -292,7 +287,7 @@ func AdminUpdateExpiresAt(ctx *gin.Context) {
 		return
 	}
 
-	if user.Username == superAdminUsername {
+	if models.IsSuperAdminRole(user.Role) {
 		Fail(ctx, ResponseJson{Code: 1, Msg: "超级管理员账号为永久有效，无需设置到期时间", Data: gin.H{}})
 		return
 	}
@@ -330,6 +325,7 @@ func AdminUpdateExpiresAt(ctx *gin.Context) {
 type adminUserItem struct {
 	UserID      string `json:"user_id"`
 	Username    string `json:"username"`
+	Role        string `json:"role"`
 	CreatedAt   string `json:"created_at"`
 	ExpiresAt   string `json:"expires_at"`
 	IsPermanent bool   `json:"is_permanent"`
@@ -350,6 +346,7 @@ func buildAdminUserItem(u models.User) adminUserItem {
 	return adminUserItem{
 		UserID:      strconv.FormatInt(u.Uid, 10),
 		Username:    u.Username,
+		Role:        models.NormalizeUserRole(u.Role),
 		CreatedAt:   u.CreatedAt.Format("2006-01-02 15:04:05"),
 		ExpiresAt:   subscription.FormatExpiresAtForAdmin(u),
 		IsPermanent: isPermanent,

@@ -77,7 +77,7 @@ router.beforeEach((to, _from, next) => {
   }
 
   if (to.meta.requiresSuperAdmin && !auth.isSuperAdmin) {
-    ElMessage.warning('仅超级管理员 Admin 可访问用户管理');
+    ElMessage.warning('仅超级管理员可访问用户管理');
     next({ path: '/' });
     return;
   }

@@ -514,7 +514,7 @@ const fetchZhuangZhanBi = async () => {
 // 更新用户庄占比（仅超级管理员）
 const updateZhuangZhanBi = async () => {
   if (!authStore.isSuperAdmin) {
-    ElMessage.warning('仅超级管理员 Admin 可修改庄占比');
+    ElMessage.warning('仅超级管理员可修改庄占比');
     return;
   }
   if (!selectedUserId.value || selectedUserId.value === '' || selectedUserId.value === 'null') {

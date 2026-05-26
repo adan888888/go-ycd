@@ -9,9 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const superAdminUsername = "Admin"
-
-// usernameCaseSensitiveSQL MySQL 下按字节区分大小写匹配用户名
 const usernameCaseSensitiveSQL = "BINARY username = ?"
 
 func isSuperAdmin(ctx *gin.Context) bool {
@@ -37,7 +34,7 @@ func loginUID(ctx *gin.Context) int64 {
 }
 
 // resolveListUserScope 解析列表/统计类接口的 user_id 范围。
-// 超级管理员 Admin：user_id 为空查全部，有值查指定用户。
+// 超级管理员：user_id 为空查全部，有值查指定用户。
 // 普通用户：只能查自己的 uid，传入其他 user_id 返回 403。
 func resolveListUserScope(ctx *gin.Context, requestedUserIDStr string) (scopedUID int64, queryAll bool, httpStatus int, errMsg string) {
 	if isSuperAdmin(ctx) {
@@ -192,7 +189,7 @@ func requireSuperAdmin(ctx *gin.Context) bool {
 	if isSuperAdmin(ctx) {
 		return true
 	}
-	forbidScope(ctx, http.StatusForbidden, "仅超级管理员 Admin 可执行此操作")
+	forbidScope(ctx, http.StatusForbidden, "仅超级管理员可执行此操作")
 	return false
 }
 

@@ -18,6 +18,7 @@ type User struct {
 	UpdatedAt         time.Time
 	Username          string `gorm:"unique"`
 	Password          string
+	Role              string `gorm:"column:role;default:user;index;comment:'用户角色 super_admin|user'"`
 	Token             string
 	ExpiresAt         *time.Time         `gorm:"column:expires_at;comment:'服务到期时间'" json:"expires_at"`
 	DeletedAt         gorm.DeletedAt     `gorm:"index" json:"deleted_at"`

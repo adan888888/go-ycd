@@ -1,13 +1,16 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import axios from '../axios';
+import { isSuperAdminRole, normalizeUserRole, ROLE_USER } from '../constants/role';
 
-/** 超级管理员账号：可查看全部用户 */
-export const SUPER_ADMIN_USERNAME = 'Admin';
-
-function extractAuthPayload(payload: unknown): { token: string | null; username: string; userId: string } {
+function extractAuthPayload(payload: unknown): {
+  token: string | null;
+  username: string;
+  userId: string;
+  role: string;
+} {
   if (!payload || typeof payload !== 'object') {
-    return { token: null, username: '', userId: '' };
+    return { token: null, username: '', userId: '', role: ROLE_USER };
   }
   const p = payload as Record<string, unknown>;
   const nested = p.data && typeof p.data === 'object' ? (p.data as Record<string, unknown>) : null;
@@ -29,16 +32,24 @@ function extractAuthPayload(payload: unknown): { token: string | null; username:
     (typeof p.userId === 'string' && p.userId) ||
     '';
 
-  return { token, username, userId };
+  const roleRaw =
+    (nested && typeof nested.role === 'string' && nested.role) ||
+    (typeof p.role === 'string' && p.role) ||
+    (nested && nested.is_super_admin === true ? 'super_admin' : '') ||
+    (p.is_super_admin === true ? 'super_admin' : '') ||
+    ROLE_USER;
+
+  return { token, username, userId, role: normalizeUserRole(roleRaw) };
 }
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem('token'));
   const username = ref<string>(localStorage.getItem('username') || '');
   const userId = ref<string>(localStorage.getItem('userId') || '');
+  const role = ref<string>(normalizeUserRole(localStorage.getItem('role') || ROLE_USER));
 
   const isAuthenticated = computed(() => !!token.value);
-  const isSuperAdmin = computed(() => username.value === SUPER_ADMIN_USERNAME);
+  const isSuperAdmin = computed(() => isSuperAdminRole(role.value));
   const displayName = computed(() => {
     if (!isAuthenticated.value) return '游客';
     return username.value || '用户';
@@ -46,41 +57,49 @@ export const useAuthStore = defineStore('auth', () => {
 
   const loggingOut = ref(false);
 
-  const setSession = (nextToken: string | null, nextUsername = '', nextUserId = '') => {
+  const setSession = (
+    nextToken: string | null,
+    nextUsername = '',
+    nextUserId = '',
+    nextRole = ROLE_USER
+  ) => {
     token.value = nextToken;
     username.value = nextUsername;
     userId.value = nextUserId;
+    role.value = normalizeUserRole(nextRole);
     if (nextToken) {
       localStorage.setItem('token', nextToken);
       localStorage.setItem('username', nextUsername);
       localStorage.setItem('userId', nextUserId);
+      localStorage.setItem('role', role.value);
     } else {
       localStorage.removeItem('token');
       localStorage.removeItem('username');
       localStorage.removeItem('userId');
+      localStorage.removeItem('role');
     }
   };
 
   const login = async (inputUsername: string, password: string) => {
     const response = await axios.post('/auth/login', { username: inputUsername, password });
-    const { token: t, username: name, userId: uid } = extractAuthPayload(response.data);
+    const { token: t, username: name, userId: uid, role: r } = extractAuthPayload(response.data);
     if (!t) {
       throw new Error('登录响应缺少 token');
     }
-    setSession(t, name || inputUsername, uid);
+    setSession(t, name || inputUsername, uid, r);
   };
 
   const register = async (inputUsername: string, password: string) => {
     const response = await axios.post('/auth/register', { username: inputUsername, password });
-    const { token: t, username: name, userId: uid } = extractAuthPayload(response.data);
+    const { token: t, username: name, userId: uid, role: r } = extractAuthPayload(response.data);
     if (!t) {
       throw new Error('注册响应缺少 token');
     }
-    setSession(t, name || inputUsername, uid);
+    setSession(t, name || inputUsername, uid, r);
   };
 
   const logout = () => {
-    setSession(null, '', '');
+    setSession(null, '', '', ROLE_USER);
   };
 
   const beginLogout = () => {
@@ -97,6 +116,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     username,
     userId,
+    role,
     displayName,
     isSuperAdmin,
     isAuthenticated,

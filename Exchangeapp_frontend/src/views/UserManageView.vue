@@ -42,7 +42,7 @@
             <el-table-column label="操作" width="380" align="center" fixed="right">
               <template #default="{ row }">
                 <template v-if="row.is_deleted">
-                  <el-button type="primary" link :disabled="row.username === 'Admin'"
+                  <el-button type="primary" link :disabled="isSuperAdminRow(row)"
                     @click="handleRestore(row)">恢复</el-button>
                 </template>
                 <template v-else>
@@ -50,7 +50,7 @@
                   <el-button type="warning" link @click="openPasswordDialog(row)">修改密码</el-button>
                   <el-button type="success" link :disabled="row.is_permanent"
                     @click="openExpiresDialog(row)">修改到期</el-button>
-                  <el-button type="danger" link :disabled="row.username === 'Admin'"
+                  <el-button type="danger" link :disabled="isSuperAdminRow(row)"
                     @click="handleDelete(row)">删除</el-button>
                 </template>
               </template>
@@ -136,11 +136,12 @@ import type { FormInstance, FormRules } from 'element-plus';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';
 import axios from '../axios';
-import { SUPER_ADMIN_USERNAME } from '../store/auth';
+import { isSuperAdminRole } from '../constants/role';
 
 interface UserRow {
   user_id: string;
   username: string;
+  role?: string;
   created_at: string;
   expires_at?: string;
   is_permanent?: boolean;
@@ -296,14 +297,12 @@ const fetchList = async () => {
   }
 };
 
+const isSuperAdminRow = (row: UserRow) => isSuperAdminRole(row.role);
+
 const userRowClassName = ({ row }: { row: UserRow }) => (row.is_deleted ? 'row-deleted' : '');
 
 const openUsernameDialog = (row: UserRow) => {
   if (row.is_deleted) return;
-  if (row.username === SUPER_ADMIN_USERNAME) {
-    ElMessage.warning('不能修改超级管理员 Admin 的用户名');
-    return;
-  }
   usernameForm.value = { user_id: row.user_id, username: row.username };
   usernameDialogVisible.value = true;
 };
@@ -417,7 +416,7 @@ const submitPassword = async () => {
 
 const handleDelete = async (row: UserRow) => {
   if (row.is_deleted) return;
-  if (row.username === SUPER_ADMIN_USERNAME) {
+  if (isSuperAdminRow(row)) {
     ElMessage.warning('不能删除超级管理员账号');
     return;
   }
@@ -448,7 +447,7 @@ const handleDelete = async (row: UserRow) => {
 
 const handleRestore = async (row: UserRow) => {
   if (!row.is_deleted) return;
-  if (row.username === SUPER_ADMIN_USERNAME) {
+  if (isSuperAdminRow(row)) {
     ElMessage.warning('不能操作超级管理员账号');
     return;
   }

@@ -74,4 +74,20 @@ func initDB() {
 	}
 
 	fmt.Println("数据库表迁移完成")
+
+	migrateUserRoles()
+}
+
+func migrateUserRoles() {
+	// 历史数据：默认用户名为 Admin 的账号标记为 super_admin
+	global.Db.Model(&models.User{}).
+		Where("BINARY username = ? AND (role = '' OR role IS NULL OR role = ?)", models.LegacySuperAdminUsername, models.RoleUser).
+		Update("role", models.RoleSuperAdmin)
+
+	// 其余空 role 统一为 user
+	global.Db.Model(&models.User{}).
+		Where("role = '' OR role IS NULL").
+		Update("role", models.RoleUser)
+
+	fmt.Println("用户角色字段迁移完成")
 }

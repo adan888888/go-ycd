@@ -55,10 +55,9 @@ func Register(ctx *gin.Context) {
 
 	user.Password = hashedPwd
 	user.Uid = utils.GetUid() //雪花算法
-	if !subscription.IsPermanentUser(user.Username) {
-		exp := time.Now().AddDate(0, 0, 30) // 新用户默认 30 天
-		user.ExpiresAt = &exp
-	}
+	user.Role = models.RoleUser
+	exp := time.Now().AddDate(0, 0, 30) // 新用户默认 30 天
+	user.ExpiresAt = &exp
 	token, err := utils.GenerateJWT(user.Username)
 
 	if err != nil {
@@ -76,7 +75,17 @@ func Register(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"token": token})
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"msg":  "注册成功",
+		"data": gin.H{
+			"token":          token,
+			"userId":         strconv.FormatInt(user.Uid, 10),
+			"nickname":       user.Username,
+			"role":           user.Role,
+			"is_super_admin": false,
+		},
+	})
 }
 
 /*
@@ -105,8 +114,8 @@ func Login(ctx *gin.Context) {
 
 	var user models.User
 
-	// 验证用户名（区分大小写）；每次登录重新读 expires_at
-	if err := global.Db.Select("uid", "username", "password", "expires_at").
+	// 验证用户名（区分大小写）；每次登录重新读 role、expires_at
+	if err := global.Db.Select("uid", "username", "password", "role", "expires_at").
 		Where(usernameCaseSensitiveSQL, input.Username).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrInvalidDB) {
 			Fail(ctx, ResponseJson{
@@ -152,9 +161,11 @@ func Login(ctx *gin.Context) {
 	}
 
 	data := gin.H{
-		"token":    token,
-		"userId":   strconv.FormatInt(user.Uid, 10),
-		"nickname": user.Username,
+		"token":          token,
+		"userId":         strconv.FormatInt(user.Uid, 10),
+		"nickname":       user.Username,
+		"role":           models.NormalizeUserRole(user.Role),
+		"is_super_admin": models.IsSuperAdminRole(user.Role),
 	}
 	for k, v := range subscriptionPayload(user) {
 		data[k] = v
