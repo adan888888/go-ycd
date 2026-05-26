@@ -2,9 +2,19 @@
   <div class="user-manage-container">
     <div class="content-wrapper">
       <el-card class="table-card" shadow="always">
+        <div class="table-toolbar">
+          <el-input v-model="searchKeyword" placeholder="搜索用户ID / 用户名" clearable class="search-input">
+            <template #prefix>
+              <el-icon>
+                <Search />
+              </el-icon>
+            </template>
+          </el-input>
+        </div>
         <div class="table-wrapper">
-          <el-table :data="list" stripe v-loading="loading" :height="tableHeight" empty-text="暂无用户"
-            :row-class-name="userRowClassName" style="width: 100%">
+          <el-table :data="filteredList" stripe v-loading="loading" :height="tableHeight"
+            :empty-text="searchKeyword.trim() ? '未找到匹配用户' : '暂无用户'" :row-class-name="userRowClassName"
+            style="width: 100%">
             <el-table-column type="index" label="序号" width="70" align="center" />
             <el-table-column prop="user_id" label="用户ID" min-width="160" align="center" show-overflow-tooltip />
             <el-table-column prop="username" label="用户名" width="140" align="center" show-overflow-tooltip />
@@ -38,7 +48,8 @@
                 <template v-else>
                   <el-button type="primary" link @click="openUsernameDialog(row)">修改用户名</el-button>
                   <el-button type="warning" link @click="openPasswordDialog(row)">修改密码</el-button>
-                  <el-button type="success" link :disabled="row.is_permanent" @click="openExpiresDialog(row)">修改到期</el-button>
+                  <el-button type="success" link :disabled="row.is_permanent"
+                    @click="openExpiresDialog(row)">修改到期</el-button>
                   <el-button type="danger" link :disabled="row.username === 'Admin'"
                     @click="handleDelete(row)">删除</el-button>
                 </template>
@@ -47,7 +58,10 @@
           </el-table>
         </div>
         <div class="table-footer" v-if="list.length > 0">
-          <span class="footer-info">共 {{ list.length }} 个用户</span>
+          <span class="footer-info">
+            共 {{ filteredList.length }} 个用户
+            <span v-if="searchKeyword.trim()">（全部 {{ list.length }} 个）</span>
+          </span>
         </div>
       </el-card>
     </div>
@@ -117,9 +131,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { Search } from '@element-plus/icons-vue';
 import axios from '../axios';
 import { SUPER_ADMIN_USERNAME } from '../store/auth';
 
@@ -137,7 +152,18 @@ interface UserRow {
 const loading = ref(false);
 const submitting = ref(false);
 const list = ref<UserRow[]>([]);
+const searchKeyword = ref('');
 const tableHeight = ref(400);
+
+const filteredList = computed(() => {
+  const q = searchKeyword.value.trim().toLowerCase();
+  if (!q) return list.value;
+  return list.value.filter((row) => {
+    const userId = row.user_id.toLowerCase();
+    const username = row.username.toLowerCase();
+    return userId.includes(q) || username.includes(q);
+  });
+});
 
 const usernameDialogVisible = ref(false);
 const passwordDialogVisible = ref(false);
@@ -213,7 +239,7 @@ const passwordRules: FormRules = {
 };
 
 const calculateTableHeight = () => {
-  tableHeight.value = Math.max(300, window.innerHeight - 230);
+  tableHeight.value = Math.max(300, window.innerHeight - 280);
 };
 
 const normalizeUserId = (id: string | number | undefined): string => {
@@ -492,6 +518,17 @@ onUnmounted(() => {
   flex-direction: column;
   min-height: 0;
   padding: 12px;
+}
+
+.table-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 12px;
+  margin-left: 20px;
+}
+
+.search-input {
+  width: 280px;
 }
 
 .table-wrapper {
