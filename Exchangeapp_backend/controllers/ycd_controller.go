@@ -691,7 +691,7 @@ func UpdateZhuangZhanBi(ctx *gin.Context) {
 	})
 }
 
-// 获取用户庄占比（无需认证，通过user_id参数）
+// 获取用户庄占比（需登录；超管可指定 user_id，普通用户仅可查本人）
 // @Summary      获取用户庄占比
 // @Tags         ycd投注记录
 // @Accept       json
@@ -744,7 +744,7 @@ func GetZhuangZhanBi(ctx *gin.Context) {
 	})
 }
 
-// 更新用户庄占比（无需认证，通过user_id参数）
+// 更新用户庄占比（需登录且仅超级管理员 Admin；通过 user_id 指定目标用户）
 // @Summary      更新用户庄占比
 // @Tags         ycd投注记录
 // @Accept       json
@@ -841,13 +841,16 @@ func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
 	})
 }
 
-// GetTable1List 获取table_yanchendao1数据列表（无需认证，支持分页）
+// GetTable1List 获取 table_yanchendao1 数据列表（需登录；超管可按 user_ids 筛选，普通用户仅本人，支持分页）
 func GetTable1List(ctx *gin.Context) {
 	userIDStr := ctx.Query("user_id")
-	scopedUID, queryAll, status, msg := resolveListUserScope(ctx, userIDStr)
+	userScope, status, msg := resolveListUserIDsScope(ctx)
 	if status != 0 {
 		forbidScope(ctx, status, msg)
 		return
+	}
+	if userScope.userIDLabel() != "" {
+		userIDStr = userScope.userIDLabel()
 	}
 
 	// 获取分页参数
@@ -867,14 +870,8 @@ func GetTable1List(ctx *gin.Context) {
 
 	var tableYanchendao1s []models.TableYanchendao1
 	var total int64
-	var query *gorm.DB
-
-	if queryAll {
-		query = global.Db.Model(&models.TableYanchendao1{}).Where("deleted_at IS NULL")
-	} else {
-		query = global.Db.Model(&models.TableYanchendao1{}).Where("uid = ? AND deleted_at IS NULL", scopedUID)
-		userIDStr = strconv.FormatInt(scopedUID, 10)
-	}
+	query := global.Db.Model(&models.TableYanchendao1{}).Where("deleted_at IS NULL")
+	query = applyUserScope(query, userScope, "uid")
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
@@ -972,10 +969,9 @@ func GetTable1List(ctx *gin.Context) {
 	})
 }
 
-// GetTable2List 获取table_yanchendao2数据列表（无需认证，支持分页）给后台接口用，app上用的是LoadMore这个接口
+// GetTable2List 获取 table_yanchendao2 数据列表（需登录；超管可按 user_ids 筛选，普通用户仅本人，支持分页；App 端历史数据用 LoadMore）
 func GetTable2List(ctx *gin.Context) {
-	userIDStr := ctx.Query("user_id")
-	scopedUID, queryAll, status, msg := resolveListUserScope(ctx, userIDStr)
+	userScope, status, msg := resolveListUserIDsScope(ctx)
 	if status != 0 {
 		forbidScope(ctx, status, msg)
 		return
@@ -998,17 +994,11 @@ func GetTable2List(ctx *gin.Context) {
 
 	var tableYanchendao2s []TableYanchendao2WithSeq
 	var total int64
-	var query *gorm.DB
-
-	if queryAll {
-		query = global.Db.Model(&models.TableYanchendao2{}).Where("deleted_at IS NULL")
-	} else {
-		query = global.Db.Model(&models.TableYanchendao2{}).Where("user_id = ? AND deleted_at IS NULL", scopedUID)
-		userIDStr = strconv.FormatInt(scopedUID, 10)
-	}
+	countQuery := global.Db.Model(&models.TableYanchendao2{}).Where("deleted_at IS NULL")
+	countQuery = applyUserScope(countQuery, userScope, "user_id")
 
 	// 获取总数
-	if err := query.Count(&total).Error; err != nil {
+	if err := countQuery.Count(&total).Error; err != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusInternalServerError,
 			Code:   1,
@@ -1020,10 +1010,7 @@ func GetTable2List(ctx *gin.Context) {
 
 	// 分页查询（按创建时间正序排列，最早的数据在前），并为每个用户计算序号
 	offset := (page - 1) * pageSize
-	// 使用 MySQL 8 的窗口函数 ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC)
-	// 为每个用户的投注记录计算一个从 1 开始的序号 seq
-	if queryAll {
-		// 查询所有用户的记录：按 user_id、created_at 排序，并在每个 user_id 分组内计算序号
+	if userScope.QueryAll || len(userScope.UserIDs) == 0 {
 		sql := `
 			SELECT
 				*,
@@ -1042,9 +1029,8 @@ func GetTable2List(ctx *gin.Context) {
 			})
 			return
 		}
-	} else {
-		// 查询指定用户的记录：在该用户的记录内按 created_at 排序并计算序号
-		userID, _ := strconv.ParseInt(userIDStr, 10, 64)
+	} else if len(userScope.UserIDs) == 1 {
+		userID := userScope.UserIDs[0]
 		sql := `
 			SELECT
 				*,
@@ -1055,6 +1041,27 @@ func GetTable2List(ctx *gin.Context) {
 			LIMIT ? OFFSET ?;
 			`
 		if err := global.Db.Raw(sql, userID, pageSize, offset).Scan(&tableYanchendao2s).Error; err != nil {
+			Fail(ctx, ResponseJson{
+				Status: http.StatusInternalServerError,
+				Code:   1,
+				Msg:    "查询失败: " + err.Error(),
+				Data:   gin.H{},
+			})
+			return
+		}
+	} else {
+		inClause, args := buildUserIDInClause(userScope)
+		sql := `
+			SELECT
+				*,
+				ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC) AS seq
+			FROM table_yanchendao2
+			WHERE deleted_at IS NULL AND ` + inClause + `
+			ORDER BY user_id ASC, created_at ASC
+			LIMIT ? OFFSET ?;
+			`
+		args = append(args, pageSize, offset)
+		if err := global.Db.Raw(sql, args...).Scan(&tableYanchendao2s).Error; err != nil {
 			Fail(ctx, ResponseJson{
 				Status: http.StatusInternalServerError,
 				Code:   1,
@@ -2064,18 +2071,18 @@ func GetTodayBettingAmount(ctx *gin.Context) {
 	}
 
 	userIDStr := ctx.Query("user_id")
-	scopedUID, queryAll, status, msg := resolveListUserScope(ctx, userIDStr)
+	userScope, status, msg := resolveListUserIDsScope(ctx)
 	if status != 0 {
 		forbidScope(ctx, status, msg)
 		return
 	}
+	if userScope.userIDLabel() != "" {
+		userIDStr = userScope.userIDLabel()
+	}
 
 	query := global.Db.Model(&models.TableYanchendao2{}).
 		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
-	if !queryAll {
-		query = query.Where("user_id = ?", scopedUID)
-		userIDStr = strconv.FormatInt(scopedUID, 10)
-	}
+	query = applyUserScope(query, userScope, "user_id")
 
 	var records []models.TableYanchendao2
 	if err := query.Find(&records).Error; err != nil {
@@ -2134,18 +2141,18 @@ func GetTodayBettingCount(ctx *gin.Context) {
 	}
 
 	userIDStr := ctx.Query("user_id")
-	scopedUID, queryAll, status, msg := resolveListUserScope(ctx, userIDStr)
+	userScope, status, msg := resolveListUserIDsScope(ctx)
 	if status != 0 {
 		forbidScope(ctx, status, msg)
 		return
 	}
+	if userScope.userIDLabel() != "" {
+		userIDStr = userScope.userIDLabel()
+	}
 
 	query := global.Db.Model(&models.TableYanchendao2{}).
 		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
-	if !queryAll {
-		query = query.Where("user_id = ?", scopedUID)
-		userIDStr = strconv.FormatInt(scopedUID, 10)
-	}
+	query = applyUserScope(query, userScope, "user_id")
 
 	var count int64
 	if err := query.Count(&count).Error; err != nil {
@@ -2195,18 +2202,18 @@ func GetBettingStats(ctx *gin.Context) {
 	}
 
 	userIDStr := ctx.Query("user_id")
-	scopedUID, queryAll, status, msg := resolveListUserScope(ctx, userIDStr)
+	userScope, status, msg := resolveListUserIDsScope(ctx)
 	if status != 0 {
 		forbidScope(ctx, status, msg)
 		return
 	}
+	if userScope.userIDLabel() != "" {
+		userIDStr = userScope.userIDLabel()
+	}
 
 	query := global.Db.Model(&models.TableYanchendao2{}).
 		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDateStr, endDateStr)
-	if !queryAll {
-		query = query.Where("user_id = ?", scopedUID)
-		userIDStr = strconv.FormatInt(scopedUID, 10)
-	}
+	query = applyUserScope(query, userScope, "user_id")
 
 	var records []models.TableYanchendao2
 	if err := query.Find(&records).Error; err != nil {

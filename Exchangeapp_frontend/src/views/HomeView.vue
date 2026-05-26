@@ -38,8 +38,7 @@
       </el-card>
 
       <!-- 庄占比：超管可设置，普通用户只读 -->
-      <el-card class="zhuangzhanbi-card" shadow="hover"
-        v-if="selectedUserId && selectedUserId !== '' && selectedUserId !== null">
+      <el-card class="zhuangzhanbi-card" shadow="hover" v-if="selectedUserId">
         <div class="zhuangzhanbi-content">
           <span class="zhuangzhanbi-label">{{ authStore.isSuperAdmin ? '庄占比设置：' : '庄占比：' }}</span>
           <div class="zhuangzhanbi-input-wrapper">
@@ -58,11 +57,11 @@
         </div>
       </el-card>
 
-      <!-- 提示信息：仅超管未选择用户时显示 -->
-      <el-alert v-if="authStore.isSuperAdmin && (!selectedUserId || selectedUserId === '' || selectedUserId === null)"
-        title="提示" type="info" :closable="false" show-icon class="info-alert">
+      <!-- 提示信息：仅超管未单选用户时显示 -->
+      <el-alert v-if="authStore.isSuperAdmin && !selectedUserId" title="提示" type="info" :closable="false"
+        show-icon class="info-alert">
         <template #default>
-          请先选择一个用户，然后可以设置该用户的庄占比
+          勾选 1 个用户时可设置庄占比；勾选多个或不选则展示所选/全部用户的综合统计
         </template>
       </el-alert>
 
@@ -218,11 +217,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject, watch, computed, type Ref } from 'vue';
+import { ref, onMounted, inject, watch, computed, type Ref, type ComputedRef } from 'vue';
 import { Refresh, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
 import { useAuthStore } from '../store/auth';
+import { appendSelectedUserIds } from '../utils/userScope';
 
 const authStore = useAuthStore();
 
@@ -235,7 +235,8 @@ const formatLocalDate = (date: Date): string => {
 };
 
 // 从 App.vue 注入用户选择状态
-const selectedUserId = inject<Ref<string | null>>('selectedUserId')!;
+const selectedUserIds = inject<Ref<string[]>>('selectedUserIds')!;
+const selectedUserId = inject<ComputedRef<string | null>>('selectedUserId')!;
 
 const todayAmount = ref<number>(0);
 const todayCount = ref<number>(0);
@@ -406,12 +407,7 @@ const fetchTodayAmount = async () => {
   loadingAmount.value = true;
   try {
     const params = new URLSearchParams();
-
-    // 添加用户ID参数
-    if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
-      const userId = String(selectedUserId.value);
-      params.append('user_id', userId);
-    }
+    appendSelectedUserIds(params, selectedUserIds.value);
 
     // 添加日期范围参数
     if (dateRange.value && dateRange.value.length === 2) {
@@ -440,12 +436,7 @@ const fetchTodayCount = async () => {
   loadingCount.value = true;
   try {
     const params = new URLSearchParams();
-
-    // 添加用户ID参数
-    if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
-      const userId = String(selectedUserId.value);
-      params.append('user_id', userId);
-    }
+    appendSelectedUserIds(params, selectedUserIds.value);
 
     // 添加日期范围参数
     if (dateRange.value && dateRange.value.length === 2) {
@@ -474,12 +465,7 @@ const fetchBettingStats = async () => {
   loadingStats.value = true;
   try {
     const params = new URLSearchParams();
-
-    // 添加用户ID参数（如果选择了用户）
-    if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
-      const userId = String(selectedUserId.value);
-      params.append('user_id', userId);
-    }
+    appendSelectedUserIds(params, selectedUserIds.value);
 
     // 添加日期范围参数
     if (dateRange.value && dateRange.value.length === 2) {
@@ -678,21 +664,22 @@ const getDateRangeLabel = (): string => {
 // 表格相关代码已移至 UserConfigView.vue
 
 // 监听用户选择变化，重新查询数据
-watch(() => selectedUserId.value, (newValue, oldValue) => {
-  // 避免初始化时触发
-  if (newValue === oldValue) return;
-  if (!authStore.isAuthenticated || authStore.loggingOut) return;
+watch(
+  selectedUserIds,
+  (newValue, oldValue) => {
+    if (JSON.stringify(newValue) === JSON.stringify(oldValue)) return;
+    if (!authStore.isAuthenticated || authStore.loggingOut) return;
 
-  // 重新查询数据
-  fetchTodayAmount();
-  fetchTodayCount();
-  fetchBettingStats();
+    fetchTodayAmount();
+    fetchTodayCount();
+    fetchBettingStats();
 
-  // 如果选择了用户，加载庄占比；否则不显示庄占比设置
-  if (newValue && newValue !== '' && newValue !== 'null') {
-    fetchZhuangZhanBi();
-  }
-}, { immediate: false });
+    if (selectedUserId.value) {
+      fetchZhuangZhanBi();
+    }
+  },
+  { deep: true }
+);
 
 // 组件挂载时自动加载数据
 onMounted(() => {
@@ -701,8 +688,8 @@ onMounted(() => {
   dateRange.value = [today, today];
   activeQuickDate.value = 'today'; // 默认选中"今天"
 
-  // 加载数据：如果选择了用户，加载用户相关数据
-  if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
+  // 加载数据：若仅单选用户，加载庄占比
+  if (selectedUserId.value) {
     fetchZhuangZhanBi();
   }
   fetchTodayAmount();

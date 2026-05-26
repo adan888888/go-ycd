@@ -22,9 +22,9 @@
         </el-dropdown>
       </div>
       <div v-if="showUserSelect && authStore.isSuperAdmin" class="header-right">
-        <el-select v-model="selectedUserId" placeholder="选择用户" clearable @change="handleUserSelectChange"
-          class="header-user-select" size="default">
-          <el-option label="全部用户" value="" />
+        <el-select v-model="selectedUserIds" multiple filterable collapse-tags collapse-tags-tooltip
+          :max-collapse-tags="2" placeholder="选择用户（可多选，不选=全部）" clearable
+          @change="handleUserSelectChange" class="header-user-select" size="default">
           <el-option v-for="(user, index) in userList" :key="`user-${index}-${user.user_id}`"
             :label="user.username || `用户 ${user.user_id}`" :value="String(user.user_id)" />
         </el-select>
@@ -105,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, provide, computed, type Ref } from 'vue';
+import { ref, watch, provide, computed, type Ref, type ComputedRef } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from './store/auth';
 import { House, Money, Document, User, Edit, ArrowDown, Switch, Tickets, ShoppingCart, Setting } from '@element-plus/icons-vue';
@@ -143,15 +143,31 @@ void router.isReady().then(() => {
   menuReady.value = true;
 });
 
-// 用户选择相关状态（超管：首页/操作日志/投注记录共用，切换侧边栏不自动改选）
-const ADMIN_SELECTED_USER_KEY = 'admin_selectedUserId';
+// 用户选择相关状态（超管：首页/操作日志/投注记录共用，支持多选综合统计）
+const ADMIN_SELECTED_USERS_KEY = 'admin_selectedUserIds';
+const LEGACY_ADMIN_SELECTED_USER_KEY = 'admin_selectedUserId';
 
-const getStoredAdminUserId = (): string | null => {
-  if (typeof window === 'undefined' || !window.localStorage) return null;
-  return localStorage.getItem(ADMIN_SELECTED_USER_KEY) || null;
+const getStoredAdminUserIds = (): string[] => {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  const raw = localStorage.getItem(ADMIN_SELECTED_USERS_KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(String).filter(Boolean);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  const legacy = localStorage.getItem(LEGACY_ADMIN_SELECTED_USER_KEY);
+  return legacy ? [legacy] : [];
 };
 
-const selectedUserId = ref<string | null>(getStoredAdminUserId());
+const selectedUserIds = ref<string[]>(getStoredAdminUserIds());
+const selectedUserId = computed(() =>
+  selectedUserIds.value.length === 1 ? selectedUserIds.value[0] : null
+);
 const userList = ref<UserInfo[]>([]);
 // 是否显示用户选择框（在首页、操作日志页面和表2页面显示）
 const showUserSelect = computed(() => {
@@ -166,31 +182,43 @@ const showUserSelect = computed(() => {
 /** 普通用户锁定为本人 uid；Admin 可自由选择或查全部 */
 const applyScopedUserSelection = () => {
   if (!authStore.isAuthenticated) {
-    selectedUserId.value = null;
+    selectedUserIds.value = [];
     return;
   }
   if (authStore.isSuperAdmin) {
     return;
   }
   if (authStore.userId) {
-    selectedUserId.value = authStore.userId;
+    selectedUserIds.value = [authStore.userId];
   }
 };
 
-/** 超管：若当前选中 ID 不在用户列表中（含精度丢失），清空避免下拉框显示裸数字 */
+/** 超管：过滤掉不在用户列表中的 ID */
 const syncSelectedUserWithList = () => {
-  if (!authStore.isSuperAdmin || !selectedUserId.value) return;
+  if (!authStore.isSuperAdmin || selectedUserIds.value.length === 0) return;
   if (userList.value.length === 0) return;
-  const id = String(selectedUserId.value);
-  const exists = userList.value.some((u) => String(u.user_id) === id);
-  if (!exists) {
-    selectedUserId.value = null;
-    localStorage.removeItem(ADMIN_SELECTED_USER_KEY);
+  const valid = new Set(userList.value.map((u) => String(u.user_id)));
+  const next = selectedUserIds.value.filter((id) => valid.has(String(id)));
+  if (next.length !== selectedUserIds.value.length) {
+    selectedUserIds.value = next;
+    persistSelectedUserIds();
   }
+};
+
+const persistSelectedUserIds = () => {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  if (selectedUserIds.value.length === 0) {
+    localStorage.removeItem(ADMIN_SELECTED_USERS_KEY);
+    localStorage.removeItem(LEGACY_ADMIN_SELECTED_USER_KEY);
+    return;
+  }
+  localStorage.setItem(ADMIN_SELECTED_USERS_KEY, JSON.stringify(selectedUserIds.value));
+  localStorage.removeItem(LEGACY_ADMIN_SELECTED_USER_KEY);
 };
 
 // 通过 provide 共享用户选择状态给子组件
-provide<Ref<string | null>>('selectedUserId', selectedUserId);
+provide<Ref<string[]>>('selectedUserIds', selectedUserIds);
+provide<ComputedRef<string | null>>('selectedUserId', selectedUserId);
 provide<Ref<UserInfo[]>>('userList', userList);
 
 // 获取用户列表
@@ -207,18 +235,13 @@ const fetchUserList = async () => {
 };
 
 // 用户选择改变时的处理（仅超级管理员可操作）
-const handleUserSelectChange = (value: string | null) => {
+const handleUserSelectChange = (value: string[]) => {
   if (!authStore.isSuperAdmin) {
     applyScopedUserSelection();
     return;
   }
-  if (value === null || value === '' || value === undefined) {
-    selectedUserId.value = null;
-    localStorage.removeItem(ADMIN_SELECTED_USER_KEY);
-  } else {
-    selectedUserId.value = String(value);
-    localStorage.setItem(ADMIN_SELECTED_USER_KEY, String(value));
-  }
+  selectedUserIds.value = Array.isArray(value) ? value.map(String) : [];
+  persistSelectedUserIds();
 };
 
 // 页面加载时获取用户列表（在首页、操作日志、投注记录）
@@ -262,10 +285,11 @@ const handleSelect = (key: string) => {
 const doLogout = async () => {
   if (authStore.loggingOut) return;
   authStore.beginLogout();
-  selectedUserId.value = null;
+  selectedUserIds.value = [];
   userList.value = [];
   if (typeof window !== 'undefined' && window.localStorage) {
-    localStorage.removeItem(ADMIN_SELECTED_USER_KEY);
+    localStorage.removeItem(ADMIN_SELECTED_USERS_KEY);
+    localStorage.removeItem(LEGACY_ADMIN_SELECTED_USER_KEY);
   }
   authStore.logout();
   try {
@@ -337,7 +361,7 @@ body {
 }
 
 .header-user-select {
-  width: 200px;
+  width: 400px;
 }
 
 .logo {

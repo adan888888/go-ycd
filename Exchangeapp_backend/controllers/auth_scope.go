@@ -3,8 +3,10 @@ package controllers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 const superAdminUsername = "Admin"
@@ -63,6 +65,127 @@ func resolveListUserScope(ctx *gin.Context, requestedUserIDStr string) (scopedUI
 		}
 	}
 	return uid, false, 0, ""
+}
+
+// listUserScope 列表/统计接口的用户范围（支持多选 user_ids）
+type listUserScope struct {
+	QueryAll bool
+	UserIDs  []int64
+}
+
+func (s listUserScope) userIDLabel() string {
+	if s.QueryAll || len(s.UserIDs) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(s.UserIDs))
+	for _, id := range s.UserIDs {
+		parts = append(parts, strconv.FormatInt(id, 10))
+	}
+	return strings.Join(parts, ",")
+}
+
+// resolveListUserIDsScope 解析 user_id / user_ids（逗号分隔）。
+// 超管：都不传则查全部；传 user_ids 则查多个用户综合数据。
+// 普通用户：只能查本人。
+func resolveListUserIDsScope(ctx *gin.Context) (listUserScope, int, string) {
+	userIDsParam := strings.TrimSpace(ctx.Query("user_ids"))
+	userIDParam := strings.TrimSpace(ctx.Query("user_id"))
+
+	parseIDs := func(raw string) ([]int64, int, string) {
+		if raw == "" {
+			return nil, 0, ""
+		}
+		parts := strings.Split(raw, ",")
+		ids := make([]int64, 0, len(parts))
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			uid, err := strconv.ParseInt(part, 10, 64)
+			if err != nil {
+				return nil, http.StatusBadRequest, "用户ID格式错误: " + err.Error()
+			}
+			ids = append(ids, uid)
+		}
+		return ids, 0, ""
+	}
+
+	if !isSuperAdmin(ctx) {
+		uid := loginUID(ctx)
+		if uid == 0 {
+			return listUserScope{}, http.StatusUnauthorized, "无法识别当前登录用户"
+		}
+		if userIDsParam != "" {
+			ids, status, msg := parseIDs(userIDsParam)
+			if status != 0 {
+				return listUserScope{}, status, msg
+			}
+			for _, id := range ids {
+				if id != uid {
+					return listUserScope{}, http.StatusForbidden, "无权查看其他用户数据"
+				}
+			}
+		} else if userIDParam != "" {
+			reqUID, err := strconv.ParseInt(userIDParam, 10, 64)
+			if err != nil {
+				return listUserScope{}, http.StatusBadRequest, "用户ID格式错误: " + err.Error()
+			}
+			if reqUID != uid {
+				return listUserScope{}, http.StatusForbidden, "无权查看其他用户数据"
+			}
+		}
+		return listUserScope{QueryAll: false, UserIDs: []int64{uid}}, 0, ""
+	}
+
+	if userIDsParam != "" {
+		ids, status, msg := parseIDs(userIDsParam)
+		if status != 0 {
+			return listUserScope{}, status, msg
+		}
+		if len(ids) == 0 {
+			return listUserScope{QueryAll: true}, 0, ""
+		}
+		return listUserScope{QueryAll: false, UserIDs: ids}, 0, ""
+	}
+	if userIDParam != "" {
+		uid, err := strconv.ParseInt(userIDParam, 10, 64)
+		if err != nil {
+			return listUserScope{}, http.StatusBadRequest, "用户ID格式错误: " + err.Error()
+		}
+		return listUserScope{QueryAll: false, UserIDs: []int64{uid}}, 0, ""
+	}
+	return listUserScope{QueryAll: true}, 0, ""
+}
+
+func applyUserScope(query *gorm.DB, scope listUserScope, column string) *gorm.DB {
+	if scope.QueryAll || len(scope.UserIDs) == 0 {
+		return query
+	}
+	if len(scope.UserIDs) == 1 {
+		return query.Where(column+" = ?", scope.UserIDs[0])
+	}
+	return query.Where(column+" IN ?", scope.UserIDs)
+}
+
+func buildUserIDInClause(scope listUserScope) (string, []interface{}) {
+	if scope.QueryAll || len(scope.UserIDs) == 0 {
+		return "", nil
+	}
+	if len(scope.UserIDs) == 1 {
+		return columnEqPlaceholder("user_id"), []interface{}{scope.UserIDs[0]}
+	}
+	placeholders := make([]string, len(scope.UserIDs))
+	args := make([]interface{}, len(scope.UserIDs))
+	for i, id := range scope.UserIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	return "user_id IN (" + strings.Join(placeholders, ",") + ")", args
+}
+
+func columnEqPlaceholder(column string) string {
+	return column + " = ?"
 }
 
 func requireSuperAdmin(ctx *gin.Context) bool {

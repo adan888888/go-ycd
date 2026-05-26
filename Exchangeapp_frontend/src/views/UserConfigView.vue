@@ -123,9 +123,10 @@ import { ref, onMounted, onUnmounted, inject, watch, nextTick, type Ref } from '
 import { Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
+import { appendSelectedUserIds } from '../utils/userScope';
 
 // 从 App.vue 注入用户选择状态
-const selectedUserId = inject<Ref<string | null>>('selectedUserId')!;
+const selectedUserIds = inject<Ref<string[]>>('selectedUserIds')!;
 
 const loadingTable1 = ref<boolean>(false);
 // 分页相关
@@ -275,9 +276,7 @@ const fetchTable1List = async () => {
   try {
     // 构建查询参数
     const params = new URLSearchParams();
-    if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
-      params.append('user_id', String(selectedUserId.value));
-    }
+    appendSelectedUserIds(params, selectedUserIds.value);
     params.append('page', String(table1Page.value));
     params.append('page_size', String(table1PageSize.value));
 
@@ -440,15 +439,17 @@ const handleSaveEdit = async () => {
 };
 
 // 监听用户选择变化（从 App.vue 传入）
-watch(() => selectedUserId.value, (newValue, oldValue) => {
-  // 避免初始化时触发
-  if (newValue === oldValue) return;
+watch(
+  selectedUserIds,
+  (newValue, oldValue) => {
+    if (JSON.stringify(newValue) === JSON.stringify(oldValue)) return;
 
-  // 重置分页到第一页，并重置初始加载标记
-  table1Page.value = 1;
-  isInitialLoadComplete.value = false;
-  fetchTable1List();
-}, { immediate: false });
+    table1Page.value = 1;
+    isInitialLoadComplete.value = false;
+    fetchTable1List();
+  },
+  { deep: true }
+);
 
 // 组件挂载时自动加载数据
 onMounted(() => {

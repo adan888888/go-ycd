@@ -138,9 +138,10 @@ import { ref, onMounted, onUnmounted, inject, watch, nextTick, type Ref } from '
 import { Refresh, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
+import { appendSelectedUserIds } from '../utils/userScope';
 
 // 从 App.vue 注入用户选择状态
-const selectedUserId = inject<Ref<string | null>>('selectedUserId', ref<string | null>(null));
+const selectedUserIds = inject<Ref<string[]>>('selectedUserIds', ref<string[]>([]));
 
 const loadingBetting = ref<boolean>(false);
 // 分页相关
@@ -261,9 +262,7 @@ const fetchBettingPageRaw = async (
   pageSize: number
 ): Promise<{ list: any[]; total: number }> => {
   const params = new URLSearchParams();
-  if (selectedUserId.value && selectedUserId.value !== '' && selectedUserId.value !== 'null') {
-    params.append('user_id', String(selectedUserId.value));
-  }
+  appendSelectedUserIds(params, selectedUserIds.value);
   params.append('page', String(page));
   params.append('page_size', String(pageSize));
   const url = `/ycd/betting-record/list?${params.toString()}`;
@@ -463,17 +462,19 @@ const handleSaveEdit = async () => {
 };
 
 // 监听用户选择变化，重新查询数据
-watch(() => selectedUserId.value, (newValue, oldValue) => {
-  // 避免初始化时触发
-  if (newValue === oldValue) return;
+watch(
+  selectedUserIds,
+  (newValue, oldValue) => {
+    if (JSON.stringify(newValue) === JSON.stringify(oldValue)) return;
 
-  // 重置分页并重新加载
-  searchIdQuery.value = '';
-  idSearchActive.value = false;
-  bettingPage.value = 1;
-  isInitialLoadComplete.value = false;
-  fetchBettingList();
-}, { immediate: false });
+    searchIdQuery.value = '';
+    idSearchActive.value = false;
+    bettingPage.value = 1;
+    isInitialLoadComplete.value = false;
+    fetchBettingList();
+  },
+  { deep: true }
+);
 
 // 组件挂载时自动加载数据
 onMounted(() => {
