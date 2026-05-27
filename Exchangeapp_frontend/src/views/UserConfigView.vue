@@ -123,6 +123,7 @@ import { ref, onMounted, onUnmounted, inject, watch, nextTick, type Ref } from '
 import { Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
+import { ApiError } from '../utils/apiError';
 import { appendSelectedUserIds } from '../utils/userScope';
 
 // 从 App.vue 注入用户选择状态
@@ -318,12 +319,6 @@ const fetchTable1List = async () => {
               ? String(data.prev_restart_index)
               : '';
           isInitialLoadComplete.value = true;
-
-          if (table1List.value.length > 0) {
-            // 不显示成功消息，避免刷屏
-          } else {
-            ElMessage.info('暂无记录');
-          }
         } else if (Array.isArray(data)) {
           // 兼容旧格式（直接返回数组）
           table1List.value = data;
@@ -332,13 +327,11 @@ const fetchTable1List = async () => {
           table1List.value = [];
           table1Total.value = 0;
           prevPageRestartIndex.value = '';
-          ElMessage.info('暂无记录');
         }
       } else {
         table1List.value = [];
         table1Total.value = 0;
         prevPageRestartIndex.value = '';
-        ElMessage.info('暂无记录');
       }
     } else {
       table1List.value = [];
@@ -346,17 +339,19 @@ const fetchTable1List = async () => {
       prevPageRestartIndex.value = '';
       ElMessage.warning('获取记录失败: ' + (response.data.msg || '未知错误'));
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     table1List.value = [];
     table1Total.value = 0;
     prevPageRestartIndex.value = '';
-    // 只显示网络错误，不显示超时等错误（避免刷屏）
-    if (error.code === 'ECONNABORTED') {
+    if (error instanceof ApiError) {
+      // 拦截器已统一提示
+    } else if (error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === 'ECONNABORTED') {
       // 请求超时，静默处理
-    } else if (error.message?.includes('Network Error')) {
+    } else if (error instanceof Error && error.message?.includes('Network Error')) {
       ElMessage.error('网络连接失败，请检查后端服务是否运行');
     } else {
-      ElMessage.error('获取记录失败: ' + (error.response?.data?.msg || error.message));
+      const msg = error instanceof Error ? error.message : '未知错误';
+      ElMessage.error('获取记录失败: ' + msg);
     }
   } finally {
     loadingTable1.value = false;

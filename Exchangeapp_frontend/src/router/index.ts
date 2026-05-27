@@ -83,7 +83,6 @@ router.beforeEach((to, _from, next) => {
     return;
   }
 
-  // 超管页面不在路由层拦截，由后端 403 + axios 统一展示 msg 并跳转
   next();
 });
 

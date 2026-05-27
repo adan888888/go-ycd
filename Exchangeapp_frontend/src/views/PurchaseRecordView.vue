@@ -1,67 +1,75 @@
 <template>
   <div class="purchase-container">
     <div class="content-wrapper">
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <span class="filter-label">分类</span>
-          <el-select
-            v-model="filterCurrency"
-            placeholder="全部"
-            clearable
-            class="filter-select"
-            @change="fetchList"
-          >
-            <el-option label="全部" value="" />
-            <el-option label="BTC" value="btc" />
-            <el-option label="ETH" value="eth" />
-            <el-option label="USDT" value="usdt" />
-            <el-option label="ADA" value="ada" />
-            <el-option label="TRX" value="trx" />
-          </el-select>
-        </div>
-        <div class="toolbar-right">
-          <el-button type="primary" :icon="Plus" @click="openAddDialog">录入购买记录</el-button>
-          <el-button :icon="Refresh" circle @click="fetchList" :loading="loading" />
-        </div>
+      <div v-if="!pageReady" class="empty-state" v-loading="true" />
+
+      <div v-else-if="noPermission" class="empty-state">
+        <el-empty :image-size="160" description="暂无访问权限 请联系管理员" />
       </div>
 
-      <el-card class="table-card" shadow="always">
-        <div class="table-wrapper">
-          <el-table :data="list" stripe v-loading="loading" :height="tableHeight" empty-text="暂无购买记录"
-            style="width: 100%">
-            <el-table-column type="index" label="序号" width="70" align="center" />
-            <el-table-column prop="currency" label="币种" width="100" align="center" show-overflow-tooltip />
-            <el-table-column prop="buy_price" label="买入价格" min-width="120" align="right" show-overflow-tooltip>
-              <template #default="{ row }">
-                {{ formatNum(row.buy_price) }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="buy_amount" label="买入金额" min-width="120" align="right" show-overflow-tooltip>
-              <template #default="{ row }">
-                {{ formatNum(row.buy_amount) }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="buy_time" label="买入时间" width="180" align="center" show-overflow-tooltip>
-              <template #default="{ row }">
-                {{ formatDateTime(row.buy_time) }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="created_at" label="录入时间" width="180" align="center" show-overflow-tooltip>
-              <template #default="{ row }">
-                {{ formatDateTime(row.created_at) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="100" align="center" fixed="right">
-              <template #default="{ row }">
-                <el-button type="danger" :icon="Delete" size="small" link @click="handleDelete(row)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+      <template v-else>
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <span class="filter-label">分类</span>
+            <el-select
+              v-model="filterCurrency"
+              placeholder="全部"
+              clearable
+              class="filter-select"
+              @change="fetchList"
+            >
+              <el-option label="全部" value="" />
+              <el-option label="BTC" value="btc" />
+              <el-option label="ETH" value="eth" />
+              <el-option label="USDT" value="usdt" />
+              <el-option label="ADA" value="ada" />
+              <el-option label="TRX" value="trx" />
+            </el-select>
+          </div>
+          <div class="toolbar-right">
+            <el-button type="primary" :icon="Plus" @click="openAddDialog">录入购买记录</el-button>
+            <el-button :icon="Refresh" circle @click="fetchList" :loading="loading" />
+          </div>
         </div>
-        <div class="table-footer" v-if="list.length > 0">
-          <span class="footer-info">共 {{ list.length }} 条</span>
-        </div>
-      </el-card>
+
+        <el-card class="table-card" shadow="always">
+          <div class="table-wrapper">
+            <el-table :data="list" stripe v-loading="loading" :height="tableHeight" empty-text="暂无购买记录"
+              style="width: 100%">
+              <el-table-column type="index" label="序号" width="70" align="center" />
+              <el-table-column prop="currency" label="币种" width="100" align="center" show-overflow-tooltip />
+              <el-table-column prop="buy_price" label="买入价格" min-width="120" align="right" show-overflow-tooltip>
+                <template #default="{ row }">
+                  {{ formatNum(row.buy_price) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="buy_amount" label="买入金额" min-width="120" align="right" show-overflow-tooltip>
+                <template #default="{ row }">
+                  {{ formatNum(row.buy_amount) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="buy_time" label="买入时间" width="180" align="center" show-overflow-tooltip>
+                <template #default="{ row }">
+                  {{ formatDateTime(row.buy_time) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="created_at" label="录入时间" width="180" align="center" show-overflow-tooltip>
+                <template #default="{ row }">
+                  {{ formatDateTime(row.created_at) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="100" align="center" fixed="right">
+                <template #default="{ row }">
+                  <el-button type="danger" :icon="Delete" size="small" link @click="handleDelete(row)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <div class="table-footer" v-if="list.length > 0">
+            <span class="footer-info">共 {{ list.length }} 条</span>
+          </div>
+        </el-card>
+      </template>
     </div>
 
     <el-dialog v-model="dialogVisible" title="录入购买记录" width="480px" :close-on-click-modal="false"
@@ -97,6 +105,15 @@ import type { FormInstance, FormRules } from 'element-plus';
 import { Plus, Refresh, Delete } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import axios from '../axios';
+import { ApiCode } from '../constants/apiCode';
+import { ApiError, getApiErrorMessage } from '../utils/apiError';
+
+function showApiError(e: unknown, fallback: string) {
+  // 1006 无权限：全局拦截已 Toast，留当前页即可
+  if (e instanceof ApiError && e.code === ApiCode.forbidden) return;
+  const msg = getApiErrorMessage(e, fallback);
+  if (msg) ElMessage.error(msg);
+}
 
 interface BuyRecordRow {
   id: number;
@@ -109,6 +126,8 @@ interface BuyRecordRow {
 
 const loading = ref(false);
 const submitting = ref(false);
+const noPermission = ref(false);
+const pageReady = ref(false);
 /** 空字符串 = 不筛选，显示全部 */
 const filterCurrency = ref<string>('');
 const list = ref<BuyRecordRow[]>([]);
@@ -168,16 +187,21 @@ const fetchList = async () => {
         : {},
     });
     if (res.data?.code === 0 && Array.isArray(res.data.data)) {
+      noPermission.value = false;
       list.value = res.data.data;
     } else {
       list.value = [];
       if (res.data?.msg) ElMessage.warning(res.data.msg);
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     list.value = [];
-    ElMessage.error(e.response?.data?.msg || e.message || '加载失败');
+    if (e instanceof ApiError && e.code === ApiCode.forbidden) {
+      noPermission.value = true;
+    }
+    showApiError(e, '加载失败');
   } finally {
     loading.value = false;
+    pageReady.value = true;
   }
 };
 
@@ -227,8 +251,8 @@ const submitForm = async () => {
     } else {
       ElMessage.error(res.data?.msg || '录入失败');
     }
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.msg || e.message || '录入失败');
+  } catch (e: unknown) {
+    showApiError(e, '录入失败');
   } finally {
     submitting.value = false;
   }
@@ -249,8 +273,8 @@ const handleDelete = (row: BuyRecordRow) => {
         } else {
           ElMessage.error(res.data?.msg || '删除失败');
         }
-      } catch (e: any) {
-        ElMessage.error(e.response?.data?.msg || e.message || '删除失败');
+      } catch (e: unknown) {
+        showApiError(e, '删除失败');
       }
     })
     .catch(() => {});
@@ -284,6 +308,15 @@ onUnmounted(() => {
   max-width: 100%;
   overflow-x: auto;
   box-sizing: border-box;
+  min-height: calc(100vh - 120px);
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 120px);
+  background: #ffffff;
 }
 
 .toolbar {

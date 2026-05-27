@@ -138,6 +138,7 @@ import { ref, onMounted, onUnmounted, inject, watch, nextTick, type Ref } from '
 import { Refresh, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
+import { ApiError } from '../utils/apiError';
 import { appendSelectedUserIds } from '../utils/userScope';
 
 // 从 App.vue 注入用户选择状态
@@ -381,19 +382,18 @@ const fetchBettingList = async () => {
     bettingList.value = raw.list;
     bettingTotal.value = newTotal;
     isInitialLoadComplete.value = true;
-
-    if (bettingList.value.length === 0) {
-      ElMessage.info('暂无记录');
-    }
-  } catch (error: any) {
+  } catch (error: unknown) {
     bettingList.value = [];
     bettingTotal.value = 0;
-    if (error.code === 'ECONNABORTED') {
+    if (error instanceof ApiError) {
+      // 拦截器已统一提示
+    } else if (error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === 'ECONNABORTED') {
       // 请求超时，静默处理
-    } else if (error.message?.includes('Network Error')) {
+    } else if (error instanceof Error && error.message?.includes('Network Error')) {
       ElMessage.error('网络连接失败，请检查后端服务是否运行');
     } else {
-      ElMessage.warning('获取记录失败: ' + (error.message || '未知错误'));
+      const msg = error instanceof Error ? error.message : '未知错误';
+      ElMessage.warning('获取记录失败: ' + msg);
     }
   } finally {
     loadingBetting.value = false;

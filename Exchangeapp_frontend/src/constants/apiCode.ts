@@ -17,6 +17,7 @@ export function isSuccess(code: number): boolean {
 }
 
 export function isGlobalCode(code: number): boolean {
+  // 1005/1003 会跳转；1006 仅 Toast，不跳转
   return (
     code === ApiCode.unauthorized ||
     code === ApiCode.forbidden ||

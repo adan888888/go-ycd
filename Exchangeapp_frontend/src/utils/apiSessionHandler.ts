@@ -1,7 +1,7 @@
-import { ElMessage } from 'element-plus';
 import router from '../router';
 import { ApiCode, isGlobalCode, parseApiPayload } from '../constants/apiCode';
 import { useAuthStore } from '../store/auth';
+import { showApiToast } from './apiToast';
 
 function isAuthApi(url: string): boolean {
   return url.includes('/auth/login') || url.includes('/auth/register');
@@ -26,7 +26,7 @@ export function handleGlobalApiCode(code: number, msg: string, requestUrl = ''):
         }
         const current = router.currentRoute.value;
         if (current.name !== 'Login') {
-          if (msg) ElMessage.warning(msg);
+          if (msg) showApiToast('warning', msg);
           void router.push({
             name: 'Login',
             query:
@@ -38,19 +38,16 @@ export function handleGlobalApiCode(code: number, msg: string, requestUrl = ''):
       }
       return true;
     case ApiCode.forbidden:
-      if (msg) ElMessage.error(msg);
-      if (router.currentRoute.value.path !== '/') {
-        void router.push('/');
-      }
+      if (msg) showApiToast('error', msg);
       return true;
     case ApiCode.jsqExpired:
       if (isAuthApi(requestUrl)) {
-        if (msg) ElMessage.warning(msg);
+        if (msg) showApiToast('warning', msg);
         return true;
       }
       if (!auth.loggingOut) {
         auth.logout();
-        if (msg) ElMessage.warning(msg);
+        if (msg) showApiToast('warning', msg);
         if (router.currentRoute.value.name !== 'Login') {
           void router.push({ name: 'Login' });
         }

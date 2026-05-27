@@ -1,8 +1,8 @@
 import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
-import { ElMessage } from 'element-plus';
 import { isSuccess, parseApiPayload, shouldAutoToast } from './constants/apiCode';
 import { ApiError } from './utils/apiError';
 import { handleGlobalApiCode } from './utils/apiSessionHandler';
+import { showApiToast } from './utils/apiToast';
 
 const apiBase =
   import.meta.env.VITE_API_BASE_URL ||
@@ -60,7 +60,7 @@ function finalizeResponse(response: AxiosResponse): AxiosResponse | Promise<neve
 
   handleGlobalApiCode(parsed.code, parsed.msg, url);
   if (shouldAutoToast(parsed.code, url) && parsed.msg) {
-    ElMessage.error(parsed.msg);
+    showApiToast('error', parsed.msg);
   }
   return Promise.reject(new ApiError(parsed.code, parsed.msg, parsed.data));
 }
@@ -84,7 +84,7 @@ instance.interceptors.response.use(
     if (parsed) {
       handleGlobalApiCode(parsed.code, parsed.msg, url);
       if (shouldAutoToast(parsed.code, url) && parsed.msg) {
-        ElMessage.error(parsed.msg);
+        showApiToast('error', parsed.msg);
       }
       return Promise.reject(new ApiError(parsed.code, parsed.msg, parsed.data));
     }
