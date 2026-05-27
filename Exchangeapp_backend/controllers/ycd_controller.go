@@ -149,8 +149,8 @@ func InsertTable2(ctx *gin.Context) {
 	var tableYanchendao2 models.TableYanchendao2
 
 	// JSON解析（不需要锁保护）
-	if err := ctx.ShouldBindJSON(&tableYanchendao2); err != nil { //移动端不传某个字段这里也不会报错，在结构体里需要加binding:"required"才会报错
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(&tableYanchendao2); err != nil {
+		FailMsg(ctx, err.Error())
 		return
 	}
 	fmt.Printf("测试%+v\n", tableYanchendao2)

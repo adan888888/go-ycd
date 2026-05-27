@@ -19,16 +19,16 @@ import (
 // @Success      200  {object}  models.JSONResult{data=[]models.BuyRecordResponse}
 // @Router       /api/buyRecords [get]
 func GetBuyRecords(ctx *gin.Context) {
-	uid, ok := requireLoginUID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取筛选参数
 	currency := ctx.Query("currency")
 
-	// 构建查询（仅当前用户）
-	query := global.Db.Model(&models.BuyRecord{}).Where("uid = ?", uid)
+	// 超管查全部；普通用户仅本人
+	query := global.Db.Model(&models.BuyRecord{})
+	var ok bool
+	query, ok = applyOwnedDataScope(ctx, query, "uid")
+	if !ok {
+		return
+	}
 
 	if currency != "" {
 		trimmed := strings.TrimSpace(currency)
@@ -175,11 +175,6 @@ func CreateBuyRecord(ctx *gin.Context) {
 // @Success      200  {object}  models.JSONResult
 // @Router       /api/buyRecords/{id} [delete]
 func DeleteBuyRecord(ctx *gin.Context) {
-	uid, ok := requireLoginUID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取记录ID
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -193,9 +188,9 @@ func DeleteBuyRecord(ctx *gin.Context) {
 		return
 	}
 
-	// 查询记录（仅本人）
+	// 查询记录（超管可操作全部）
 	var buyRecord models.BuyRecord
-	if err := global.Db.Where("id = ? AND uid = ?", id, uid).First(&buyRecord).Error; err != nil {
+	if err := global.Db.First(&buyRecord, id).Error; err != nil {
 		Fail(ctx, ResponseJson{
 			Status: http.StatusNotFound,
 			Code:   1,

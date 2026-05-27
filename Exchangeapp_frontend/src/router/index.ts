@@ -83,12 +83,7 @@ router.beforeEach((to, _from, next) => {
     return;
   }
 
-  if (to.meta.requiresSuperAdmin && !auth.isSuperAdmin) {
-    ElMessage.warning('仅超级管理员可访问该页面');
-    next({ path: '/' });
-    return;
-  }
-
+  // 超管页面不在路由层拦截，由后端 403 + axios 统一展示 msg 并跳转
   next();
 });
 

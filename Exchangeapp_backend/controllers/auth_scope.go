@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"exchangeapp/apicode"
 	"net/http"
 	"strconv"
 	"strings"
@@ -193,15 +194,10 @@ func requireSuperAdmin(ctx *gin.Context) bool {
 	return false
 }
 
-func forbidScope(ctx *gin.Context, status int, msg string) {
-	code := 1
-	if status == http.StatusForbidden {
-		code = 403
-	}
+func forbidScope(ctx *gin.Context, httpStatus int, msg string) {
 	Fail(ctx, ResponseJson{
-		Status: status,
-		Code:   code,
-		Msg:    msg,
-		Data:   gin.H{},
+		Code: apicode.CodeFromHTTPStatus(httpStatus),
+		Msg:  msg,
+		Data: gin.H{},
 	})
 }

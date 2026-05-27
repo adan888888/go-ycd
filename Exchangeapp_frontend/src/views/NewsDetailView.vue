@@ -26,6 +26,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { ArrowLeft } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import axios from '../axios';
+import { ApiCode } from '../constants/apiCode';
+import { getApiErrorMessage } from '../utils/apiError';
 import type { Article } from '../types/Article';
 
 const article = ref<Article | null>(null);
@@ -41,11 +43,16 @@ const fetchArticle = async () => {
   if (!articleId) return;
   loading.value = true;
   try {
-    const response = await axios.get<Article>(`/articles/${articleId}`);
-    article.value = response.data;
-  } catch {
+    const response = await axios.get(`/articles/${articleId}`);
+    const payload = response.data;
+    if (payload?.code === ApiCode.ok && payload.data) {
+      article.value = payload.data as Article;
+    } else {
+      article.value = null;
+    }
+  } catch (err) {
     article.value = null;
-    ElMessage.error('加载文章失败');
+    ElMessage.error(getApiErrorMessage(err, '加载文章失败'));
   } finally {
     loading.value = false;
   }
@@ -54,8 +61,9 @@ const fetchArticle = async () => {
 const fetchLike = async () => {
   if (!articleId) return;
   try {
-    const res = await axios.get<{ likes: string | number }>(`/articles/${articleId}/like`);
-    likes.value = Number(res.data.likes) || 0;
+    const res = await axios.get(`/articles/${articleId}/like`);
+    const data = res.data?.data as { likes?: string | number } | undefined;
+    likes.value = Number(data?.likes) || 0;
   } catch {
     likes.value = 0;
   }
@@ -68,8 +76,8 @@ const likeArticle = async () => {
     await axios.post(`/articles/${articleId}/like`);
     await fetchLike();
     ElMessage.success('点赞成功');
-  } catch {
-    ElMessage.error('点赞失败');
+  } catch (err) {
+    ElMessage.error(getApiErrorMessage(err, '点赞失败'));
   } finally {
     liking.value = false;
   }

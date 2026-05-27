@@ -1,8 +1,8 @@
 package middlewares
 
 import (
+	"exchangeapp/apicode"
 	"exchangeapp/subscription"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,10 +18,6 @@ func YcdSubscriptionMiddleware() gin.HandlerFunc {
 			ctx.Next()
 			return
 		}
-		ctx.AbortWithStatusJSON(http.StatusOK, gin.H{
-			"code": subscription.CodeYcdExpired,
-			"msg":  subscription.YcdExpiredMsg,
-			"data": gin.H{},
-		})
+		apicode.Abort(ctx, apicode.CodeYcdExpired, subscription.YcdExpiredMsg)
 	}
 }

@@ -77,16 +77,16 @@ func CreatePasswordItem(c *gin.Context) {
 // @Success 200 {object} models.JSONResult
 // @Router /api/password-book [get]
 func GetPasswordItems(c *gin.Context) {
-	uid, ok := requireLoginUID(c)
-	if !ok {
-		return
-	}
-
 	// 获取搜索关键词
 	keyword := c.Query("keyword")
 
-	// 构建查询（仅当前用户）
-	query := global.Db.Model(&models.PasswordItem{}).Where("uid = ?", uid)
+	// 超管查全部；普通用户仅本人
+	query := global.Db.Model(&models.PasswordItem{})
+	var ok bool
+	query, ok = applyOwnedDataScope(c, query, "uid")
+	if !ok {
+		return
+	}
 
 	// 添加搜索条件
 	if keyword != "" {
@@ -129,11 +129,6 @@ func GetPasswordItems(c *gin.Context) {
 // @Success 200 {object} models.JSONResult
 // @Router /api/password-book/{id} [get]
 func GetPasswordItem(c *gin.Context) {
-	uid, ok := requireLoginUID(c)
-	if !ok {
-		return
-	}
-
 	// 获取密码项ID
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -146,9 +141,9 @@ func GetPasswordItem(c *gin.Context) {
 		return
 	}
 
-	// 查询密码项（仅本人）
+	// 查询密码项
 	var passwordItem models.PasswordItem
-	if err := global.Db.Where("id = ? AND uid = ?", id, uid).First(&passwordItem).Error; err != nil {
+	if err := global.Db.Where("id = ?", id).First(&passwordItem).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			Fail(c, ResponseJson{
 				Status: http.StatusNotFound,
@@ -189,11 +184,6 @@ func GetPasswordItem(c *gin.Context) {
 // @Success 200 {object} models.JSONResult
 // @Router /api/password-book/{id} [put]
 func UpdatePasswordItem(c *gin.Context) {
-	uid, ok := requireLoginUID(c)
-	if !ok {
-		return
-	}
-
 	// 获取密码项ID
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -218,9 +208,9 @@ func UpdatePasswordItem(c *gin.Context) {
 		return
 	}
 
-	// 查询密码项是否存在（仅本人）
+	// 查询密码项是否存在
 	var passwordItem models.PasswordItem
-	if err := global.Db.Where("id = ? AND uid = ?", id, uid).First(&passwordItem).Error; err != nil {
+	if err := global.Db.Where("id = ?", id).First(&passwordItem).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			Fail(c, ResponseJson{
 				Status: http.StatusNotFound,
@@ -276,11 +266,6 @@ func UpdatePasswordItem(c *gin.Context) {
 // @Success 200 {object} models.JSONResult
 // @Router /api/password-book/{id} [delete]
 func DeletePasswordItem(c *gin.Context) {
-	uid, ok := requireLoginUID(c)
-	if !ok {
-		return
-	}
-
 	// 获取密码项ID
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -293,8 +278,8 @@ func DeletePasswordItem(c *gin.Context) {
 		return
 	}
 
-	// 删除密码项（仅本人）
-	result := global.Db.Where("id = ? AND uid = ?", id, uid).Delete(&models.PasswordItem{})
+	// 删除密码项
+	result := global.Db.Where("id = ?", id).Delete(&models.PasswordItem{})
 	if result.Error != nil {
 		ServerFail(c, ResponseJson{
 			Status: 500,
@@ -333,11 +318,6 @@ func DeletePasswordItem(c *gin.Context) {
 // @Success 200 {object} models.JSONResult
 // @Router /api/password-book/batch-delete [post]
 func BatchDeletePasswordItems(c *gin.Context) {
-	uid, ok := requireLoginUID(c)
-	if !ok {
-		return
-	}
-
 	// 绑定请求数据
 	var ids []int
 	if err := c.ShouldBindJSON(&ids); err != nil {
@@ -360,8 +340,8 @@ func BatchDeletePasswordItems(c *gin.Context) {
 		return
 	}
 
-	// 批量删除（仅本人）
-	result := global.Db.Where("id IN ? AND uid = ?", ids, uid).Delete(&models.PasswordItem{})
+	// 批量删除
+	result := global.Db.Where("id IN ?", ids).Delete(&models.PasswordItem{})
 	if result.Error != nil {
 		ServerFail(c, ResponseJson{
 			Status: 500,

@@ -6,7 +6,6 @@ import (
 	"exchangeapp/global"
 	"exchangeapp/models"
 	"exchangeapp/utils"
-	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,37 +19,29 @@ func CreateArticle(ctx *gin.Context) {
 	var article models.Article
 
 	if err := ctx.ShouldBindJSON(&article); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		FailMsg(ctx, err.Error())
 		return
 	}
 
 	if err := global.Db.AutoMigrate(&article); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 
 	if err := global.Db.Create(&article).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 
 	if err := global.RedisDB.Del(cacheKey).Err(); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, article)
+	OkMsg(ctx, "创建成功", article)
 }
 
-// @Summary      获取文章列表
-// @Tags         接口文档
-// @Accept       json
-// @Produce      json
-// @Param        id query int true "ID"
-// @Success      200  {object}  []models.Article
-// @Router       /api/exchangeRates/articles [get]
 func GetArticles(ctx *gin.Context) {
-
 	cachedData, err := global.RedisDB.Get(cacheKey).Result()
 
 	if err == redis.Nil {
@@ -58,48 +49,41 @@ func GetArticles(ctx *gin.Context) {
 
 		if err := global.Db.Find(&articles).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				NotFoundMsg(ctx, err.Error())
 			} else {
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				ServerFailMsg(ctx, err.Error())
 			}
 			return
 		}
 
 		articleJSON, err := json.Marshal(articles)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ServerFailMsg(ctx, err.Error())
 			return
 		}
 
 		if err := global.RedisDB.Set(cacheKey, articleJSON, 10*time.Minute).Err(); err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ServerFailMsg(ctx, err.Error())
 			return
 		}
 
-		Ok(ctx, ResponseJson{Code: 0, Msg: "查询成功", Status: http.StatusOK, Data: articles})
+		OkMsg(ctx, "查询成功", articles)
 
 	} else if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ServerFailMsg(ctx, err.Error())
 		return
 	} else {
 		var articles []models.Article
 
 		if err := json.Unmarshal([]byte(cachedData), &articles); err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ServerFailMsg(ctx, err.Error())
 			return
 		}
 		utils.Logger.Errorf("=%+v", utils.RemoveEscapeChars1(cachedData))
-		Ok(ctx, ResponseJson{Code: 0, Msg: "查询成功", Status: http.StatusOK, Data: articles})
+		OkMsg(ctx, "查询成功", articles)
 	}
 }
 
-// @Summary      根据ID获取新闻
-// @Tags         接口文档
-// @Accept       json
-// @Produce      json
-// @Param        id query int true "ID"
-// @Success      200  {object}  models.Article
-// @Router       /api/exchangeRates/articles/{id} [get]
 func GetArticleByID(ctx *gin.Context) {
 	id := ctx.Param("id")
 
@@ -107,12 +91,12 @@ func GetArticleByID(ctx *gin.Context) {
 
 	if err := global.Db.Where("id = ?", id).First(&article).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			NotFoundMsg(ctx, "文章不存在")
 		} else {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ServerFailMsg(ctx, err.Error())
 		}
 		return
 	}
 
-	ctx.JSON(http.StatusOK, article)
+	OkMsg(ctx, "查询成功", article)
 }

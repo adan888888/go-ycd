@@ -2,12 +2,12 @@ package controllers
 
 import (
 	"errors"
+	"exchangeapp/apicode"
 	"exchangeapp/global"
 	"exchangeapp/models"
 	"exchangeapp/subscription"
 	"exchangeapp/utils"
 	"fmt"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -26,65 +26,60 @@ func Register(ctx *gin.Context) {
 	var user models.User
 
 	if err := ctx.ShouldBindJSON(&user); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		FailMsg(ctx, err.Error())
 		return
 	}
-	// 查询是否已注册（含软删除记录，便于释放用户名后重新注册）
 	var existing models.User
 	if err := global.Db.Unscoped().Where("username = ?", user.Username).First(&existing).Error; err == nil {
 		if existing.DeletedAt.Valid {
 			if err := global.Db.Unscoped().Delete(&existing).Error; err != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "清理已删除用户失败: " + err.Error()})
+				ServerFailMsg(ctx, "清理已删除用户失败: "+err.Error())
 				return
 			}
 		} else {
 			utils.Logger.Errorln("Username is already taken:", existing.Username)
-			ctx.JSON(http.StatusNotImplemented, gin.H{"error": "该用户已注册过"})
+			FailMsg(ctx, "该用户已注册过")
 			return
 		}
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 	hashedPwd, err := utils.HashPassword(user.Password)
 
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 
 	user.Password = hashedPwd
-	user.Uid = utils.GetUid() //雪花算法
+	user.Uid = utils.GetUid()
 	user.Role = models.RoleUser
-	exp := time.Now().AddDate(0, 0, 30) // 新用户默认 30 天
+	exp := time.Now().AddDate(0, 0, 30)
 	user.ExpiresAt = &exp
 	token, err := utils.GenerateJWT(user.Username)
 
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 
 	if err := global.Db.AutoMigrate(&user); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 
 	if err := global.Db.Create(&user).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code": 0,
-		"msg":  "注册成功",
-		"data": gin.H{
-			"token":          token,
-			"userId":         strconv.FormatInt(user.Uid, 10),
-			"nickname":       user.Username,
-			"role":           user.Role,
-			"is_super_admin": false,
-		},
+	OkMsg(ctx, "注册成功", gin.H{
+		"token":          token,
+		"userId":         strconv.FormatInt(user.Uid, 10),
+		"nickname":       user.Username,
+		"role":           user.Role,
+		"is_super_admin": false,
 	})
 }
 
@@ -94,11 +89,10 @@ func Register(ctx *gin.Context) {
 // Produce      json //返回
 */
 // @Summary      登录
-// 不要描述 // @Description  描述
 // @Tags         接口文档
 // @Accept       json
 // @Produce      json
-// @Param        data body models.UserBody true "json"  #models.UserBody里面的字段一定要大写 要不然生成不了
+// @Param        data body models.UserBody true "json"
 // @Success      200  {object} models.JSONResult{data=models.User} "成功响应"
 // @Router       /api/auth/login [post]
 func Login(ctx *gin.Context) {
@@ -108,55 +102,41 @@ func Login(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&input); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		FailMsg(ctx, err.Error())
 		return
 	}
 
 	var user models.User
 
-	// 验证用户名（区分大小写）；每次登录重新读 role、expires_at
 	if err := global.Db.Select("uid", "username", "password", "role", "expires_at").
 		Where(usernameCaseSensitiveSQL, input.Username).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrInvalidDB) {
 			Fail(ctx, ResponseJson{
-				Status: http.StatusUnauthorized,
-				Code:   0,
-				Msg:    fmt.Errorf("数据库连接失败: %w", err).Error(),
-				Data:   gin.H{},
+				Code: apicode.CodeFail,
+				Msg:  fmt.Errorf("数据库连接失败: %w", err).Error(),
+				Data: gin.H{},
 			})
 			return
 		}
 
-		if errors.Is(err, gorm.ErrRecordNotFound) /*|| user == (models.User{})*/ {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusUnauthorized,
-				Code:   0,
-				Msg:    "用户名或者密码错误！",
-				Data:   gin.H{},
-			})
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			FailMsg(ctx, "用户名或者密码错误！")
 			return
 		}
 
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 
-	//验证“密码” --用户传过来的密码和数据库查询的该用户的密码的加密值对比
 	if !utils.CheckPassword(input.Password, user.Password) {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusUnauthorized,
-			Code:   0,
-			Msg:    "密码错误！",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "密码错误！")
 		return
 	}
 
-	//生成token
 	token, err := utils.GenerateJWT(user.Username)
 
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 
@@ -170,15 +150,10 @@ func Login(ctx *gin.Context) {
 	for k, v := range subscriptionPayload(user) {
 		data[k] = v
 	}
-	Ok(ctx, ResponseJson{
-		Status: http.StatusOK,
-		Code:   0,
-		Msg:    "登录成功",
-		Data:   data,
-	})
+	OkMsg(ctx, "登录成功", data)
 	ctx.SetCookie(
 		"token", user.Username,
-		3600, //3600秒=1小时
+		3600,
 		"/api/auth/", "", true, false)
 }
 

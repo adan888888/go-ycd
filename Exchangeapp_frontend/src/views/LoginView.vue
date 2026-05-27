@@ -19,6 +19,7 @@ import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 import { ElMessage } from 'element-plus';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const form = ref({
   username: '',
@@ -34,8 +35,8 @@ const login = async () => {
     await authStore.login(form.value.username, form.value.password);
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '';
     await router.push(redirect && redirect.startsWith('/') ? redirect : '/');
-  } catch {
-    ElMessage.error('登录失败，请检查用户名和密码。');
+  } catch (err) {
+    ElMessage.error(getApiErrorMessage(err, '登录失败，请检查用户名和密码。'));
   }
 };
 </script>

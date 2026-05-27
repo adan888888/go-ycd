@@ -9,7 +9,7 @@ const YcdExpiredMsg = "请充值"
 // ExpiresAtNotSet 仅管理端展示，勿下发给 Flutter 等客户端
 const ExpiresAtNotSet = "未设置"
 
-// CodeYcdExpired 业务码：ycd 服务已到期
+// CodeYcdExpired 业务码：ycd 服务已到期（与 apicode.CodeYcdExpired 保持一致）
 const CodeYcdExpired = 2202
 
 // IsPermanentUser 超级管理员永久有效（按 role 判断）

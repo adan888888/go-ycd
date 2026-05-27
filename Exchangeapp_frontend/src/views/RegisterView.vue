@@ -17,6 +17,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 import { ElMessage } from 'element-plus';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const form = ref({
   username: '',
@@ -30,8 +31,8 @@ const register = async () => {
   try {
     await authStore.register(form.value.username, form.value.password);
     await router.push('/');
-  } catch {
-    ElMessage.error('注册失败，请重试。');
+  } catch (err) {
+    ElMessage.error(getApiErrorMessage(err, '注册失败，请重试。'));
   }
 };
 </script>
