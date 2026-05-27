@@ -2,7 +2,7 @@
   <div class="role-manage-container">
     <div class="content-wrapper">
       <el-alert title="说明" type="info" :closable="false" show-icon class="info-alert">
-        超级管理员可查看全部数据并使用持币记录、数字密码本等功能；普通用户仅可使用基础功能。不能修改自己的角色，系统至少保留一名超级管理员。
+        权限分三级：超级管理员 &gt; 专业用户 &gt; 普通用户。专业及以上可使用「百家乐开奖模拟」「AES加解密」「数字密码本」「持币记录分析」；普通用户仅可使用基础功能（如计数器、RSI 分析等）。不能修改自己的角色，系统至少保留一名超级管理员。
       </el-alert>
 
       <el-card class="table-card" shadow="always">
@@ -24,6 +24,7 @@
             <el-table-column label="当前权限" width="180" align="center">
               <template #default="{ row }">
                 <el-tag v-if="isSuperAdminRole(row.role)" type="danger">超级管理员</el-tag>
+                <el-tag v-else-if="isProRole(row.role)" type="warning">专业用户</el-tag>
                 <el-tag v-else type="info">普通用户</el-tag>
               </template>
             </el-table-column>
@@ -39,6 +40,7 @@
                   <el-select v-model="row._editRole" :disabled="isRowDisabled(row)" size="default"
                     class="role-select" @change="(val: string) => handleRoleChange(row, val)">
                     <el-option label="普通用户" :value="ROLE_USER" />
+                    <el-option label="专业用户" :value="ROLE_PRO" />
                     <el-option label="超级管理员" :value="ROLE_SUPER_ADMIN" />
                   </el-select>
                   <span v-if="isSelfRow(row)" class="self-hint">（本人）</span>
@@ -64,7 +66,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';
 import axios from '../axios';
 import { useAuthStore } from '../store/auth';
-import { isSuperAdminRole, ROLE_SUPER_ADMIN, ROLE_USER, normalizeUserRole } from '../constants/role';
+import { isSuperAdminRole, isProRole, ROLE_SUPER_ADMIN, ROLE_PRO, ROLE_USER, normalizeUserRole, roleLabel } from '../constants/role';
 
 interface UserRow {
   user_id: string;
@@ -123,7 +125,7 @@ const handleRoleChange = async (row: UserRow, newRole: string) => {
   const targetRole = normalizeUserRole(newRole);
   if (targetRole === prevRole) return;
 
-  const label = targetRole === ROLE_SUPER_ADMIN ? '超级管理员' : '普通用户';
+  const label = roleLabel(targetRole);
   try {
     await ElMessageBox.confirm(
       `确定将用户「${row.username}」的权限设置为「${label}」？`,

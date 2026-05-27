@@ -143,10 +143,14 @@ func DeleteBuyRecord(ctx *gin.Context) {
 		return
 	}
 
-	// 查询记录（超管可操作全部）
+	// 查询记录并校验归属（超管可操作全部；专业用户仅本人）
 	var buyRecord models.BuyRecord
 	if err := global.Db.First(&buyRecord, id).Error; err != nil {
 		Fail(ctx, apicode.CodeNotFound, "买币记录不存在")
+		return
+	}
+	if !isSuperAdmin(ctx) && buyRecord.Uid != loginUID(ctx) {
+		Fail(ctx, apicode.CodeForbidden, "无权限删除该记录")
 		return
 	}
 

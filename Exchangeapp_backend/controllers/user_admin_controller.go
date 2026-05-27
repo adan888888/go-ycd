@@ -329,7 +329,7 @@ func findAdminUserByUID(uid int64) (models.User, bool) {
 	return user, true
 }
 
-// AdminUpdateUserRole 超级管理员修改用户角色（super_admin | user）
+// AdminUpdateUserRole 超级管理员修改用户角色（super_admin | pro | user）
 func AdminUpdateUserRole(ctx *gin.Context) {
 	if !requireSuperAdmin(ctx) {
 		return
@@ -350,8 +350,8 @@ func AdminUpdateUserRole(ctx *gin.Context) {
 	}
 
 	newRole := models.NormalizeUserRole(strings.TrimSpace(body.Role))
-	if newRole != models.RoleSuperAdmin && newRole != models.RoleUser {
-		Fail(ctx, apicode.CodeParamInvalid, "无效的角色，仅支持 super_admin 或 user")
+	if newRole != models.RoleSuperAdmin && newRole != models.RolePro && newRole != models.RoleUser {
+		Fail(ctx, apicode.CodeParamInvalid, "无效的角色，仅支持 super_admin、pro 或 user")
 		return
 	}
 
@@ -379,7 +379,7 @@ func AdminUpdateUserRole(ctx *gin.Context) {
 		return
 	}
 
-	if oldRole == models.RoleSuperAdmin && newRole == models.RoleUser {
+	if oldRole == models.RoleSuperAdmin && newRole != models.RoleSuperAdmin {
 		var count int64
 		if err := global.Db.Model(&models.User{}).
 			Where("role = ? AND deleted_at IS NULL", models.RoleSuperAdmin).

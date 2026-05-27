@@ -63,47 +63,9 @@ func SetupRouter() *gin.Engine {
 		api.GET("/hotgames", controllers.GetHotgames)
 		api.GET("/testmq/:msg", controllers.SendRabbitMsg) //http://localhost:3000/api/testmq/你好
 	}
-	// 第3组：需要认证
-	jsq := r.Group("/api/jsq")
-	jsq.Use(middlewares.AuthMiddleWare())
-	jsq.Use(middlewares.JsqSubscriptionMiddleware()) // 到期用户不可用 jsq（计数器）
-	{
-		// jsq 计数器部分
-		jsq.POST("/createtable", controllers.CreateTables)
-		jsq.GET("/table1", controllers.GetTable1)
-		jsq.GET("/table2", controllers.GetTable2)
-		jsq.PUT("/inserttable1", controllers.InsertTable1)
-		jsq.PUT("/inserttable2", controllers.InsertTable2)
-		jsq.PUT("/updaterestartstatsnapshot", controllers.UpdateLastRowRestartStatSnapshot)
-		jsq.DELETE("/deletelast", controllers.DeleteLast)
-		jsq.POST("/restart", controllers.Restart)
-		jsq.POST("/sortxiaoshu", controllers.SortXiaoShu)
-		jsq.POST("/xiaoshu", controllers.Xiaoshu) //消数
-		jsq.DELETE("/deleteall", controllers.DeleteAll)
-		jsq.POST("/resetliushui", controllers.ResetLiushui)
-		jsq.POST("/updateqiwangvalue", controllers.UpdateQiWangValue)
-		jsq.POST("/updateodds", controllers.UpdateOdds)
-		jsq.POST("/updatebenjin", controllers.UpdateBenjin)
-		jsq.GET("/getusers", controllers.Getusers)
-		jsq.GET("/loadmore", controllers.LoadMore) //加载更多历史数据 //http://localhost:3000/api/jsq/loadMore?last_value=836
-		jsq.GET("/getStatisticalAreasData", controllers.GetStatisticalAreasData)
-		jsq.GET("/linechartData", controllers.LinechartData)              //折线图数据
-		jsq.POST("/cleanDataD", controllers.CleanDataD)                   //清除数据（消数列数据全部清除）
-		jsq.GET("/randomBankerPlayer", controllers.GetRandomBankerPlayer) //随机庄闲接口
-		// 管理后台统计与列表（需登录）
-		jsq.GET("/today/users", controllers.GetTodayBettingUsers)
-		jsq.GET("/today/amount", controllers.GetTodayBettingAmount)
-		jsq.GET("/today/count", controllers.GetTodayBettingCount)
-		jsq.GET("/stats", controllers.GetBettingStats)
-		jsq.GET("/zhuangzhanbi", controllers.GetZhuangZhanBi)
-		jsq.POST("/zhuangzhanbi", controllers.UpdateZhuangZhanBiPublic)
-		jsq.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi)
-		jsq.GET("/table1/list", controllers.GetTable1List)
-		jsq.PUT("/table1/config", controllers.UpdateTable1Config)
-		jsq.GET("/betting-record/list", controllers.GetTable2List)
-		jsq.GET("/betting-record/by-id", controllers.GetTable2ByID)
-		jsq.PUT("/betting-record/config", controllers.UpdateTable2Config)
-	}
+	// 第3组：需要认证（jsq 计数器；/api/ycd 为旧路径兼容）
+	mountJsqRoutes(r.Group("/api/jsq"))
+	mountJsqRoutes(r.Group("/api/ycd"))
 
 	// 第4组：用户管理（仅超级管理员 Admin，需认证）
 	adminUsers := r.Group("/api/admin/users")
@@ -118,20 +80,20 @@ func SetupRouter() *gin.Engine {
 		adminUsers.PUT("/:uid/role", controllers.AdminUpdateUserRole)
 	}
 
-	// 第5组：买币记录管理（需登录且超级管理员）
+	// 第5组：买币记录管理（需登录且专业版及以上）
 	buyRecords := r.Group("/api/buyRecords")
 	buyRecords.Use(middlewares.AuthMiddleWare())
-	buyRecords.Use(middlewares.SuperAdminMiddleware())
+	buyRecords.Use(middlewares.ProOrAboveMiddleware())
 	{
 		buyRecords.GET("", controllers.GetBuyRecords)          // 获取买币记录列表
 		buyRecords.POST("", controllers.CreateBuyRecord)       // 录入买币记录
 		buyRecords.DELETE("/:id", controllers.DeleteBuyRecord) // 删除买币记录
 	}
 
-	// 第6组：密码本管理（需登录且超级管理员）
+	// 第6组：密码本管理（需登录且专业版及以上）
 	passwordBook := r.Group("/api/password-book")
 	passwordBook.Use(middlewares.AuthMiddleWare())
-	passwordBook.Use(middlewares.SuperAdminMiddleware())
+	passwordBook.Use(middlewares.ProOrAboveMiddleware())
 	{
 		passwordBook.POST("", controllers.CreatePasswordItem)                    // 创建密码项
 		passwordBook.GET("", controllers.GetPasswordItems)                       // 获取密码列表
@@ -162,4 +124,42 @@ func SetupRouter() *gin.Engine {
 
 	return r
 
+}
+
+func mountJsqRoutes(g *gin.RouterGroup) {
+	g.Use(middlewares.AuthMiddleWare())
+	g.Use(middlewares.JsqSubscriptionMiddleware())
+	g.POST("/createtable", controllers.CreateTables)
+	g.GET("/table1", controllers.GetTable1)
+	g.GET("/table2", controllers.GetTable2)
+	g.PUT("/inserttable1", controllers.InsertTable1)
+	g.PUT("/inserttable2", controllers.InsertTable2)
+	g.PUT("/updaterestartstatsnapshot", controllers.UpdateLastRowRestartStatSnapshot)
+	g.DELETE("/deletelast", controllers.DeleteLast)
+	g.POST("/restart", controllers.Restart)
+	g.POST("/sortxiaoshu", controllers.SortXiaoShu)
+	g.POST("/xiaoshu", controllers.Xiaoshu)
+	g.DELETE("/deleteall", controllers.DeleteAll)
+	g.POST("/resetliushui", controllers.ResetLiushui)
+	g.POST("/updateqiwangvalue", controllers.UpdateQiWangValue)
+	g.POST("/updateodds", controllers.UpdateOdds)
+	g.POST("/updatebenjin", controllers.UpdateBenjin)
+	g.GET("/getusers", controllers.Getusers)
+	g.GET("/loadmore", controllers.LoadMore)
+	g.GET("/getStatisticalAreasData", controllers.GetStatisticalAreasData)
+	g.GET("/linechartData", controllers.LinechartData)
+	g.POST("/cleanDataD", controllers.CleanDataD)
+	g.GET("/randomBankerPlayer", controllers.GetRandomBankerPlayer)
+	g.GET("/today/users", controllers.GetTodayBettingUsers)
+	g.GET("/today/amount", controllers.GetTodayBettingAmount)
+	g.GET("/today/count", controllers.GetTodayBettingCount)
+	g.GET("/stats", controllers.GetBettingStats)
+	g.GET("/zhuangzhanbi", controllers.GetZhuangZhanBi)
+	g.POST("/zhuangzhanbi", controllers.UpdateZhuangZhanBiPublic)
+	g.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi)
+	g.GET("/table1/list", controllers.GetTable1List)
+	g.PUT("/table1/config", controllers.UpdateTable1Config)
+	g.GET("/betting-record/list", controllers.GetTable2List)
+	g.GET("/betting-record/by-id", controllers.GetTable2ByID)
+	g.PUT("/betting-record/config", controllers.UpdateTable2Config)
 }

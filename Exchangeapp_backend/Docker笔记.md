@@ -29,13 +29,13 @@ docker-compose up -d --build
 - Docker Compose 读取 `docker-compose.yaml`
 - 发现 `build: .` 配置
 - 在当前目录查找 `Dockerfile`
-- 使用 `Dockerfile` 构建镜像 `jsq:v1.0`
+- 使用 `Dockerfile` 构建镜像 `exchangeapp-backend:v1.0`
 - 可以在命令后加服务名，只操作某一个服务（详见下方"指定服务名操作单个服务"章节）
 ### 运行阶段
 ```bash
 docker-compose up -d
 ```
-- 使用已构建的镜像 `jsq:v1.0`
+- 使用已构建的镜像 `exchangeapp-backend:v1.0`
 - 根据 `docker-compose.yaml` 配置运行容器
 - 挂载卷、映射端口等
 
@@ -132,12 +132,12 @@ docker system prune -f
 
 ### docker-compose.yaml 配置
 ```yaml
-name: MyJsq # docker-compose 容器组名称
+name: exchangeapp-backend # docker-compose 项目组名称
 services:
   app:
     build: . # 使用当前目录的 Dockerfile 构建镜像
-    image: jsq:v1.0 # 指定镜像名称和标签
-    container_name: jsq # 指定容器名称
+    image: exchangeapp-backend:v1.0 # 指定镜像名称和标签
+    container_name: exchangeapp-backend # 指定容器名称
     volumes:
       - /etc/localtime:/etc/localtime:ro # 挂载主机时间配置
       - ./config.yml:/app/config.yml # 挂载配置文件
@@ -162,7 +162,7 @@ FROM alpine
 **解决**：
 ```bash
 # 停止并删除容器
-docker stop jsq && docker rm jsq
+docker stop exchangeapp-backend && docker rm exchangeapp-backend
 
 # 使用 docker-compose 启动
 docker-compose up -d --build

@@ -16,7 +16,7 @@ func requireLoginUID(ctx *gin.Context) (int64, bool) {
 	return uid, true
 }
 
-// applyOwnedDataScope 超管查全部；普通用户仅查本人（买币/密码本接口当前仅超管可访问）
+// applyOwnedDataScope 超管查全部；其他登录用户仅查本人
 func applyOwnedDataScope(ctx *gin.Context, query *gorm.DB, column string) (*gorm.DB, bool) {
 	if isSuperAdmin(ctx) {
 		return query, true
