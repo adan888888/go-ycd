@@ -23,7 +23,7 @@
       </div>
       <div v-if="showUserSelect && authStore.isSuperAdmin" class="header-right">
         <el-select v-model="selectedUserIds" multiple filterable collapse-tags collapse-tags-tooltip
-          :max-collapse-tags="2" placeholder="选择用户（可多选，不选=全部）" clearable
+          :max-collapse-tags="6" placeholder="选择用户（可多选，不选=全部）" clearable
           @change="handleUserSelectChange" class="header-user-select" size="default">
           <el-option v-for="(user, index) in userList" :key="`user-${index}-${user.user_id}`"
             :label="user.username || `用户 ${user.user_id}`" :value="String(user.user_id)" />
