@@ -9,6 +9,7 @@ import NewsDetailView from '../views/NewsDetailView.vue';
 import LoginView from '../views/LoginView.vue';
 import RegisterView from '../views/RegisterView.vue';
 import UserManageView from '../views/UserManageView.vue';
+import RoleManageView from '../views/RoleManageView.vue';
 import { useAuthStore } from '../store/auth';
 import { ElMessage } from 'element-plus';
 
@@ -37,6 +38,12 @@ const routes: RouteRecordRaw[] = [
   },
   { path: '/news', name: 'News', component: NewsView, meta: { requiresAuth: true } },
   { path: '/news/:id', name: 'NewsDetail', component: NewsDetailView, meta: { requiresAuth: true } },
+  {
+    path: '/role-manage',
+    name: 'RoleManage',
+    component: RoleManageView,
+    meta: { requiresAuth: true, requiresSuperAdmin: true, title: '权限管理' },
+  },
   {
     path: '/user-manage',
     name: 'UserManage',
@@ -77,7 +84,7 @@ router.beforeEach((to, _from, next) => {
   }
 
   if (to.meta.requiresSuperAdmin && !auth.isSuperAdmin) {
-    ElMessage.warning('仅超级管理员可访问用户管理');
+    ElMessage.warning('仅超级管理员可访问该页面');
     next({ path: '/' });
     return;
   }

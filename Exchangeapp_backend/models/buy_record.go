@@ -7,6 +7,7 @@ import (
 // BuyRecord 买币记录表
 type BuyRecord struct {
 	ID        uint      `gorm:"primaryKey;unique;autoIncrement;comment:主键ID" json:"id"`
+	Uid       int64     `gorm:"column:uid;index;not null;comment:所属用户uid，关联 users.uid" json:"uid"`
 	Currency  string    `gorm:"column:currency;size:20;not null;index;comment:币种标识，如 BTC、ETH、USDT等" json:"currency"`
 	BuyPrice  float64   `gorm:"column:buy_price;type:decimal(20,8);not null;comment:买入价格" json:"buy_price"`
 	BuyAmount float64   `gorm:"column:buy_amount;type:decimal(20,8);not null;comment:买入了多少钱" json:"buy_amount"`

@@ -79,6 +79,12 @@
             </el-icon>
             <span>用户管理</span>
           </el-menu-item>
+          <el-menu-item v-if="authStore.isSuperAdmin" index="/role-manage">
+            <el-icon>
+              <Key />
+            </el-icon>
+            <span>权限管理</span>
+          </el-menu-item>
           <el-menu-item index="/login" v-if="!authStore.isAuthenticated">
             <el-icon>
               <User />
@@ -108,7 +114,7 @@
 import { ref, watch, provide, computed, type Ref, type ComputedRef } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from './store/auth';
-import { House, Money, Document, User, Edit, ArrowDown, Switch, Tickets, ShoppingCart, Setting } from '@element-plus/icons-vue';
+import { House, Money, Document, User, Edit, ArrowDown, Switch, Tickets, ShoppingCart, Setting, Key } from '@element-plus/icons-vue';
 import axios from './axios';
 
 interface UserInfo {

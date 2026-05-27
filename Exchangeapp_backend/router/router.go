@@ -115,18 +115,23 @@ func SetupRouter() *gin.Engine {
 		adminUsers.PUT("/:uid/username", controllers.AdminUpdateUsername)
 		adminUsers.PUT("/:uid/password", controllers.AdminUpdatePassword)
 		adminUsers.PUT("/:uid/expires-at", controllers.AdminUpdateExpiresAt)
+		adminUsers.PUT("/:uid/role", controllers.AdminUpdateUserRole)
 	}
 
-	// 第5组：买币记录管理（需认证）
+	// 第5组：买币记录管理（需登录且超级管理员）
 	buyRecords := r.Group("/api/buyRecords")
+	buyRecords.Use(middlewares.AuthMiddleWare())
+	buyRecords.Use(middlewares.SuperAdminMiddleware())
 	{
 		buyRecords.GET("", controllers.GetBuyRecords)          // 获取买币记录列表
 		buyRecords.POST("", controllers.CreateBuyRecord)       // 录入买币记录
 		buyRecords.DELETE("/:id", controllers.DeleteBuyRecord) // 删除买币记录
 	}
 
-	// 第6组：密码本管理（无需认证）
+	// 第6组：密码本管理（需登录且超级管理员）
 	passwordBook := r.Group("/api/password-book")
+	passwordBook.Use(middlewares.AuthMiddleWare())
+	passwordBook.Use(middlewares.SuperAdminMiddleware())
 	{
 		passwordBook.POST("", controllers.CreatePasswordItem)                    // 创建密码项
 		passwordBook.GET("", controllers.GetPasswordItems)                       // 获取密码列表

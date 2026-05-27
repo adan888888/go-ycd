@@ -364,6 +364,102 @@ func findAdminUserByUID(uid int64) (models.User, bool) {
 	return user, true
 }
 
+// AdminUpdateUserRole 超级管理员修改用户角色（super_admin | user）
+func AdminUpdateUserRole(ctx *gin.Context) {
+	if !requireSuperAdmin(ctx) {
+		return
+	}
+
+	uid, err := parsePathUID(ctx.Param("uid"))
+	if err != nil {
+		Fail(ctx, ResponseJson{Code: 1, Msg: err.Error(), Data: gin.H{}})
+		return
+	}
+
+	var body struct {
+		Role string `json:"role" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "参数错误: " + err.Error(), Data: gin.H{}})
+		return
+	}
+
+	newRole := models.NormalizeUserRole(strings.TrimSpace(body.Role))
+	if newRole != models.RoleSuperAdmin && newRole != models.RoleUser {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "无效的角色，仅支持 super_admin 或 user", Data: gin.H{}})
+		return
+	}
+
+	var user models.User
+	if err := global.Db.Where("uid = ?", uid).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(ctx, ResponseJson{Code: 1, Msg: "用户不存在", Data: gin.H{}})
+			return
+		}
+		ServerFail(ctx, ResponseJson{Code: 1, Msg: "查询用户失败: " + err.Error(), Data: gin.H{}})
+		return
+	}
+
+	if user.Uid == loginUID(ctx) {
+		Fail(ctx, ResponseJson{Code: 1, Msg: "不能修改自己的角色", Data: gin.H{}})
+		return
+	}
+
+	oldRole := models.NormalizeUserRole(user.Role)
+	if oldRole == newRole {
+		Ok(ctx, ResponseJson{
+			Status: http.StatusOK,
+			Code:   0,
+			Msg:    "角色未变化",
+			Data: gin.H{
+				"user_id": strconv.FormatInt(uid, 10),
+				"role":    newRole,
+			},
+		})
+		return
+	}
+
+	if oldRole == models.RoleSuperAdmin && newRole == models.RoleUser {
+		var count int64
+		if err := global.Db.Model(&models.User{}).
+			Where("role = ? AND deleted_at IS NULL", models.RoleSuperAdmin).
+			Count(&count).Error; err != nil {
+			ServerFail(ctx, ResponseJson{Code: 1, Msg: "统计超级管理员数量失败: " + err.Error(), Data: gin.H{}})
+			return
+		}
+		if count <= 1 {
+			Fail(ctx, ResponseJson{Code: 1, Msg: "至少保留一名超级管理员", Data: gin.H{}})
+			return
+		}
+	}
+
+	updates := map[string]interface{}{"role": newRole}
+	if newRole == models.RoleSuperAdmin {
+		updates["expires_at"] = nil
+	} else if user.ExpiresAt == nil {
+		exp := time.Now().AddDate(0, 0, 30)
+		updates["expires_at"] = exp
+	}
+
+	if err := global.Db.Model(&user).Updates(updates).Error; err != nil {
+		ServerFail(ctx, ResponseJson{Code: 1, Msg: "修改角色失败: " + err.Error(), Data: gin.H{}})
+		return
+	}
+
+	if err := global.Db.Select("uid", "username", "role", "expires_at", "deleted_at").
+		Where("uid = ?", uid).First(&user).Error; err != nil {
+		ServerFail(ctx, ResponseJson{Code: 1, Msg: "读取更新后用户失败: " + err.Error(), Data: gin.H{}})
+		return
+	}
+
+	Ok(ctx, ResponseJson{
+		Status: http.StatusOK,
+		Code:   0,
+		Msg:    "角色修改成功",
+		Data:   buildAdminUserItem(user),
+	})
+}
+
 func parsePathUID(uidStr string) (int64, error) {
 	uidStr = strings.TrimSpace(uidStr)
 	if uidStr == "" {

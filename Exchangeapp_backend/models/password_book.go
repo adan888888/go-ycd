@@ -9,11 +9,12 @@ import (
 // 用途: 存储密码信息
 type PasswordItem struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement;comment:主键ID" json:"id"`
-	Title     string    `gorm:"size:255;not null;index:idx_title;comment:密码项标题" json:"title"`    // 标题
+	Uid       int64     `gorm:"column:uid;index;not null;comment:所属用户uid，关联 users.uid" json:"uid"`
+	Title     string    `gorm:"size:255;not null;index:idx_title;comment:密码项标题" json:"title"`     // 标题
 	Username  string    `gorm:"size:255;not null;index:idx_username;comment:用户名" json:"username"` // 用户名
-	Password  string    `gorm:"size:500;not null;comment:密码，建议加密存储" json:"password"` // 密码
-	Website   string    `gorm:"size:500;comment:网站地址" json:"website"`           // 网站
-	Notes     string    `gorm:"type:text;comment:备注信息" json:"notes"`            // 备注
+	Password  string    `gorm:"size:500;not null;comment:密码，建议加密存储" json:"password"`              // 密码
+	Website   string    `gorm:"size:500;comment:网站地址" json:"website"`                             // 网站
+	Notes     string    `gorm:"type:text;comment:备注信息" json:"notes"`                              // 备注
 	CreatedAt time.Time `gorm:"autoCreateTime;comment:创建时间" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;comment:更新时间" json:"updated_at"`
 }
@@ -22,7 +23,7 @@ type PasswordItem struct {
 // 用途: 用于接收客户端创建或更新密码项的请求数据
 // 验证: 使用 gin 的 binding 标签进行参数验证
 type PasswordItemRequest struct {
-	Title    string `json:"title" binding:"required" example:"小幺鸡"`                    // 标题（必填）
+	Title    string `json:"title" binding:"required" example:"百度云盘"`                   // 标题（必填）
 	Username string `json:"username" binding:"required" example:"shitlaoge@gmail.com"` // 用户名（必填）
 	Password string `json:"password" binding:"required" example:"password123"`         // 密码（必填）
 	Website  string `json:"website" example:"http://example.com"`                      // 网站（可选）
@@ -34,6 +35,7 @@ type PasswordItemRequest struct {
 // 注意: 包含完整的密码信息，客户端需要妥善处理
 type PasswordItemResponse struct {
 	ID        uint      `json:"id"`         // 密码项ID
+	Uid       int64     `json:"uid"`        // 所属用户
 	Title     string    `json:"title"`      // 标题
 	Username  string    `json:"username"`   // 用户名
 	Password  string    `json:"password"`   // 密码
