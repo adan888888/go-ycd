@@ -28,12 +28,7 @@ func CreateTables(ctx *gin.Context) {
 	// 获取用户ID（添加错误处理）
 	uid, err := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64) //第二个参数 10 表示字符串是十进制格式。第三个参数 64 表示转换结果的类型为 int64。
 	if err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "无效的用户ID: " + err.Error(),
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "无效的用户ID: " + err.Error())
 		return
 	}
 
@@ -79,21 +74,11 @@ func GetTable1(ctx *gin.Context) {
 	var tableYanchendao1s []models.TableYanchendao1
 	UserId := ctx.GetHeader("UserId")
 	if err := global.Db.Where("uid=?", UserId).Find(&tableYanchendao1s).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 	if len(tableYanchendao1s) == 0 {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusOK,
-			Code:   1,
-			Msg:    "未找到用户数据，请先初始化",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "未找到用户数据，请先初始化")
 		return
 	}
 	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "查询成功", Data: tableYanchendao1s})
@@ -107,20 +92,10 @@ func GetTable2(ctx *gin.Context) {
 	if err := global.Db.Where("user_id=?", UserId).Last(&tableYanchendao2s).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// 业务上暂无记录：HTTP 仍 200，避免客户端把 Dio 当网络/404 错误
-			Fail(ctx, ResponseJson{
-				Status: http.StatusOK,
-				Code:   1,
-				Msg:    "暂无投注记录，请先下注或初始化数据",
-				Data:   gin.H{},
-			})
+			FailMsg(ctx, "暂无投注记录，请先下注或初始化数据")
 			return
 		} else {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusInternalServerError,
-				Code:   1,
-				Msg:    err.Error(),
-				Data:   gin.H{},
-			})
+			ServerFailMsg(ctx, err.Error())
 		}
 		return
 	}
@@ -130,12 +105,7 @@ func GetTable2(ctx *gin.Context) {
 func InsertTable1(ctx *gin.Context) {
 	var tableYanchendao1 models.TableYanchendao1
 	if err := global.Db.Create(&tableYanchendao1).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 
@@ -161,12 +131,7 @@ func InsertTable2(ctx *gin.Context) {
 	// 直接执行数据库插入，依赖数据库的并发控制
 	// MySQL会自动处理并发插入，使用行级锁保证数据一致性
 	if err := global.Db.Create(&tableYanchendao2).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "插入数据成功", Data: tableYanchendao2})
@@ -177,21 +142,11 @@ func DeleteLast(ctx *gin.Context) {
 	var tableYanchendao2 models.TableYanchendao2
 
 	if err := global.Db.Last(&tableYanchendao2).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 	if err := global.Db.Delete(&tableYanchendao2).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, err.Error())
 		return
 	}
 	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "删除数据成功", Data: tableYanchendao2})
@@ -207,12 +162,7 @@ func Restart(ctx *gin.Context) {
 	// GORM 会自动添加 deleted_at IS NULL 条件，无需手动添加
 	result := global.Db.Model(&tableYanchendao2).Where("user_id = ?", uid).Update("colmun_shuyingzhi_d", "")
 	if result.Error != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    result.Error.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, result.Error.Error())
 		return
 	}
 	global.Db.Last(&tableYanchendao2)
@@ -232,12 +182,7 @@ func Restart(ctx *gin.Context) {
 	}
 	E := global.Db.Table("table_yanchendao1").Omit("id", "created_at").Create(tableYanchendao1) //.Omit忽略id和创建时间，插入时使用数据库当前时间
 	if E.Error != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    E.Error.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, E.Error.Error())
 		return
 	}
 	Ok(ctx, ResponseJson{Code: 0, Status: http.StatusOK, Msg: "重启成功", Data: tableYanchendao1})
@@ -249,7 +194,7 @@ func SortXiaoShu(ctx *gin.Context) {
 	// 按创建时间正序查询，确保最新的记录在数组最后
 	if err := global.Db.Where("user_id=?", ctx.GetHeader("UserId")).Order("created_at ASC").Find(&tableYanchendao2s).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{Code: 1, Status: http.StatusNotFound, Msg: err.Error(), Data: gin.H{}})
+			NotFoundMsg(ctx, err.Error())
 			return
 		}
 	}
@@ -296,12 +241,7 @@ func SortXiaoShu(ctx *gin.Context) {
 	}()
 
 	if tx.Error != nil {
-		Fail(ctx, ResponseJson{
-			Code:   1,
-			Status: http.StatusInternalServerError,
-			Msg:    "开启事务失败: " + tx.Error.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "开启事务失败: "+tx.Error.Error())
 		return
 	}
 
@@ -340,24 +280,14 @@ func SortXiaoShu(ctx *gin.Context) {
 
 		if err := tx.Exec(sql, args...).Error; err != nil {
 			tx.Rollback()
-			Fail(ctx, ResponseJson{
-				Code:   1,
-				Status: http.StatusInternalServerError,
-				Msg:    "批量更新失败: " + err.Error(),
-				Data:   gin.H{},
-			})
+			ServerFailMsg(ctx, "批量更新失败: "+err.Error())
 			return
 		}
 	}
 
 	// 提交事务
 	if err := tx.Commit().Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Code:   1,
-			Status: http.StatusInternalServerError,
-			Msg:    "提交事务失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "提交事务失败: "+err.Error())
 		return
 	}
 
@@ -396,12 +326,7 @@ func Xiaoshu(ctx *gin.Context) {
 	//}
 	var tableYanchendao2 models.TableYanchendao2
 	if err := ctx.ShouldBindJSON(&tableYanchendao2); err != nil { // ShouldBindJSON如果不传这里也不会报错
-		Fail(ctx, ResponseJson{
-			Code:   1,
-			Status: http.StatusInternalServerError,
-			Msg:    "输入数据错误",
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "输入数据错误")
 		return
 	}
 	if tableYanchendao2.ColmunShuyingzhiD == "" && tableYanchendao2.ColumnXiazhujine != "" {
@@ -420,23 +345,13 @@ func DeleteAll(ctx *gin.Context) {
 	// 使用 Unscoped() 跳过软删除机制，执行真正的 DELETE 操作
 	result := global.Db.Unscoped().Where("uid=?", UserId).Delete(&models.TableYanchendao1{})
 	if result.Error != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "删除数据失败: " + result.Error.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "删除数据失败: " + result.Error.Error())
 		return
 	}
 
 	result1 := global.Db.Unscoped().Where("user_id=?", UserId).Delete(&models.TableYanchendao2{})
 	if result1.Error != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "删除数据失败: " + result1.Error.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "删除数据失败: " + result1.Error.Error())
 		return
 	}
 
@@ -503,20 +418,10 @@ func UpdateQiWangValue(ctx *gin.Context) {
 	// 注意：table_yanchendao1 表中用户字段是 uid，不是 user_id
 	if err := global.Db.Where("uid=?", ctx.GetHeader("UserId")).Last(&tableYanchendao1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusNotFound,
-				Code:   1,
-				Msg:    "未找到用户数据，请先初始化",
-				Data:   gin.H{},
-			})
+			NotFoundMsg(ctx, "未找到用户数据，请先初始化")
 			return
 		}
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询用户数据失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询用户数据失败: " + err.Error())
 		return
 	}
 	tableYanchendao1.ColumnMean = *temp.Mean
@@ -591,12 +496,7 @@ func UpdateBenjin(ctx *gin.Context) {
 	}
 	var tableYanchendao1 models.TableYanchendao1
 	if err := global.Db.Where("uid=?", ctx.GetHeader("UserId")).Last(&tableYanchendao1).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询用户数据失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询用户数据失败: " + err.Error())
 		return
 	}
 	tableYanchendao1.ColumnBenjin = *temp.Benjin
@@ -626,61 +526,31 @@ func UpdateZhuangZhanBi(ctx *gin.Context) {
 	}
 	var temp TempValues
 	if err := ctx.ShouldBindJSON(&temp); err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "参数错误: " + err.Error(),
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "参数错误: " + err.Error())
 		return
 	}
 	if temp.ZhuangZhanBi == nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "庄占比不能为空",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "庄占比不能为空")
 		return
 	}
 	// 验证范围 0-100
 	if *temp.ZhuangZhanBi < 0 || *temp.ZhuangZhanBi > 100 {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "庄占比必须在0-100之间",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "庄占比必须在0-100之间")
 		return
 	}
 	var tableYanchendao1 models.TableYanchendao1
 	if err := global.Db.Where("uid=?", ctx.GetHeader("UserId")).Last(&tableYanchendao1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusNotFound,
-				Code:   1,
-				Msg:    "未找到用户数据",
-				Data:   gin.H{},
-			})
+			NotFoundMsg(ctx, "未找到用户数据")
 			return
 		}
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询用户数据失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询用户数据失败: " + err.Error())
 		return
 	}
 	tableYanchendao1.ColumnZhuangZhanBi = *temp.ZhuangZhanBi
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "更新失败: " + tx.Error.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "更新失败: " + tx.Error.Error())
 		return
 	}
 	Ok(ctx, ResponseJson{
@@ -711,20 +581,10 @@ func GetZhuangZhanBi(ctx *gin.Context) {
 	var tableYanchendao1 models.TableYanchendao1
 	if err := global.Db.Where("uid=?", scopedUID).Last(&tableYanchendao1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusNotFound,
-				Code:   1,
-				Msg:    "未找到用户数据",
-				Data:   gin.H{},
-			})
+			NotFoundMsg(ctx, "未找到用户数据")
 			return
 		}
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询用户数据失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询用户数据失败: " + err.Error())
 		return
 	}
 
@@ -770,63 +630,33 @@ func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
 	}
 	var temp TempValues
 	if err := ctx.ShouldBindJSON(&temp); err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "参数错误: " + err.Error(),
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "参数错误: " + err.Error())
 		return
 	}
 	if temp.ZhuangZhanBi == nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "庄占比不能为空",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "庄占比不能为空")
 		return
 	}
 	// 验证范围 0-100
 	if *temp.ZhuangZhanBi < 0 || *temp.ZhuangZhanBi > 100 {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "庄占比必须在0-100之间",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "庄占比必须在0-100之间")
 		return
 	}
 
 	var tableYanchendao1 models.TableYanchendao1
 	if err := global.Db.Where("uid=?", scopedUID).Last(&tableYanchendao1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusNotFound,
-				Code:   1,
-				Msg:    "未找到用户数据",
-				Data:   gin.H{},
-			})
+			NotFoundMsg(ctx, "未找到用户数据")
 			return
 		}
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询用户数据失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询用户数据失败: " + err.Error())
 		return
 	}
 
 	tableYanchendao1.ColumnZhuangZhanBi = *temp.ZhuangZhanBi
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "更新失败: " + tx.Error.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "更新失败: " + tx.Error.Error())
 		return
 	}
 
@@ -875,24 +705,14 @@ func GetTable1List(ctx *gin.Context) {
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询总数失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询总数失败: " + err.Error())
 		return
 	}
 
 	// 分页查询（按ID正序排列，保持数据库中的顺序）
 	offset := (page - 1) * pageSize
 	if err := query.Order("id ASC").Offset(offset).Limit(pageSize).Find(&tableYanchendao1s).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询失败: " + err.Error())
 		return
 	}
 
@@ -999,12 +819,7 @@ func GetTable2List(ctx *gin.Context) {
 
 	// 获取总数
 	if err := countQuery.Count(&total).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询总数失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询总数失败: " + err.Error())
 		return
 	}
 
@@ -1021,12 +836,7 @@ func GetTable2List(ctx *gin.Context) {
 			LIMIT ? OFFSET ?;
 			`
 		if err := global.Db.Raw(sql, pageSize, offset).Scan(&tableYanchendao2s).Error; err != nil {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusInternalServerError,
-				Code:   1,
-				Msg:    "查询失败: " + err.Error(),
-				Data:   gin.H{},
-			})
+			ServerFailMsg(ctx, "查询失败: " + err.Error())
 			return
 		}
 	} else if len(userScope.UserIDs) == 1 {
@@ -1041,12 +851,7 @@ func GetTable2List(ctx *gin.Context) {
 			LIMIT ? OFFSET ?;
 			`
 		if err := global.Db.Raw(sql, userID, pageSize, offset).Scan(&tableYanchendao2s).Error; err != nil {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusInternalServerError,
-				Code:   1,
-				Msg:    "查询失败: " + err.Error(),
-				Data:   gin.H{},
-			})
+			ServerFailMsg(ctx, "查询失败: " + err.Error())
 			return
 		}
 	} else {
@@ -1062,12 +867,7 @@ func GetTable2List(ctx *gin.Context) {
 			`
 		args = append(args, pageSize, offset)
 		if err := global.Db.Raw(sql, args...).Scan(&tableYanchendao2s).Error; err != nil {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusInternalServerError,
-				Code:   1,
-				Msg:    "查询失败: " + err.Error(),
-				Data:   gin.H{},
-			})
+			ServerFailMsg(ctx, "查询失败: " + err.Error())
 			return
 		}
 	}
@@ -1141,22 +941,12 @@ func GetTable2ByID(ctx *gin.Context) {
 		userIDStr = strconv.FormatInt(scopedUID, 10)
 	}
 	if idStr == "" {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "请传入记录 id",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "请传入记录 id")
 		return
 	}
 	recordID, err := strconv.Atoi(idStr)
 	if err != nil || recordID < 1 {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "记录 ID 格式错误",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "记录 ID 格式错误")
 		return
 	}
 
@@ -1176,12 +966,7 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 	} else {
 		userID, err := strconv.ParseInt(userIDStr, 10, 64)
 		if err != nil {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusBadRequest,
-				Code:   1,
-				Msg:    "用户ID格式错误: " + err.Error(),
-				Data:   gin.H{},
-			})
+			FailMsg(ctx, "用户ID格式错误: " + err.Error())
 			return
 		}
 		sql = `
@@ -1197,12 +982,7 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 
 	var item TableYanchendao2WithSeq
 	if err := global.Db.Raw(sql, args...).Scan(&item).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询失败: " + err.Error())
 		return
 	}
 
@@ -1267,32 +1047,17 @@ func UpdateTable2Config(ctx *gin.Context) {
 
 	var req UpdateTable2ConfigRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "参数错误: " + err.Error(),
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "参数错误: " + err.Error())
 		return
 	}
 
 	var tableYanchendao2 models.TableYanchendao2
 	if err := global.Db.Where("id = ? AND deleted_at IS NULL", req.ID).First(&tableYanchendao2).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusNotFound,
-				Code:   1,
-				Msg:    "记录不存在",
-				Data:   gin.H{},
-			})
+			NotFoundMsg(ctx, "记录不存在")
 			return
 		}
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询失败: " + err.Error())
 		return
 	}
 	if !isSuperAdmin(ctx) && tableYanchendao2.UserID != loginUID(ctx) {
@@ -1310,12 +1075,7 @@ func UpdateTable2Config(ctx *gin.Context) {
 
 	if len(updates) > 0 {
 		if err := global.Db.Model(&tableYanchendao2).Updates(updates).Error; err != nil {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusInternalServerError,
-				Code:   1,
-				Msg:    "更新失败: " + err.Error(),
-				Data:   gin.H{},
-			})
+			ServerFailMsg(ctx, "更新失败: " + err.Error())
 			return
 		}
 	}
@@ -1339,7 +1099,7 @@ func UpdateTable2Config(ctx *gin.Context) {
 func UpdateLastRowRestartStatSnapshot(ctx *gin.Context) {
 	uid, err := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64)
 	if err != nil || uid == 0 {
-		Fail(ctx, ResponseJson{Code: 1, Msg: "用户ID无效", Data: gin.H{}})
+		FailMsg(ctx, "用户ID无效")
 		return
 	}
 
@@ -1347,23 +1107,23 @@ func UpdateLastRowRestartStatSnapshot(ctx *gin.Context) {
 		RestartStatSnapshot string `json:"restartStatSnapshot" binding:"required"`
 	}
 	if err := ctx.ShouldBindJSON(&body); err != nil {
-		Fail(ctx, ResponseJson{Code: 1, Msg: "参数错误: " + err.Error(), Data: gin.H{}})
+		FailMsg(ctx, "参数错误: " + err.Error())
 		return
 	}
 
 	var row models.TableYanchendao2
 	if err := global.Db.Where("user_id = ?", uid).Order("id DESC").First(&row).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{Code: 1, Msg: "暂无投注记录", Data: gin.H{}})
+			FailMsg(ctx, "暂无投注记录")
 			return
 		}
-		ServerFail(ctx, ResponseJson{Code: 1, Msg: "查询失败: " + err.Error(), Data: gin.H{}})
+		ServerFailMsg(ctx, "查询失败: " + err.Error())
 		return
 	}
 
 	snapshot := strings.TrimSpace(body.RestartStatSnapshot)
 	if err := global.Db.Model(&row).Update("restart_stat_snapshot", snapshot).Error; err != nil {
-		ServerFail(ctx, ResponseJson{Code: 1, Msg: "更新失败: " + err.Error(), Data: gin.H{}})
+		ServerFailMsg(ctx, "更新失败: " + err.Error())
 		return
 	}
 	row.RestartStatSnapshot = snapshot
@@ -1391,12 +1151,7 @@ func UpdateTable1Config(ctx *gin.Context) {
 
 	var req UpdateTable1ConfigRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "参数错误: " + err.Error(),
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "参数错误: " + err.Error())
 		return
 	}
 
@@ -1404,20 +1159,10 @@ func UpdateTable1Config(ctx *gin.Context) {
 	var tableYanchendao1 models.TableYanchendao1
 	if err := global.Db.Where("id = ? AND deleted_at IS NULL", req.ID).First(&tableYanchendao1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusNotFound,
-				Code:   1,
-				Msg:    "记录不存在",
-				Data:   gin.H{},
-			})
+			NotFoundMsg(ctx, "记录不存在")
 			return
 		}
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询失败: " + err.Error())
 		return
 	}
 	if !isSuperAdmin(ctx) && tableYanchendao1.Uid != loginUID(ctx) {
@@ -1443,12 +1188,7 @@ func UpdateTable1Config(ctx *gin.Context) {
 	// 如果有要更新的字段，执行更新
 	if len(updates) > 0 {
 		if err := global.Db.Model(&tableYanchendao1).Updates(updates).Error; err != nil {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusInternalServerError,
-				Code:   1,
-				Msg:    "更新失败: " + err.Error(),
-				Data:   gin.H{},
-			})
+			ServerFailMsg(ctx, "更新失败: " + err.Error())
 			return
 		}
 	}
@@ -1563,19 +1303,9 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	if tx := global.Db.Where("uid=?", UserId).Last(&tableYanchendao1); tx.Error != nil {
 		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
 			// 业务上未初始化：HTTP 仍 200，避免 Dio 报 404
-			Fail(ctx, ResponseJson{
-				Status: http.StatusOK,
-				Code:   1,
-				Msg:    "未找到用户数据，请先初始化",
-				Data:   gin.H{},
-			})
+			FailMsg(ctx, "未找到用户数据，请先初始化")
 		} else {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusInternalServerError,
-				Code:   1,
-				Msg:    "查询用户数据失败: " + tx.Error.Error(),
-				Data:   gin.H{},
-			})
+			ServerFailMsg(ctx, "查询用户数据失败: " + tx.Error.Error())
 		}
 		return
 	}
@@ -1587,12 +1317,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	//防止取消局部平衡的时候再次存一次
 	if (tempIndex == -1 && newRecord.TempIndex != tableYanchendao1.TempIndex) || (tempIndex > 2 && newRecord.TempIndex != tableYanchendao1.TempIndex) {
 		if err := global.Db.Save(&newRecord).Error; err != nil {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusInternalServerError,
-				Code:   1,
-				Msg:    "保存临时索引失败: " + err.Error(),
-				Data:   gin.H{},
-			})
+			ServerFailMsg(ctx, "保存临时索引失败: " + err.Error())
 			return
 		}
 	}
@@ -1607,20 +1332,10 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 
 	if err := global.Db.Where("user_id=?", UserId).Find(&tableYanchendao2s).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusOK,
-				Code:   1,
-				Msg:    err.Error(),
-				Data:   gin.H{},
-			})
+			FailMsg(ctx, err.Error())
 			return
 		} else {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusOK,
-				Code:   1,
-				Msg:    err.Error(),
-				Data:   gin.H{},
-			})
+			FailMsg(ctx, err.Error())
 		}
 		return
 	}
@@ -1695,12 +1410,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		num, err := strconv.ParseFloat(numStr, 64)
 		if err != nil {
 			fmt.Printf("字符串转换为浮点数出错: %v\n", err)
-			Fail(ctx, ResponseJson{
-				Status: http.StatusOK,
-				Code:   1,
-				Msg:    "统计数据计算失败(净胜解析): " + err.Error(),
-				Data:   gin.H{},
-			})
+			FailMsg(ctx, "统计数据计算失败(净胜解析): " + err.Error())
 			return
 		}
 		// 计算平均值并保留两位小数
@@ -1709,12 +1419,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	f, err := strconv.ParseFloat(statisticalAreas[19], 64)
 	if err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusOK,
-			Code:   1,
-			Msg:    "数学期望(column_mean)格式错误: " + err.Error(),
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "数学期望(column_mean)格式错误: " + err.Error())
 		return
 	}
 	d := float64(len(tableYanchendao2s)+1) * f //期望一共的值
@@ -2016,12 +1721,7 @@ func GetTodayBettingUsers(ctx *gin.Context) {
 	}
 
 	if err := db.Find(&users).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询用户列表失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询用户列表失败: " + err.Error())
 		return
 	}
 
@@ -2086,12 +1786,7 @@ func GetTodayBettingAmount(ctx *gin.Context) {
 
 	var records []models.TableYanchendao2
 	if err := query.Find(&records).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   0,
-			Msg:    "查询流水失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询流水失败: "+err.Error())
 		return
 	}
 
@@ -2156,12 +1851,7 @@ func GetTodayBettingCount(ctx *gin.Context) {
 
 	var count int64
 	if err := query.Count(&count).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   0,
-			Msg:    "查询下注次数失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询下注次数失败: "+err.Error())
 		return
 	}
 
@@ -2217,12 +1907,7 @@ func GetBettingStats(ctx *gin.Context) {
 
 	var records []models.TableYanchendao2
 	if err := query.Find(&records).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   0,
-			Msg:    "查询失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询失败: "+err.Error())
 		return
 	}
 
@@ -2269,12 +1954,7 @@ func GetRandomBankerPlayer(ctx *gin.Context) {
 	// 获取用户ID
 	UserId := ctx.GetHeader("UserId")
 	if UserId == "" {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "用户ID不能为空",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "用户ID不能为空")
 		return
 	}
 
@@ -2282,20 +1962,10 @@ func GetRandomBankerPlayer(ctx *gin.Context) {
 	var tableYanchendao1 models.TableYanchendao1
 	if err := global.Db.Where("uid=?", UserId).Last(&tableYanchendao1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, ResponseJson{
-				Status: http.StatusNotFound,
-				Code:   1,
-				Msg:    "未找到用户数据，请先初始化",
-				Data:   gin.H{},
-			})
+			NotFoundMsg(ctx, "未找到用户数据，请先初始化")
 			return
 		}
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询用户数据失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询用户数据失败: " + err.Error())
 		return
 	}
 

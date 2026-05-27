@@ -156,7 +156,7 @@ func SetupRouter() *gin.Engine {
 	index.Use(middlewares.CheckUser)
 	{
 		index.GET("/test", func(context *gin.Context) {
-			context.JSON(200, gin.H{"msg": "成功！"})
+			controllers.OkMsg(context, "成功！", gin.H{})
 		})
 	}
 

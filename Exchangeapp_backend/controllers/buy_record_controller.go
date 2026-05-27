@@ -39,12 +39,7 @@ func GetBuyRecords(ctx *gin.Context) {
 	// 查询所有数据
 	var buyRecords []models.BuyRecord
 	if err := query.Order("created_at ASC").Find(&buyRecords).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "查询买币记录失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "查询买币记录失败: " + err.Error())
 		return
 	}
 
@@ -84,31 +79,16 @@ func CreateBuyRecord(ctx *gin.Context) {
 		BuyTime   string  `json:"buy_time"`
 	}
 	if err := ctx.ShouldBindJSON(&body); err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "参数无效: " + err.Error(),
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "参数无效: " + err.Error())
 		return
 	}
 	body.Currency = strings.TrimSpace(body.Currency)
 	if body.Currency == "" {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "币种不能为空",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "币种不能为空")
 		return
 	}
 	if body.BuyTime == "" {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "买入时间不能为空",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "买入时间不能为空")
 		return
 	}
 	var buyAt time.Time
@@ -125,12 +105,7 @@ func CreateBuyRecord(ctx *gin.Context) {
 		}
 	}
 	if err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "买入时间格式无效，请使用日期时间或 ISO8601",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "买入时间格式无效，请使用日期时间或 ISO8601")
 		return
 	}
 
@@ -142,12 +117,7 @@ func CreateBuyRecord(ctx *gin.Context) {
 		BuyTime:   buyAt,
 	}
 	if err := global.Db.Create(&record).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "保存失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "保存失败: " + err.Error())
 		return
 	}
 
@@ -179,35 +149,20 @@ func DeleteBuyRecord(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusBadRequest,
-			Code:   1,
-			Msg:    "无效的记录ID",
-			Data:   gin.H{},
-		})
+		FailMsg(ctx, "无效的记录ID")
 		return
 	}
 
 	// 查询记录（超管可操作全部）
 	var buyRecord models.BuyRecord
 	if err := global.Db.First(&buyRecord, id).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusNotFound,
-			Code:   1,
-			Msg:    "买币记录不存在",
-			Data:   gin.H{},
-		})
+		NotFoundMsg(ctx, "买币记录不存在")
 		return
 	}
 
 	// 软删除记录
 	if err := global.Db.Delete(&buyRecord).Error; err != nil {
-		Fail(ctx, ResponseJson{
-			Status: http.StatusInternalServerError,
-			Code:   1,
-			Msg:    "删除买币记录失败: " + err.Error(),
-			Data:   gin.H{},
-		})
+		ServerFailMsg(ctx, "删除买币记录失败: " + err.Error())
 		return
 	}
 
