@@ -21,12 +21,12 @@ func AttachLoginUser(ctx *gin.Context, username string) {
 		ctx.Set("loginRole", role)
 		ctx.Set("isSuperAdmin", models.IsSuperAdminRole(role))
 		ctx.Set("loginUid", user.Uid)
-		ctx.Set("ycdAllowed", subscription.IsYcdAllowed(user))
+		ctx.Set("jsqAllowed", subscription.IsJsqAllowed(user))
 		if user.ExpiresAt != nil {
 			ctx.Set("expiresAt", *user.ExpiresAt)
 		}
 		return
 	}
 	ctx.Set("loginUid", int64(0))
-	ctx.Set("ycdAllowed", false)
+	ctx.Set("jsqAllowed", false)
 }

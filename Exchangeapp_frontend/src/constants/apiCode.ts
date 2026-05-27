@@ -1,39 +1,16 @@
-/** 与 Go apicode / Flutter ApiCode 保持一致 */
+/** 与 Go apicode / Flutter ApiCode 保持一致；HTTP 固定 200，只看 body.code，提示用 msg */
 export const ApiCode = {
   ok: 0,
-  fail: 1,
-  unauthorized: 401,
-  forbidden: 403,
-  notFound: 404,
-  ycdExpired: 2202,
-  serverError: 500,
+  paramInvalid: 1000,
+  loginInvalid: 1001,
+  verifyCodeExpired: 1002,
+  jsqExpired: 1003,
+  notFound: 1004,
+  unauthorized: 1005,
+  forbidden: 1006,
+  serverError: 1007,
   silent: 8,
 } as const;
-
-export type ApiCategory =
-  | 'success'
-  | 'business_fail'
-  | 'unauthorized'
-  | 'forbidden'
-  | 'ycd_expired'
-  | 'server_error';
-
-export function categoryOf(code: number): ApiCategory {
-  switch (code) {
-    case ApiCode.ok:
-      return 'success';
-    case ApiCode.unauthorized:
-      return 'unauthorized';
-    case ApiCode.forbidden:
-      return 'forbidden';
-    case ApiCode.ycdExpired:
-      return 'ycd_expired';
-    case ApiCode.serverError:
-      return 'server_error';
-    default:
-      return 'business_fail';
-  }
-}
 
 export function isSuccess(code: number): boolean {
   return code === ApiCode.ok;
@@ -43,8 +20,18 @@ export function isGlobalCode(code: number): boolean {
   return (
     code === ApiCode.unauthorized ||
     code === ApiCode.forbidden ||
-    code === ApiCode.ycdExpired
+    code === ApiCode.jsqExpired
   );
+}
+
+/** 是否由 axios 拦截器自动 Toast（全局码、静默码、auth 接口除外） */
+export function shouldAutoToast(code: number, requestUrl = ''): boolean {
+  if (code === ApiCode.silent) return false;
+  if (isGlobalCode(code)) return false;
+  if (requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register')) {
+    return false;
+  }
+  return true;
 }
 
 export type ApiPayload = {
@@ -60,7 +47,7 @@ export function parseApiPayload(data: unknown): { code: number; msg: string; dat
   if (typeof p.code !== 'number') {
     const legacyMsg = p.error ?? p.msg;
     if (typeof legacyMsg === 'string' && legacyMsg) {
-      return { code: ApiCode.fail, msg: legacyMsg, data: p.data ?? null };
+      return { code: ApiCode.paramInvalid, msg: legacyMsg, data: p.data ?? null };
     }
     return null;
   }

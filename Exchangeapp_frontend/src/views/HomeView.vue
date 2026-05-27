@@ -415,7 +415,7 @@ const fetchTodayAmount = async () => {
       params.append('end_date', dateRange.value[1]);
     }
 
-    const url = `/ycd/today/amount${params.toString() ? '?' + params.toString() : ''}`;
+    const url = `/jsq/today/amount${params.toString() ? '?' + params.toString() : ''}`;
     const response = await axios.get(url);
     if (response.data.code === 0) {
       const amount = response.data.data.total_amount;
@@ -444,7 +444,7 @@ const fetchTodayCount = async () => {
       params.append('end_date', dateRange.value[1]);
     }
 
-    const url = `/ycd/today/count${params.toString() ? '?' + params.toString() : ''}`;
+    const url = `/jsq/today/count${params.toString() ? '?' + params.toString() : ''}`;
     const response = await axios.get(url);
     if (response.data.code === 0) {
       const count = response.data.data.count;
@@ -473,7 +473,7 @@ const fetchBettingStats = async () => {
       params.append('end_date', dateRange.value[1]);
     }
 
-    const url = `/ycd/stats${params.toString() ? '?' + params.toString() : ''}`;
+    const url = `/jsq/stats${params.toString() ? '?' + params.toString() : ''}`;
     const response = await axios.get(url);
     if (response.data.code === 0) {
       const data = response.data.data;
@@ -499,7 +499,7 @@ const fetchZhuangZhanBi = async () => {
   }
   try {
     const userId = String(selectedUserId.value);
-    const response = await axios.get(`/ycd/zhuangzhanbi?user_id=${userId}`);
+    const response = await axios.get(`/jsq/zhuangzhanbi?user_id=${userId}`);
     if (response.data.code === 0) {
       const value = response.data.data.zhuangZhanBi;
       zhuangZhanBi.value = typeof value === 'number' ? value : parseInt(value) || 50;
@@ -527,7 +527,7 @@ const updateZhuangZhanBi = async () => {
   loadingZhuangZhanBi.value = true;
   try {
     const userId = String(selectedUserId.value);
-    const response = await axios.post(`/ycd/zhuangzhanbi?user_id=${userId}`, {
+    const response = await axios.post(`/jsq/zhuangzhanbi?user_id=${userId}`, {
       zhuangZhanBi: zhuangZhanBi.value
     });
     if (response.data.code === 0) {

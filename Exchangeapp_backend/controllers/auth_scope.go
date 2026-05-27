@@ -195,9 +195,5 @@ func requireSuperAdmin(ctx *gin.Context) bool {
 }
 
 func forbidScope(ctx *gin.Context, httpStatus int, msg string) {
-	Fail(ctx, ResponseJson{
-		Code: apicode.CodeFromHTTPStatus(httpStatus),
-		Msg:  msg,
-		Data: gin.H{},
-	})
+	Fail(ctx, apicode.CodeFromHTTPStatus(httpStatus), msg)
 }

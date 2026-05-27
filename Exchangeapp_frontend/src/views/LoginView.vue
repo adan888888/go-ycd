@@ -36,7 +36,8 @@ const login = async () => {
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '';
     await router.push(redirect && redirect.startsWith('/') ? redirect : '/');
   } catch (err) {
-    ElMessage.error(getApiErrorMessage(err, '登录失败，请检查用户名和密码。'));
+    const msg = getApiErrorMessage(err, '网络异常，请稍后重试');
+    if (msg) ElMessage.error(msg);
   }
 };
 </script>

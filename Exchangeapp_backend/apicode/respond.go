@@ -1,12 +1,14 @@
 package apicode
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 )
 
-// Abort 中间件/拦截器统一写响应：HTTP 状态由 code 推导，body 固定结构。
+// Abort 中间件/拦截器统一写响应：HTTP 固定 200，body 为 { code, msg, data }。
 func Abort(ctx *gin.Context, code int, msg string) {
-	ctx.AbortWithStatusJSON(HTTPStatusForCode(code), gin.H{
+	ctx.AbortWithStatusJSON(http.StatusOK, gin.H{
 		"code": code,
 		"msg":  msg,
 		"data": gin.H{},

@@ -1,9 +1,9 @@
 package controllers
 
 import (
+	"exchangeapp/apicode"
 	"exchangeapp/global"
 	"exchangeapp/models"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -39,7 +39,7 @@ func GetBuyRecords(ctx *gin.Context) {
 	// 查询所有数据
 	var buyRecords []models.BuyRecord
 	if err := query.Order("created_at ASC").Find(&buyRecords).Error; err != nil {
-		ServerFailMsg(ctx, "查询买币记录失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询买币记录失败: " + err.Error())
 		return
 	}
 
@@ -57,12 +57,7 @@ func GetBuyRecords(ctx *gin.Context) {
 		responses = append(responses, response)
 	}
 
-	Ok(ctx, ResponseJson{
-		Status: http.StatusOK,
-		Code:   0,
-		Msg:    "查询成功",
-		Data:   responses,
-	})
+	Success(ctx, "查询成功", responses)
 }
 
 // CreateBuyRecord 录入一条买币/购买记录
@@ -79,16 +74,16 @@ func CreateBuyRecord(ctx *gin.Context) {
 		BuyTime   string  `json:"buy_time"`
 	}
 	if err := ctx.ShouldBindJSON(&body); err != nil {
-		FailMsg(ctx, "参数无效: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "参数无效: " + err.Error())
 		return
 	}
 	body.Currency = strings.TrimSpace(body.Currency)
 	if body.Currency == "" {
-		FailMsg(ctx, "币种不能为空")
+		Fail(ctx, apicode.CodeParamInvalid, "币种不能为空")
 		return
 	}
 	if body.BuyTime == "" {
-		FailMsg(ctx, "买入时间不能为空")
+		Fail(ctx, apicode.CodeParamInvalid, "买入时间不能为空")
 		return
 	}
 	var buyAt time.Time
@@ -105,7 +100,7 @@ func CreateBuyRecord(ctx *gin.Context) {
 		}
 	}
 	if err != nil {
-		FailMsg(ctx, "买入时间格式无效，请使用日期时间或 ISO8601")
+		Fail(ctx, apicode.CodeParamInvalid, "买入时间格式无效，请使用日期时间或 ISO8601")
 		return
 	}
 
@@ -117,7 +112,7 @@ func CreateBuyRecord(ctx *gin.Context) {
 		BuyTime:   buyAt,
 	}
 	if err := global.Db.Create(&record).Error; err != nil {
-		ServerFailMsg(ctx, "保存失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "保存失败: " + err.Error())
 		return
 	}
 
@@ -129,12 +124,7 @@ func CreateBuyRecord(ctx *gin.Context) {
 		BuyTime:   record.BuyTime,
 		CreatedAt: record.CreatedAt,
 	}
-	Ok(ctx, ResponseJson{
-		Status: http.StatusOK,
-		Code:   0,
-		Msg:    "录入成功",
-		Data:   resp,
-	})
+	Success(ctx, "录入成功", resp)
 }
 
 // @Summary      删除买币记录
@@ -149,27 +139,22 @@ func DeleteBuyRecord(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		FailMsg(ctx, "无效的记录ID")
+		Fail(ctx, apicode.CodeParamInvalid, "无效的记录ID")
 		return
 	}
 
 	// 查询记录（超管可操作全部）
 	var buyRecord models.BuyRecord
 	if err := global.Db.First(&buyRecord, id).Error; err != nil {
-		NotFoundMsg(ctx, "买币记录不存在")
+		Fail(ctx, apicode.CodeNotFound, "买币记录不存在")
 		return
 	}
 
 	// 软删除记录
 	if err := global.Db.Delete(&buyRecord).Error; err != nil {
-		ServerFailMsg(ctx, "删除买币记录失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "删除买币记录失败: " + err.Error())
 		return
 	}
 
-	Ok(ctx, ResponseJson{
-		Status: http.StatusOK,
-		Code:   0,
-		Msg:    "删除成功",
-		Data:   gin.H{},
-	})
+	Success(ctx, "删除成功", gin.H{})
 }

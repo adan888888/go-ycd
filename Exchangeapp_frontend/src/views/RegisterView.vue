@@ -32,7 +32,8 @@ const register = async () => {
     await authStore.register(form.value.username, form.value.password);
     await router.push('/');
   } catch (err) {
-    ElMessage.error(getApiErrorMessage(err, '注册失败，请重试。'));
+    const msg = getApiErrorMessage(err, '网络异常，请稍后重试');
+    if (msg) ElMessage.error(msg);
   }
 };
 </script>

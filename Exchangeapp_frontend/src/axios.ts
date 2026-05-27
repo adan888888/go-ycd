@@ -1,6 +1,6 @@
 import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { ElMessage } from 'element-plus';
-import { ApiCode, isSuccess, parseApiPayload } from './constants/apiCode';
+import { isSuccess, parseApiPayload, shouldAutoToast } from './constants/apiCode';
 import { ApiError } from './utils/apiError';
 import { handleGlobalApiCode } from './utils/apiSessionHandler';
 
@@ -14,18 +14,8 @@ const instance = axios.create({
   validateStatus: (status) => status < 600,
 });
 
-function isAuthApi(url: string): boolean {
-  return url.includes('/auth/login') || url.includes('/auth/register');
-}
-
-function shouldAutoToast(url: string, code: number): boolean {
-  if (code === ApiCode.silent) return false;
-  if (isAuthApi(url)) return false;
-  return true;
-}
-
 function patchTodayUsersResponse(response: AxiosResponse): void {
-  if (!response.config.url?.includes('/ycd/today/users') || !response.data?.data) return;
+  if (!response.config.url?.includes('/jsq/today/users') || !response.data?.data) return;
   if (!Array.isArray(response.data.data)) return;
 
   const originalText = (response.request as { responseText?: string })?.responseText;
@@ -69,7 +59,7 @@ function finalizeResponse(response: AxiosResponse): AxiosResponse | Promise<neve
   }
 
   handleGlobalApiCode(parsed.code, parsed.msg, url);
-  if (shouldAutoToast(url, parsed.code) && parsed.msg) {
+  if (shouldAutoToast(parsed.code, url) && parsed.msg) {
     ElMessage.error(parsed.msg);
   }
   return Promise.reject(new ApiError(parsed.code, parsed.msg, parsed.data));
@@ -93,7 +83,7 @@ instance.interceptors.response.use(
     const parsed = parseApiPayload(error.response?.data);
     if (parsed) {
       handleGlobalApiCode(parsed.code, parsed.msg, url);
-      if (shouldAutoToast(url, parsed.code) && parsed.msg) {
+      if (shouldAutoToast(parsed.code, url) && parsed.msg) {
         ElMessage.error(parsed.msg);
       }
       return Promise.reject(new ApiError(parsed.code, parsed.msg, parsed.data));

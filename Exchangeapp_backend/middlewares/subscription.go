@@ -2,22 +2,30 @@ package middlewares
 
 import (
 	"exchangeapp/apicode"
+	"exchangeapp/models"
 	"exchangeapp/subscription"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-// YcdSubscriptionMiddleware 拦截已到期普通用户的 ycd 接口
-func YcdSubscriptionMiddleware() gin.HandlerFunc {
+// JsqSubscriptionMiddleware 拦截已到期普通用户的 jsq 接口
+func JsqSubscriptionMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if v, ok := ctx.Get("isSuperAdmin"); ok && v == true {
 			ctx.Next()
 			return
 		}
-		if v, ok := ctx.Get("ycdAllowed"); ok && v == true {
+		if v, ok := ctx.Get("jsqAllowed"); ok && v == true {
 			ctx.Next()
 			return
 		}
-		apicode.Abort(ctx, apicode.CodeYcdExpired, subscription.YcdExpiredMsg)
+		msg := subscription.JsqExpiredMsg
+		if exp, ok := ctx.Get("expiresAt"); ok {
+			if t, ok := exp.(time.Time); ok {
+				msg = subscription.JsqExpiredMessage(models.User{ExpiresAt: &t})
+			}
+		}
+		apicode.Abort(ctx, apicode.CodeJsqExpired, msg)
 	}
 }

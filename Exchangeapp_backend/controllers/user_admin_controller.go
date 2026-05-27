@@ -1,13 +1,13 @@
 package controllers
 
 import (
+	"exchangeapp/apicode"
 	"errors"
 	"exchangeapp/global"
 	"exchangeapp/models"
 	"exchangeapp/subscription"
 	"exchangeapp/utils"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -27,7 +27,7 @@ func AdminListUsers(ctx *gin.Context) {
 		Where("uid IS NOT NULL").
 		Order("deleted_at IS NULL DESC, username ASC").
 		Find(&users).Error; err != nil {
-		ServerFailMsg(ctx, "查询用户列表失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户列表失败: " + err.Error())
 		return
 	}
 
@@ -36,12 +36,7 @@ func AdminListUsers(ctx *gin.Context) {
 		items = append(items, buildAdminUserItem(u))
 	}
 
-	Ok(ctx, ResponseJson{
-		Status: http.StatusOK,
-		Code:   0,
-		Msg:    "查询成功",
-		Data:   items,
-	})
+	Success(ctx, "查询成功", items)
 }
 
 // AdminDeleteUser 超级管理员删除用户（不可删除 Admin）
@@ -52,22 +47,22 @@ func AdminDeleteUser(ctx *gin.Context) {
 
 	uid, err := parsePathUID(ctx.Param("uid"))
 	if err != nil {
-		FailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, err.Error())
 		return
 	}
 
 	user, ok := findAdminUserByUID(uid)
 	if !ok {
-		FailMsg(ctx, "用户不存在")
+		Fail(ctx, apicode.CodeParamInvalid, "用户不存在")
 		return
 	}
 	if user.DeletedAt.Valid {
-		FailMsg(ctx, "用户已删除")
+		Fail(ctx, apicode.CodeParamInvalid, "用户已删除")
 		return
 	}
 
 	if models.IsSuperAdminRole(user.Role) {
-		FailMsg(ctx, "不能删除超级管理员账号")
+		Fail(ctx, apicode.CodeParamInvalid, "不能删除超级管理员账号")
 		return
 	}
 
@@ -83,16 +78,11 @@ func AdminDeleteUser(ctx *gin.Context) {
 		return tx.Delete(&user).Error
 	})
 	if err != nil {
-		ServerFailMsg(ctx, "删除用户失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "删除用户失败: " + err.Error())
 		return
 	}
 
-	Ok(ctx, ResponseJson{
-		Status: http.StatusOK,
-		Code:   0,
-		Msg:    "删除成功",
-		Data:   gin.H{"user_id": strconv.FormatInt(uid, 10)},
-	})
+	Success(ctx, "删除成功", gin.H{"user_id": strconv.FormatInt(uid, 10)})
 }
 
 // AdminRestoreUser 超级管理员恢复已软删除的用户
@@ -103,40 +93,35 @@ func AdminRestoreUser(ctx *gin.Context) {
 
 	uid, err := parsePathUID(ctx.Param("uid"))
 	if err != nil {
-		FailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, err.Error())
 		return
 	}
 
 	user, ok := findAdminUserByUID(uid)
 	if !ok {
-		FailMsg(ctx, "用户不存在")
+		Fail(ctx, apicode.CodeParamInvalid, "用户不存在")
 		return
 	}
 	if !user.DeletedAt.Valid {
-		FailMsg(ctx, "用户未删除，无需恢复")
+		Fail(ctx, apicode.CodeParamInvalid, "用户未删除，无需恢复")
 		return
 	}
 	if models.IsSuperAdminRole(user.Role) {
-		FailMsg(ctx, "不能操作超级管理员账号")
+		Fail(ctx, apicode.CodeParamInvalid, "不能操作超级管理员账号")
 		return
 	}
 
 	if err := global.Db.Unscoped().Model(&user).Update("deleted_at", nil).Error; err != nil {
-		ServerFailMsg(ctx, "恢复用户失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "恢复用户失败: " + err.Error())
 		return
 	}
 	if err := global.Db.Unscoped().Select("uid", "username", "expires_at", "deleted_at").
 		Where("uid = ?", uid).First(&user).Error; err != nil {
-		ServerFailMsg(ctx, "读取恢复后用户失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "读取恢复后用户失败: " + err.Error())
 		return
 	}
 
-	Ok(ctx, ResponseJson{
-		Status: http.StatusOK,
-		Code:   0,
-		Msg:    "恢复成功",
-		Data:   buildAdminUserItem(user),
-	})
+	Success(ctx, "恢复成功", buildAdminUserItem(user))
 }
 
 // AdminUpdateUsername 超级管理员修改用户名
@@ -147,7 +132,7 @@ func AdminUpdateUsername(ctx *gin.Context) {
 
 	uid, err := parsePathUID(ctx.Param("uid"))
 	if err != nil {
-		FailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, err.Error())
 		return
 	}
 
@@ -155,48 +140,43 @@ func AdminUpdateUsername(ctx *gin.Context) {
 		Username string `json:"username" binding:"required"`
 	}
 	if err := ctx.ShouldBindJSON(&body); err != nil {
-		FailMsg(ctx, "参数错误: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "参数错误: " + err.Error())
 		return
 	}
 	newName := strings.TrimSpace(body.Username)
 	if newName == "" {
-		FailMsg(ctx, "用户名不能为空")
+		Fail(ctx, apicode.CodeParamInvalid, "用户名不能为空")
 		return
 	}
 
 	var user models.User
 	if err := global.Db.Where("uid = ?", uid).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			FailMsg(ctx, "用户不存在")
+			Fail(ctx, apicode.CodeParamInvalid, "用户不存在")
 			return
 		}
-		ServerFailMsg(ctx, "查询用户失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户失败: " + err.Error())
 		return
 	}
 
 	var exists models.User
 	if err := global.Db.Where("username = ? AND uid <> ?", newName, uid).First(&exists).Error; err == nil {
-		FailMsg(ctx, "用户名已被占用")
+		Fail(ctx, apicode.CodeParamInvalid, "用户名已被占用")
 		return
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		ServerFailMsg(ctx, "校验用户名失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "校验用户名失败: " + err.Error())
 		return
 	}
 
 	if err := global.Db.Model(&user).Update("username", newName).Error; err != nil {
-		ServerFailMsg(ctx, "修改用户名失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "修改用户名失败: " + err.Error())
 		return
 	}
 
-	Ok(ctx, ResponseJson{
-		Status: http.StatusOK,
-		Code:   0,
-		Msg:    "修改成功",
-		Data: gin.H{
+	Success(ctx, "修改成功", gin.H{
 			"user_id":  strconv.FormatInt(uid, 10),
 			"username": newName,
-		},
-	})
+		})
 }
 
 // AdminUpdatePassword 超级管理员修改用户密码
@@ -207,7 +187,7 @@ func AdminUpdatePassword(ctx *gin.Context) {
 
 	uid, err := parsePathUID(ctx.Param("uid"))
 	if err != nil {
-		FailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, err.Error())
 		return
 	}
 
@@ -215,41 +195,36 @@ func AdminUpdatePassword(ctx *gin.Context) {
 		Password string `json:"password" binding:"required"`
 	}
 	if err := ctx.ShouldBindJSON(&body); err != nil {
-		FailMsg(ctx, "参数错误: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "参数错误: " + err.Error())
 		return
 	}
 	if len(strings.TrimSpace(body.Password)) < 4 {
-		FailMsg(ctx, "密码长度至少 4 位")
+		Fail(ctx, apicode.CodeParamInvalid, "密码长度至少 4 位")
 		return
 	}
 
 	var user models.User
 	if err := global.Db.Where("uid = ?", uid).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			FailMsg(ctx, "用户不存在")
+			Fail(ctx, apicode.CodeParamInvalid, "用户不存在")
 			return
 		}
-		ServerFailMsg(ctx, "查询用户失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户失败: " + err.Error())
 		return
 	}
 
 	hashedPwd, err := utils.HashPassword(body.Password)
 	if err != nil {
-		ServerFailMsg(ctx, "加密密码失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "加密密码失败: " + err.Error())
 		return
 	}
 
 	if err := global.Db.Model(&user).Update("password", hashedPwd).Error; err != nil {
-		ServerFailMsg(ctx, "修改密码失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "修改密码失败: " + err.Error())
 		return
 	}
 
-	Ok(ctx, ResponseJson{
-		Status: http.StatusOK,
-		Code:   0,
-		Msg:    "密码修改成功",
-		Data:   gin.H{"user_id": strconv.FormatInt(uid, 10)},
-	})
+	Success(ctx, "密码修改成功", gin.H{"user_id": strconv.FormatInt(uid, 10)})
 }
 
 // AdminUpdateExpiresAt 超级管理员修改用户到期时间（超管账号永久，不可改）
@@ -260,7 +235,7 @@ func AdminUpdateExpiresAt(ctx *gin.Context) {
 
 	uid, err := parsePathUID(ctx.Param("uid"))
 	if err != nil {
-		FailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, err.Error())
 		return
 	}
 
@@ -268,53 +243,48 @@ func AdminUpdateExpiresAt(ctx *gin.Context) {
 		ExpiresAt string `json:"expires_at" binding:"required"`
 	}
 	if err := ctx.ShouldBindJSON(&body); err != nil {
-		FailMsg(ctx, "参数错误: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "参数错误: " + err.Error())
 		return
 	}
 
 	var user models.User
 	if err := global.Db.Where("uid = ?", uid).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			FailMsg(ctx, "用户不存在")
+			Fail(ctx, apicode.CodeParamInvalid, "用户不存在")
 			return
 		}
-		ServerFailMsg(ctx, "查询用户失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户失败: " + err.Error())
 		return
 	}
 
 	if models.IsSuperAdminRole(user.Role) {
-		FailMsg(ctx, "超级管理员账号为永久有效，无需设置到期时间")
+		Fail(ctx, apicode.CodeParamInvalid, "超级管理员账号为永久有效，无需设置到期时间")
 		return
 	}
 
 	exp, err := time.ParseInLocation("2006-01-02 15:04:05", strings.TrimSpace(body.ExpiresAt), time.Local)
 	if err != nil {
-		FailMsg(ctx, "到期时间格式应为 YYYY-MM-DD HH:mm:ss")
+		Fail(ctx, apicode.CodeParamInvalid, "到期时间格式应为 YYYY-MM-DD HH:mm:ss")
 		return
 	}
 
 	if err := global.Db.Model(&user).Select("expires_at").Updates(map[string]interface{}{
 		"expires_at": exp,
 	}).Error; err != nil {
-		ServerFailMsg(ctx, "修改到期时间失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "修改到期时间失败: " + err.Error())
 		return
 	}
-	// 写库后重新读取，确保返回与 ycd 校验一致
+	// 写库后重新读取，确保返回与 jsq 校验一致
 	if err := global.Db.Select("uid", "username", "expires_at").Where("uid = ?", uid).First(&user).Error; err != nil {
-		ServerFailMsg(ctx, "读取更新后用户失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "读取更新后用户失败: " + err.Error())
 		return
 	}
 
-	Ok(ctx, ResponseJson{
-		Status: http.StatusOK,
-		Code:   0,
-		Msg:    "到期时间修改成功",
-		Data: gin.H{
+	Success(ctx, "到期时间修改成功", gin.H{
 			"user_id":     strconv.FormatInt(uid, 10),
 			"expires_at":  subscription.FormatExpiresAtForAdmin(user),
-			"ycd_allowed": subscription.IsYcdAllowed(user),
-		},
-	})
+			"jsq_allowed": subscription.IsJsqAllowed(user),
+		})
 }
 
 type adminUserItem struct {
@@ -324,7 +294,7 @@ type adminUserItem struct {
 	CreatedAt   string `json:"created_at"`
 	ExpiresAt   string `json:"expires_at"`
 	IsPermanent bool   `json:"is_permanent"`
-	YcdAllowed  bool   `json:"ycd_allowed"`
+	JsqAllowed  bool   `json:"jsq_allowed"`
 	IsDeleted   bool   `json:"is_deleted"`
 	Status      string `json:"status"`
 }
@@ -333,10 +303,10 @@ func buildAdminUserItem(u models.User) adminUserItem {
 	_, _, isPermanent := subscription.FormatExpiresAt(u)
 	deleted := u.DeletedAt.Valid
 	status := "正常"
-	ycdAllowed := subscription.IsYcdAllowed(u)
+	jsqAllowed := subscription.IsJsqAllowed(u)
 	if deleted {
 		status = "已删除"
-		ycdAllowed = false
+		jsqAllowed = false
 	}
 	return adminUserItem{
 		UserID:      strconv.FormatInt(u.Uid, 10),
@@ -345,7 +315,7 @@ func buildAdminUserItem(u models.User) adminUserItem {
 		CreatedAt:   u.CreatedAt.Format("2006-01-02 15:04:05"),
 		ExpiresAt:   subscription.FormatExpiresAtForAdmin(u),
 		IsPermanent: isPermanent,
-		YcdAllowed:  ycdAllowed,
+		JsqAllowed:  jsqAllowed,
 		IsDeleted:   deleted,
 		Status:      status,
 	}
@@ -367,7 +337,7 @@ func AdminUpdateUserRole(ctx *gin.Context) {
 
 	uid, err := parsePathUID(ctx.Param("uid"))
 	if err != nil {
-		FailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, err.Error())
 		return
 	}
 
@@ -375,42 +345,37 @@ func AdminUpdateUserRole(ctx *gin.Context) {
 		Role string `json:"role" binding:"required"`
 	}
 	if err := ctx.ShouldBindJSON(&body); err != nil {
-		FailMsg(ctx, "参数错误: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "参数错误: " + err.Error())
 		return
 	}
 
 	newRole := models.NormalizeUserRole(strings.TrimSpace(body.Role))
 	if newRole != models.RoleSuperAdmin && newRole != models.RoleUser {
-		FailMsg(ctx, "无效的角色，仅支持 super_admin 或 user")
+		Fail(ctx, apicode.CodeParamInvalid, "无效的角色，仅支持 super_admin 或 user")
 		return
 	}
 
 	var user models.User
 	if err := global.Db.Where("uid = ?", uid).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			FailMsg(ctx, "用户不存在")
+			Fail(ctx, apicode.CodeParamInvalid, "用户不存在")
 			return
 		}
-		ServerFailMsg(ctx, "查询用户失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户失败: " + err.Error())
 		return
 	}
 
 	if user.Uid == loginUID(ctx) {
-		FailMsg(ctx, "不能修改自己的角色")
+		Fail(ctx, apicode.CodeParamInvalid, "不能修改自己的角色")
 		return
 	}
 
 	oldRole := models.NormalizeUserRole(user.Role)
 	if oldRole == newRole {
-		Ok(ctx, ResponseJson{
-			Status: http.StatusOK,
-			Code:   0,
-			Msg:    "角色未变化",
-			Data: gin.H{
+		Success(ctx, "角色未变化", gin.H{
 				"user_id": strconv.FormatInt(uid, 10),
 				"role":    newRole,
-			},
-		})
+			})
 		return
 	}
 
@@ -419,11 +384,11 @@ func AdminUpdateUserRole(ctx *gin.Context) {
 		if err := global.Db.Model(&models.User{}).
 			Where("role = ? AND deleted_at IS NULL", models.RoleSuperAdmin).
 			Count(&count).Error; err != nil {
-			ServerFailMsg(ctx, "统计超级管理员数量失败: " + err.Error())
+			Fail(ctx, apicode.CodeServerError, "统计超级管理员数量失败: " + err.Error())
 			return
 		}
 		if count <= 1 {
-			FailMsg(ctx, "至少保留一名超级管理员")
+			Fail(ctx, apicode.CodeParamInvalid, "至少保留一名超级管理员")
 			return
 		}
 	}
@@ -437,22 +402,17 @@ func AdminUpdateUserRole(ctx *gin.Context) {
 	}
 
 	if err := global.Db.Model(&user).Updates(updates).Error; err != nil {
-		ServerFailMsg(ctx, "修改角色失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "修改角色失败: " + err.Error())
 		return
 	}
 
 	if err := global.Db.Select("uid", "username", "role", "expires_at", "deleted_at").
 		Where("uid = ?", uid).First(&user).Error; err != nil {
-		ServerFailMsg(ctx, "读取更新后用户失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "读取更新后用户失败: " + err.Error())
 		return
 	}
 
-	Ok(ctx, ResponseJson{
-		Status: http.StatusOK,
-		Code:   0,
-		Msg:    "角色修改成功",
-		Data:   buildAdminUserItem(user),
-	})
+	Success(ctx, "角色修改成功", buildAdminUserItem(user))
 }
 
 func parsePathUID(uidStr string) (int64, error) {

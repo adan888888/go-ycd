@@ -230,7 +230,7 @@ provide<Ref<UserInfo[]>>('userList', userList);
 // 获取用户列表
 const fetchUserList = async () => {
   try {
-    const response = await axios.get('/ycd/today/users');
+    const response = await axios.get('/jsq/today/users');
     if (response.data.code === 0 && response.data.data) {
       userList.value = Array.isArray(response.data.data) ? response.data.data : [];
       syncSelectedUserWithList();

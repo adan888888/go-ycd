@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"exchangeapp/apicode"
 	"errors"
 	"exchangeapp/global"
 	"exchangeapp/models"
@@ -16,11 +17,11 @@ func LikeArticle(ctx *gin.Context) {
 	likeKey := "article:" + articleID + ":likes"
 
 	if err := global.RedisDB.Incr(likeKey).Err(); err != nil {
-		ServerFailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeServerError, err.Error())
 		return
 	}
 
-	OkMsg(ctx, "点赞成功", gin.H{})
+	Success(ctx, "点赞成功", gin.H{})
 }
 
 func GetArticleLikes(ctx *gin.Context) {
@@ -32,11 +33,11 @@ func GetArticleLikes(ctx *gin.Context) {
 	if err == redis.Nil {
 		likes = "0"
 	} else if err != nil {
-		ServerFailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeServerError, err.Error())
 		return
 	}
 
-	OkMsg(ctx, "查询成功", gin.H{"likes": likes})
+	Success(ctx, "查询成功", gin.H{"likes": likes})
 }
 
 func GetBanners(ctx *gin.Context) {
@@ -47,7 +48,7 @@ func GetBanners(ctx *gin.Context) {
 			err = errors.New("没有查到数据")
 			return
 		}
-		ServerFailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeServerError, err.Error())
 		return
 	}
 	var banners1 []string
@@ -55,7 +56,7 @@ func GetBanners(ctx *gin.Context) {
 		banners1 = append(banners1, url.Url)
 	}
 
-	OkMsg(ctx, "查询成功", gin.H{"banners": banners1})
+	Success(ctx, "查询成功", gin.H{"banners": banners1})
 }
 
 func GetHotgames(ctx *gin.Context) {
@@ -73,5 +74,5 @@ func GetHotgames(ctx *gin.Context) {
 		"https://9f.com/images/game/551339.jpg",
 	}
 
-	OkMsg(ctx, "查询成功", gin.H{"hotgames": hotgames})
+	Success(ctx, "查询成功", gin.H{"hotgames": hotgames})
 }

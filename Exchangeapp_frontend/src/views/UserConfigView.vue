@@ -280,7 +280,7 @@ const fetchTable1List = async () => {
     params.append('page', String(table1Page.value));
     params.append('page_size', String(table1PageSize.value));
 
-    const url = `/ycd/table1/list?${params.toString()}`;
+    const url = `/jsq/table1/list?${params.toString()}`;
     const response = await axios.get(url, {
       timeout: 10000 // 设置10秒超时
     });
@@ -415,7 +415,7 @@ const handleSaveEdit = async () => {
 
   saving.value = true;
   try {
-    const response = await axios.put('/ycd/table1/config', {
+    const response = await axios.put('/jsq/table1/config', {
       id: editForm.value.id,
       column_benjin: editForm.value.column_benjin,
       column_mean: editForm.value.column_mean,

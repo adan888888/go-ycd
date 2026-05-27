@@ -64,45 +64,45 @@ func SetupRouter() *gin.Engine {
 		api.GET("/testmq/:msg", controllers.SendRabbitMsg) //http://localhost:3000/api/testmq/你好
 	}
 	// 第3组：需要认证
-	ycd := r.Group("/api/ycd")
-	ycd.Use(middlewares.AuthMiddleWare())
-	ycd.Use(middlewares.YcdSubscriptionMiddleware()) // 到期用户不可用 ycd
+	jsq := r.Group("/api/jsq")
+	jsq.Use(middlewares.AuthMiddleWare())
+	jsq.Use(middlewares.JsqSubscriptionMiddleware()) // 到期用户不可用 jsq（计数器）
 	{
-		//ycd 部分
-		ycd.POST("/createtable", controllers.CreateTables)
-		ycd.GET("/table1", controllers.GetTable1)
-		ycd.GET("/table2", controllers.GetTable2)
-		ycd.PUT("/inserttable1", controllers.InsertTable1)
-		ycd.PUT("/inserttable2", controllers.InsertTable2)
-		ycd.PUT("/updaterestartstatsnapshot", controllers.UpdateLastRowRestartStatSnapshot)
-		ycd.DELETE("/deletelast", controllers.DeleteLast)
-		ycd.POST("/restart", controllers.Restart)
-		ycd.POST("/sortxiaoshu", controllers.SortXiaoShu)
-		ycd.POST("/xiaoshu", controllers.Xiaoshu) //消数
-		ycd.DELETE("/deleteall", controllers.DeleteAll)
-		ycd.POST("/resetliushui", controllers.ResetLiushui)
-		ycd.POST("/updateqiwangvalue", controllers.UpdateQiWangValue)
-		ycd.POST("/updateodds", controllers.UpdateOdds)
-		ycd.POST("/updatebenjin", controllers.UpdateBenjin)
-		ycd.GET("/getusers", controllers.Getusers)
-		ycd.GET("/loadmore", controllers.LoadMore) //加载更多历史数据 //http://localhost:3000/api/ycd/loadMore?last_value=836
-		ycd.GET("/getStatisticalAreasData", controllers.GetStatisticalAreasData)
-		ycd.GET("/linechartData", controllers.LinechartData)              //折线图数据
-		ycd.POST("/cleanDataD", controllers.CleanDataD)                   //清除数据（消数列数据全部清除）
-		ycd.GET("/randomBankerPlayer", controllers.GetRandomBankerPlayer) //随机庄闲接口
+		// jsq 计数器部分
+		jsq.POST("/createtable", controllers.CreateTables)
+		jsq.GET("/table1", controllers.GetTable1)
+		jsq.GET("/table2", controllers.GetTable2)
+		jsq.PUT("/inserttable1", controllers.InsertTable1)
+		jsq.PUT("/inserttable2", controllers.InsertTable2)
+		jsq.PUT("/updaterestartstatsnapshot", controllers.UpdateLastRowRestartStatSnapshot)
+		jsq.DELETE("/deletelast", controllers.DeleteLast)
+		jsq.POST("/restart", controllers.Restart)
+		jsq.POST("/sortxiaoshu", controllers.SortXiaoShu)
+		jsq.POST("/xiaoshu", controllers.Xiaoshu) //消数
+		jsq.DELETE("/deleteall", controllers.DeleteAll)
+		jsq.POST("/resetliushui", controllers.ResetLiushui)
+		jsq.POST("/updateqiwangvalue", controllers.UpdateQiWangValue)
+		jsq.POST("/updateodds", controllers.UpdateOdds)
+		jsq.POST("/updatebenjin", controllers.UpdateBenjin)
+		jsq.GET("/getusers", controllers.Getusers)
+		jsq.GET("/loadmore", controllers.LoadMore) //加载更多历史数据 //http://localhost:3000/api/jsq/loadMore?last_value=836
+		jsq.GET("/getStatisticalAreasData", controllers.GetStatisticalAreasData)
+		jsq.GET("/linechartData", controllers.LinechartData)              //折线图数据
+		jsq.POST("/cleanDataD", controllers.CleanDataD)                   //清除数据（消数列数据全部清除）
+		jsq.GET("/randomBankerPlayer", controllers.GetRandomBankerPlayer) //随机庄闲接口
 		// 管理后台统计与列表（需登录）
-		ycd.GET("/today/users", controllers.GetTodayBettingUsers)
-		ycd.GET("/today/amount", controllers.GetTodayBettingAmount)
-		ycd.GET("/today/count", controllers.GetTodayBettingCount)
-		ycd.GET("/stats", controllers.GetBettingStats)
-		ycd.GET("/zhuangzhanbi", controllers.GetZhuangZhanBi)
-		ycd.POST("/zhuangzhanbi", controllers.UpdateZhuangZhanBiPublic)
-		ycd.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi)
-		ycd.GET("/table1/list", controllers.GetTable1List)
-		ycd.PUT("/table1/config", controllers.UpdateTable1Config)
-		ycd.GET("/betting-record/list", controllers.GetTable2List)
-		ycd.GET("/betting-record/by-id", controllers.GetTable2ByID)
-		ycd.PUT("/betting-record/config", controllers.UpdateTable2Config)
+		jsq.GET("/today/users", controllers.GetTodayBettingUsers)
+		jsq.GET("/today/amount", controllers.GetTodayBettingAmount)
+		jsq.GET("/today/count", controllers.GetTodayBettingCount)
+		jsq.GET("/stats", controllers.GetBettingStats)
+		jsq.GET("/zhuangzhanbi", controllers.GetZhuangZhanBi)
+		jsq.POST("/zhuangzhanbi", controllers.UpdateZhuangZhanBiPublic)
+		jsq.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi)
+		jsq.GET("/table1/list", controllers.GetTable1List)
+		jsq.PUT("/table1/config", controllers.UpdateTable1Config)
+		jsq.GET("/betting-record/list", controllers.GetTable2List)
+		jsq.GET("/betting-record/by-id", controllers.GetTable2ByID)
+		jsq.PUT("/betting-record/config", controllers.UpdateTable2Config)
 	}
 
 	// 第4组：用户管理（仅超级管理员 Admin，需认证）
@@ -156,7 +156,7 @@ func SetupRouter() *gin.Engine {
 	index.Use(middlewares.CheckUser)
 	{
 		index.GET("/test", func(context *gin.Context) {
-			controllers.OkMsg(context, "成功！", gin.H{})
+			controllers.Success(context, "成功！", gin.H{})
 		})
 	}
 

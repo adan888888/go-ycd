@@ -265,7 +265,7 @@ const fetchBettingPageRaw = async (
   appendSelectedUserIds(params, selectedUserIds.value);
   params.append('page', String(page));
   params.append('page_size', String(pageSize));
-  const url = `/ycd/betting-record/list?${params.toString()}`;
+  const url = `/jsq/betting-record/list?${params.toString()}`;
   const response = await axios.get(url, { timeout: 10000 });
   if (response.data.code !== 0) {
     throw new Error(response.data.msg || '未知错误');
@@ -311,7 +311,7 @@ const handleSearchById = async () => {
     // 按产品约定：仅按记录主键 id 全局检索，不附带顶部用户筛选（避免「选人后搜不到、全部却能搜到」）
     const params = new URLSearchParams();
     params.append('id', q);
-    const url = `/ycd/betting-record/by-id?${params.toString()}`;
+    const url = `/jsq/betting-record/by-id?${params.toString()}`;
     const response = await axios.get(url, { timeout: 10000 });
 
     if (response.data.code !== 0) {
@@ -440,7 +440,7 @@ const handleSaveEdit = async () => {
 
   saving.value = true;
   try {
-    const response = await axios.put('/ycd/betting-record/config', {
+    const response = await axios.put('/jsq/betting-record/config', {
       id: editForm.value.id,
       colmun_shuyingzhi: editForm.value.colmun_shuyingzhi,
       colmun_shuyingzhi_d: editForm.value.colmun_shuyingzhi_d

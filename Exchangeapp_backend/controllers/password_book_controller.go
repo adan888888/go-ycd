@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"exchangeapp/apicode"
 	"exchangeapp/global"
 	"exchangeapp/models"
 	"strconv"
@@ -28,7 +29,7 @@ func CreatePasswordItem(c *gin.Context) {
 
 	var req models.PasswordItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		FailMsg(c, "请求参数错误: " + err.Error())
+		Fail(c, apicode.CodeParamInvalid, "请求参数错误: " + err.Error())
 		return
 	}
 
@@ -43,19 +44,14 @@ func CreatePasswordItem(c *gin.Context) {
 	}
 
 	if err := global.Db.Create(&passwordItem).Error; err != nil {
-		ServerFailMsg(c, "创建密码项失败: " + err.Error())
+		Fail(c, apicode.CodeServerError, "创建密码项失败: " + err.Error())
 		return
 	}
 
 	// 返回响应
 	response := models.PasswordItemResponse(passwordItem)
 
-	Ok(c, ResponseJson{
-		Status: 200,
-		Code:   0,
-		Msg:    "创建成功",
-		Data:   response,
-	})
+	Success(c, "创建成功", response)
 }
 
 // GetPasswordItems 获取密码列表
@@ -88,7 +84,7 @@ func GetPasswordItems(c *gin.Context) {
 	// 获取数据
 	var passwordItems []models.PasswordItem
 	if err := query.Order("updated_at ASC").Find(&passwordItems).Error; err != nil {
-		ServerFailMsg(c, "查询失败: " + err.Error())
+		Fail(c, apicode.CodeServerError, "查询失败: " + err.Error())
 		return
 	}
 
@@ -97,12 +93,7 @@ func GetPasswordItems(c *gin.Context) {
 	for _, item := range passwordItems {
 		items = append(items, models.PasswordItemResponse(item))
 	}
-	Ok(c, ResponseJson{
-		Status: 200,
-		Code:   0,
-		Msg:    "查询成功",
-		Data:   items,
-	})
+	Success(c, "查询成功", items)
 }
 
 // GetPasswordItem 获取单个密码项
@@ -117,7 +108,7 @@ func GetPasswordItem(c *gin.Context) {
 	// 获取密码项ID
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		FailMsg(c, "无效的ID")
+		Fail(c, apicode.CodeParamInvalid, "无效的ID")
 		return
 	}
 
@@ -125,9 +116,9 @@ func GetPasswordItem(c *gin.Context) {
 	var passwordItem models.PasswordItem
 	if err := global.Db.Where("id = ?", id).First(&passwordItem).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			NotFoundMsg(c, "密码项不存在")
+			Fail(c, apicode.CodeNotFound, "密码项不存在")
 		} else {
-			ServerFailMsg(c, "查询失败: " + err.Error())
+			Fail(c, apicode.CodeServerError, "查询失败: " + err.Error())
 		}
 		return
 	}
@@ -135,12 +126,7 @@ func GetPasswordItem(c *gin.Context) {
 	// 返回响应
 	response := models.PasswordItemResponse(passwordItem)
 
-	Ok(c, ResponseJson{
-		Status: 200,
-		Code:   0,
-		Msg:    "查询成功",
-		Data:   response,
-	})
+	Success(c, "查询成功", response)
 }
 
 // UpdatePasswordItem 更新密码项
@@ -157,14 +143,14 @@ func UpdatePasswordItem(c *gin.Context) {
 	// 获取密码项ID
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		FailMsg(c, "无效的ID")
+		Fail(c, apicode.CodeParamInvalid, "无效的ID")
 		return
 	}
 
 	// 绑定请求数据
 	var req models.PasswordItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		FailMsg(c, "请求参数错误: " + err.Error())
+		Fail(c, apicode.CodeParamInvalid, "请求参数错误: " + err.Error())
 		return
 	}
 
@@ -172,9 +158,9 @@ func UpdatePasswordItem(c *gin.Context) {
 	var passwordItem models.PasswordItem
 	if err := global.Db.Where("id = ?", id).First(&passwordItem).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			NotFoundMsg(c, "密码项不存在")
+			Fail(c, apicode.CodeNotFound, "密码项不存在")
 		} else {
-			ServerFailMsg(c, "查询失败: " + err.Error())
+			Fail(c, apicode.CodeServerError, "查询失败: " + err.Error())
 		}
 		return
 	}
@@ -187,19 +173,14 @@ func UpdatePasswordItem(c *gin.Context) {
 	passwordItem.Notes = req.Notes
 
 	if err := global.Db.Save(&passwordItem).Error; err != nil {
-		ServerFailMsg(c, "更新失败: " + err.Error())
+		Fail(c, apicode.CodeServerError, "更新失败: " + err.Error())
 		return
 	}
 
 	// 返回响应
 	response := models.PasswordItemResponse(passwordItem)
 
-	Ok(c, ResponseJson{
-		Status: 200,
-		Code:   0,
-		Msg:    "更新成功",
-		Data:   response,
-	})
+	Success(c, "更新成功", response)
 }
 
 // DeletePasswordItem 删除密码项
@@ -214,28 +195,23 @@ func DeletePasswordItem(c *gin.Context) {
 	// 获取密码项ID
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		FailMsg(c, "无效的ID")
+		Fail(c, apicode.CodeParamInvalid, "无效的ID")
 		return
 	}
 
 	// 删除密码项
 	result := global.Db.Where("id = ?", id).Delete(&models.PasswordItem{})
 	if result.Error != nil {
-		ServerFailMsg(c, "删除失败: " + result.Error.Error())
+		Fail(c, apicode.CodeServerError, "删除失败: " + result.Error.Error())
 		return
 	}
 
 	if result.RowsAffected == 0 {
-		NotFoundMsg(c, "密码项不存在")
+		Fail(c, apicode.CodeNotFound, "密码项不存在")
 		return
 	}
 
-	Ok(c, ResponseJson{
-		Status: 200,
-		Code:   0,
-		Msg:    "删除成功",
-		Data:   nil,
-	})
+	Success(c, "删除成功", nil)
 }
 
 // BatchDeletePasswordItems 批量删除密码项
@@ -251,28 +227,23 @@ func BatchDeletePasswordItems(c *gin.Context) {
 	// 绑定请求数据
 	var ids []int
 	if err := c.ShouldBindJSON(&ids); err != nil {
-		FailMsg(c, "请求参数错误: " + err.Error())
+		Fail(c, apicode.CodeParamInvalid, "请求参数错误: " + err.Error())
 		return
 	}
 
 	if len(ids) == 0 {
-		FailMsg(c, "ID列表不能为空")
+		Fail(c, apicode.CodeParamInvalid, "ID列表不能为空")
 		return
 	}
 
 	// 批量删除
 	result := global.Db.Where("id IN ?", ids).Delete(&models.PasswordItem{})
 	if result.Error != nil {
-		ServerFailMsg(c, "批量删除失败: " + result.Error.Error())
+		Fail(c, apicode.CodeServerError, "批量删除失败: " + result.Error.Error())
 		return
 	}
 
-	Ok(c, ResponseJson{
-		Status: 200,
-		Code:   0,
-		Msg:    "批量删除成功",
-		Data: gin.H{
+	Success(c, "批量删除成功", gin.H{
 			"deleted_count": result.RowsAffected,
-		},
-	})
+		})
 }

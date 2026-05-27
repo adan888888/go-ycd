@@ -23,7 +23,7 @@
               show-overflow-tooltip>
               <template #default="{ row }">
                 <el-tag v-if="row.is_permanent" type="success">永久</el-tag>
-                <span v-else :class="{ 'expired-text': !row.ycd_allowed }">{{ formatExpireTime(row) }}</span>
+                <span v-else :class="{ 'expired-text': !row.jsq_allowed }">{{ formatExpireTime(row) }}</span>
               </template>
             </el-table-column>
             <el-table-column label="剩余天数" width="100" align="center">
@@ -145,7 +145,7 @@ interface UserRow {
   created_at: string;
   expires_at?: string;
   is_permanent?: boolean;
-  ycd_allowed?: boolean;
+  jsq_allowed?: boolean;
   is_deleted?: boolean;
   status?: string;
 }

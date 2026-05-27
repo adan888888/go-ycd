@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"exchangeapp/apicode"
 	"exchangeapp/utils"
 	"strconv"
 	"time"
@@ -23,11 +24,11 @@ func (bc *BackupController) ManualBackup(c *gin.Context) {
 
 	if err := utils.BackupDatabase(); err != nil {
 		log.Errorf("手动备份失败: %v", err)
-		ServerFailMsg(c, "备份失败: "+err.Error())
+		Fail(c, apicode.CodeServerError, "备份失败: "+err.Error())
 		return
 	}
 
-	OkMsg(c, "数据库备份完成", gin.H{
+	Success(c, "数据库备份完成", gin.H{
 		"time": time.Now().Format("2006-01-02 15:04:05"),
 	})
 }
@@ -37,11 +38,11 @@ func (bc *BackupController) GetBackupList(c *gin.Context) {
 	backupFiles, err := utils.GetBackupList()
 	if err != nil {
 		log.Errorf("获取备份列表失败: %v", err)
-		ServerFailMsg(c, "获取备份列表失败: "+err.Error())
+		Fail(c, apicode.CodeServerError, "获取备份列表失败: "+err.Error())
 		return
 	}
 
-	OkMsg(c, "查询成功", gin.H{
+	Success(c, "查询成功", gin.H{
 		"list":  backupFiles,
 		"count": len(backupFiles),
 	})
@@ -52,22 +53,22 @@ func (bc *BackupController) CleanOldBackups(c *gin.Context) {
 	daysStr := c.DefaultQuery("days", "30")
 	days, err := strconv.Atoi(daysStr)
 	if err != nil {
-		FailMsg(c, "无效的天数参数")
+		Fail(c, apicode.CodeParamInvalid, "无效的天数参数")
 		return
 	}
 
 	if days < 1 {
-		FailMsg(c, "保留天数必须大于0")
+		Fail(c, apicode.CodeParamInvalid, "保留天数必须大于0")
 		return
 	}
 
 	if err := utils.CleanOldBackups(); err != nil {
 		log.Errorf("清理旧备份失败: %v", err)
-		ServerFailMsg(c, "清理旧备份失败: "+err.Error())
+		Fail(c, apicode.CodeServerError, "清理旧备份失败: "+err.Error())
 		return
 	}
 
-	OkMsg(c, "旧备份清理完成", gin.H{"retain_days": days})
+	Success(c, "旧备份清理完成", gin.H{"retain_days": days})
 }
 
 // GetBackupStatus 获取备份状态信息
@@ -75,7 +76,7 @@ func (bc *BackupController) GetBackupStatus(c *gin.Context) {
 	backupFiles, err := utils.GetBackupList()
 	if err != nil {
 		log.Errorf("获取备份状态失败: %v", err)
-		ServerFailMsg(c, "获取备份状态失败: "+err.Error())
+		Fail(c, apicode.CodeServerError, "获取备份状态失败: "+err.Error())
 		return
 	}
 
@@ -84,7 +85,7 @@ func (bc *BackupController) GetBackupStatus(c *gin.Context) {
 		latestBackup = backupFiles[len(backupFiles)-1]
 	}
 
-	OkMsg(c, "查询成功", gin.H{
+	Success(c, "查询成功", gin.H{
 		"total_backups": len(backupFiles),
 		"latest_backup": latestBackup,
 		"backup_files":  backupFiles,

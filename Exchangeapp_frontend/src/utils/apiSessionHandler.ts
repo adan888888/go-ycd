@@ -43,7 +43,11 @@ export function handleGlobalApiCode(code: number, msg: string, requestUrl = ''):
         void router.push('/');
       }
       return true;
-    case ApiCode.ycdExpired:
+    case ApiCode.jsqExpired:
+      if (isAuthApi(requestUrl)) {
+        if (msg) ElMessage.warning(msg);
+        return true;
+      }
       if (!auth.loggingOut) {
         auth.logout();
         if (msg) ElMessage.warning(msg);

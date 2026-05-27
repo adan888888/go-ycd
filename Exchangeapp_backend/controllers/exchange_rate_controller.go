@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"exchangeapp/apicode"
 	"errors"
 	"exchangeapp/global"
 	"exchangeapp/models"
@@ -14,23 +15,23 @@ func CreateExchangeRate(ctx *gin.Context) {
 	var exchangeRate models.ExchangeRate
 
 	if err := ctx.ShouldBindJSON(&exchangeRate); err != nil {
-		FailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, err.Error())
 		return
 	}
 
 	exchangeRate.Date = time.Now()
 
 	if err := global.Db.AutoMigrate(&exchangeRate); err != nil {
-		ServerFailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeServerError, err.Error())
 		return
 	}
 
 	if err := global.Db.Create(&exchangeRate).Error; err != nil {
-		ServerFailMsg(ctx, err.Error())
+		Fail(ctx, apicode.CodeServerError, err.Error())
 		return
 	}
 
-	OkMsg(ctx, "创建成功", exchangeRate)
+	Success(ctx, "创建成功", exchangeRate)
 }
 
 func GetExchangeRates(ctx *gin.Context) {
@@ -38,11 +39,11 @@ func GetExchangeRates(ctx *gin.Context) {
 
 	if err := global.Db.Find(&exchangeRates).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			NotFoundMsg(ctx, err.Error())
+			Fail(ctx, apicode.CodeNotFound, err.Error())
 		} else {
-			ServerFailMsg(ctx, err.Error())
+			Fail(ctx, apicode.CodeServerError, err.Error())
 		}
 		return
 	}
-	OkMsg(ctx, "查询成功", exchangeRates)
+	Success(ctx, "查询成功", exchangeRates)
 }
