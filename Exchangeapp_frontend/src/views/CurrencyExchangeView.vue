@@ -287,15 +287,11 @@ function parseNum(s: string): number | null {
 }
 
 function formatDisplay(n: number): string {
-  if (Math.abs(n) >= 1000) return n.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
-  if (Math.abs(n) >= 1) return n.toFixed(4).replace(/\.?0+$/, '') || '0';
-  return n.toFixed(6).replace(/\.?0+$/, '') || '0';
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 }
 
 function formatRate(r: number): string {
-  if (r >= 100) return r.toFixed(2);
-  if (r >= 1) return r.toFixed(4);
-  return r.toFixed(6);
+  return r.toFixed(4);
 }
 
 function formatChartDate(iso?: string): string {
@@ -311,6 +307,14 @@ function formatLocalDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function parseRatesPayload(data: unknown, base: string): Record<string, number> | null {
+  if (!data || typeof data !== 'object') return null;
+  const payload = data as Record<string, unknown>;
+  const rates = (payload.rates ?? payload.conversion_rates) as Record<string, number> | undefined;
+  if (!rates || typeof rates !== 'object') return null;
+  return { ...rates, [base]: 1 };
+}
+
 async function fetchRatesForBase(base: string, force = false): Promise<Record<string, number> | null> {
   if (force) {
     const next = { ...ratesCache.value };
@@ -320,17 +324,17 @@ async function fetchRatesForBase(base: string, force = false): Promise<Record<st
     return ratesCache.value[base];
   }
   const urls = [
-    `https://open.er-api.com/v6/latest/${base}`,
-    `https://api.exchangerate-api.com/v4/latest/${base}`,
+    `https://api.fxratesapi.com/latest?base=${encodeURIComponent(base)}`,
+    `https://open.er-api.com/v6/latest/${encodeURIComponent(base)}`,
+    `https://api.exchangerate-api.com/v4/latest/${encodeURIComponent(base)}`,
   ];
   for (const url of urls) {
     try {
       const res = await fetch(url);
       if (!res.ok) continue;
       const data = await res.json();
-      const rates = (data.rates ?? data.conversion_rates) as Record<string, number> | undefined;
-      if (rates && typeof rates === 'object') {
-        rates[base] = 1;
+      const rates = parseRatesPayload(data, base);
+      if (rates) {
         ratesCache.value[base] = rates;
         return rates;
       }
