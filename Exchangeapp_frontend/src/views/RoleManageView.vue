@@ -2,7 +2,8 @@
   <div class="role-manage-container">
     <div class="content-wrapper">
       <el-alert title="说明" type="info" :closable="false" show-icon class="info-alert">
-        权限分三级：超级管理员 &gt; 专业用户 &gt; 普通用户。专业及以上可使用「百家乐开奖模拟」「AES加解密」「数字密码本」「持币记录分析」；普通用户仅可使用基础功能（如计数器、RSI 分析等）。不能修改自己的角色，系统至少保留一名超级管理员。
+        权限分三级：超级管理员 &gt; 专业用户 &gt;
+        普通用户。专业及以上可使用「百家乐开奖模拟」「AES加解密」「数字密码本」「持币记录分析」；持币记录始终仅查询当前登录用户（userId）本人的数据。不能修改自己的角色，系统至少保留一名超级管理员。
       </el-alert>
 
       <el-card class="table-card" shadow="always">
@@ -37,8 +38,8 @@
             <el-table-column label="设置权限" min-width="220" align="left" header-align="left" fixed="right">
               <template #default="{ row }">
                 <div class="role-cell">
-                  <el-select v-model="row._editRole" :disabled="isRowDisabled(row)" size="default"
-                    class="role-select" @change="(val: string) => handleRoleChange(row, val)">
+                  <el-select v-model="row._editRole" :disabled="isRowDisabled(row)" size="default" class="role-select"
+                    @change="(val: string) => handleRoleChange(row, val)">
                     <el-option label="普通用户" :value="ROLE_USER" />
                     <el-option label="专业用户" :value="ROLE_PRO" />
                     <el-option label="超级管理员" :value="ROLE_SUPER_ADMIN" />

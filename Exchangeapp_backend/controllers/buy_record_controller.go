@@ -22,10 +22,10 @@ func GetBuyRecords(ctx *gin.Context) {
 	// 获取筛选参数
 	currency := ctx.Query("currency")
 
-	// 超管查全部；普通用户仅本人
+	// 仅当前登录用户（JWT uid）可查本人持币记录
 	query := global.Db.Model(&models.BuyRecord{})
 	var ok bool
-	query, ok = applyOwnedDataScope(ctx, query, "uid")
+	query, ok = applyCurrentLoginDataScope(ctx, query, "uid")
 	if !ok {
 		return
 	}
@@ -143,13 +143,17 @@ func DeleteBuyRecord(ctx *gin.Context) {
 		return
 	}
 
-	// 查询记录并校验归属（超管可操作全部；专业用户仅本人）
+	// 仅当前登录用户可删本人记录
 	var buyRecord models.BuyRecord
 	if err := global.Db.First(&buyRecord, id).Error; err != nil {
 		Fail(ctx, apicode.CodeNotFound, "买币记录不存在")
 		return
 	}
-	if !isSuperAdmin(ctx) && buyRecord.Uid != loginUID(ctx) {
+	loginUID, ok := requireLoginUID(ctx)
+	if !ok {
+		return
+	}
+	if buyRecord.Uid != loginUID {
 		Fail(ctx, apicode.CodeForbidden, "无权限删除该记录")
 		return
 	}

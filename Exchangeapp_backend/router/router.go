@@ -80,7 +80,7 @@ func SetupRouter() *gin.Engine {
 		adminUsers.PUT("/:uid/role", controllers.AdminUpdateUserRole)
 	}
 
-	// 第5组：买币记录管理（需登录且专业版及以上）
+	// 第5组：买币记录（需登录且专业版及以上；数据始终按当前 JWT 登录 uid 隔离）
 	buyRecords := r.Group("/api/buyRecords")
 	buyRecords.Use(middlewares.AuthMiddleWare())
 	buyRecords.Use(middlewares.ProOrAboveMiddleware())

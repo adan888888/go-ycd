@@ -16,7 +16,16 @@ func requireLoginUID(ctx *gin.Context) (int64, bool) {
 	return uid, true
 }
 
-// applyOwnedDataScope 超管查全部；其他登录用户仅查本人
+// applyCurrentLoginDataScope 始终仅查当前 JWT 登录用户本人数据（持币记录等）
+func applyCurrentLoginDataScope(ctx *gin.Context, query *gorm.DB, column string) (*gorm.DB, bool) {
+	uid, ok := requireLoginUID(ctx)
+	if !ok {
+		return nil, false
+	}
+	return query.Where(column+" = ?", uid), true
+}
+
+// applyOwnedDataScope 超管查全部；其他登录用户仅查本人（密码本等管理场景）
 func applyOwnedDataScope(ctx *gin.Context, query *gorm.DB, column string) (*gorm.DB, bool) {
 	if isSuperAdmin(ctx) {
 		return query, true
