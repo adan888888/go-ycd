@@ -24,6 +24,11 @@
                 :class="{ 'quick-date-active': activeQuickDate === 'yesterday' }" @click="selectQuickDate('yesterday')">
                 昨天
               </el-button>
+              <el-button size="small" type="primary" :plain="activeQuickDate !== 'lastTwoDays'"
+                :class="{ 'quick-date-active': activeQuickDate === 'lastTwoDays' }"
+                @click="selectQuickDate('lastTwoDays')">
+                近两天
+              </el-button>
               <el-button size="small" type="primary" :plain="activeQuickDate !== 'thisWeek'"
                 :class="{ 'quick-date-active': activeQuickDate === 'thisWeek' }" @click="selectQuickDate('thisWeek')">
                 本周
@@ -32,6 +37,10 @@
                 :class="{ 'quick-date-active': activeQuickDate === 'thisMonth' }" @click="selectQuickDate('thisMonth')">
                 本月
               </el-button>
+              <el-icon class="home-refresh-icon" :class="{ 'is-loading': refreshingHome }"
+                @click="!refreshingHome && refreshHomeData()">
+                <Refresh />
+              </el-icon>
             </div>
           </div>
         </div>
@@ -71,7 +80,6 @@
           <template #header>
             <div class="card-header">
               <span>{{ getDateRangeLabel() }}流水</span>
-              <el-button type="text" :icon="Refresh" @click="fetchTodayAmount" :loading="loadingAmount" circle />
             </div>
           </template>
           <div class="stat-content">
@@ -89,7 +97,6 @@
           <template #header>
             <div class="card-header">
               <span>{{ getDateRangeLabel() }}下注次数</span>
-              <el-button type="text" :icon="Refresh" @click="fetchTodayCount" :loading="loadingCount" circle />
             </div>
           </template>
           <div class="stat-content">
@@ -127,7 +134,6 @@
           <template #header>
             <div class="card-header">
               <span>{{ getDateRangeLabel() }}工资</span>
-              <el-button type="text" :icon="Refresh" @click="fetchTodayAmount" :loading="loadingAmount" circle />
             </div>
           </template>
           <div class="stat-content">
@@ -148,7 +154,6 @@
           <template #header>
             <div class="card-header">
               <span>{{ getDateRangeLabel() }}净胜负</span>
-              <el-button type="text" :icon="Refresh" @click="fetchBettingStats" :loading="loadingStats" circle />
             </div>
           </template>
           <div class="stat-content">
@@ -168,7 +173,6 @@
           <template #header>
             <div class="card-header">
               <span>{{ getDateRangeLabel() }}输赢金额</span>
-              <el-button type="text" :icon="Refresh" @click="fetchBettingStats" :loading="loadingStats" circle />
             </div>
           </template>
           <div class="stat-content">
@@ -244,11 +248,13 @@ const loadingAmount = ref<boolean>(false);
 const loadingCount = ref<boolean>(false);
 const loadingZhuangZhanBi = ref<boolean>(false);
 const loadingStats = ref<boolean>(false);
+const refreshingHome = ref<boolean>(false);
 const netWinLoss = ref<number>(0); // 净胜负
 const profitLoss = ref<number>(0); // 输赢金额
 const zhuangZhanBi = ref<number>(50); // 默认庄占比50
 const dateRange = ref<[string, string] | null>(null); // 日期范围
-const activeQuickDate = ref<'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | null>(null); // 当前激活的快捷选择
+type QuickDateType = 'today' | 'yesterday' | 'lastTwoDays' | 'thisWeek' | 'thisMonth';
+const activeQuickDate = ref<QuickDateType | null>(null); // 当前激活的快捷选择
 
 // 返水比例（默认 0.0076，即 0.76%）
 const getDefaultFanShuiRatio = (): number => {
@@ -543,7 +549,7 @@ const updateZhuangZhanBi = async () => {
 };
 
 // 判断当前日期范围对应哪个快捷选项
-const detectQuickDate = (): 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | null => {
+const detectQuickDate = (): QuickDateType | null => {
   if (!dateRange.value || dateRange.value.length !== 2) {
     return null;
   }
@@ -565,6 +571,11 @@ const detectQuickDate = (): 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | n
   // 判断是否是昨天
   if (start === yesterdayStr && end === yesterdayStr) {
     return 'yesterday';
+  }
+
+  // 判断是否是近两天（昨天至今天）
+  if (start === yesterdayStr && end === todayStr) {
+    return 'lastTwoDays';
   }
 
   // 判断是否是本周
@@ -590,13 +601,11 @@ const detectQuickDate = (): 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | n
 const handleDateChange = () => {
   // 检测当前日期范围对应的快捷选项
   activeQuickDate.value = detectQuickDate();
-  fetchTodayAmount();
-  fetchTodayCount();
-  fetchBettingStats();
+  refreshHomeData();
 };
 
 // 快捷选择日期
-const selectQuickDate = (type: 'today' | 'yesterday' | 'thisWeek' | 'thisMonth') => {
+const selectQuickDate = (type: QuickDateType) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -612,6 +621,11 @@ const selectQuickDate = (type: 'today' | 'yesterday' | 'thisWeek' | 'thisMonth')
       startDate = new Date(today);
       startDate.setDate(startDate.getDate() - 1);
       endDate = new Date(startDate);
+      break;
+    case 'lastTwoDays':
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 1);
+      endDate = new Date(today);
       break;
     case 'thisWeek':
       // 本周一
@@ -633,9 +647,22 @@ const selectQuickDate = (type: 'today' | 'yesterday' | 'thisWeek' | 'thisMonth')
 
   dateRange.value = [formatLocalDate(startDate), formatLocalDate(endDate)];
   activeQuickDate.value = type; // 更新激活状态
-  fetchTodayAmount();
-  fetchTodayCount();
-  fetchBettingStats();
+  refreshHomeData();
+};
+
+// 保留当前筛选条件刷新首页数据
+const refreshHomeData = async () => {
+  if (!authStore.isAuthenticated || authStore.loggingOut) return;
+  refreshingHome.value = true;
+  try {
+    const requests = [fetchTodayAmount(), fetchTodayCount(), fetchBettingStats()];
+    if (selectedUserId.value) {
+      requests.push(fetchZhuangZhanBi());
+    }
+    await Promise.all(requests);
+  } finally {
+    refreshingHome.value = false;
+  }
 };
 
 // 获取日期范围标签
@@ -654,6 +681,8 @@ const getDateRangeLabel = (): string => {
     return '今天';
   } else if (start === yesterdayStr && end === yesterdayStr) {
     return '昨天';
+  } else if (start === yesterdayStr && end === today) {
+    return '近两天';
   } else if (start === end) {
     return start;
   } else {
@@ -779,6 +808,7 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .quick-date-buttons :deep(.quick-date-active) {
@@ -792,6 +822,24 @@ onMounted(() => {
   background: #66b1ff !important;
   border-color: #66b1ff !important;
   color: #ffffff !important;
+}
+
+.home-refresh-icon {
+  margin-left: 16px;
+  font-size: 40px;
+  color: #409eff;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: color 0.2s ease;
+}
+
+.home-refresh-icon:hover {
+  color: #66b1ff;
+}
+
+.home-refresh-icon.is-loading {
+  cursor: default;
+  pointer-events: none;
 }
 
 .stats-container {
