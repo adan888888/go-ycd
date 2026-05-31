@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"exchangeapp/apicode"
 	"errors"
+	"exchangeapp/apicode"
 	"exchangeapp/global"
 	"exchangeapp/models"
 	. "exchangeapp/utils"
@@ -29,7 +29,7 @@ func CreateTables(ctx *gin.Context) {
 	// 获取用户ID（添加错误处理）
 	uid, err := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64) //第二个参数 10 表示字符串是十进制格式。第三个参数 64 表示转换结果的类型为 int64。
 	if err != nil {
-		Fail(ctx, apicode.CodeParamInvalid, "无效的用户ID: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "无效的用户ID: "+err.Error())
 		return
 	}
 
@@ -187,7 +187,7 @@ func Restart(ctx *gin.Context) {
 // 对消数列进行排序
 func SortXiaoShu(ctx *gin.Context) {
 	var tableYanchendao2s []models.TableYanchendao2
-	// 按创建时间正序查询，确保最新的记录在数组最后
+	//1. 按创建时间正序查询，确保最新的记录在数组最后
 	if err := global.Db.Where("user_id=?", ctx.GetHeader("UserId")).Order("created_at ASC").Find(&tableYanchendao2s).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			Fail(ctx, apicode.CodeNotFound, err.Error())
@@ -195,7 +195,7 @@ func SortXiaoShu(ctx *gin.Context) {
 		}
 	}
 
-	// 提取 colmun_shuyingzhi_d 列的有效数据（非空且能转换为浮点数）
+	//2.提取 colmun_shuyingzhi_d 列的有效数据（非空且能转换为浮点数）
 	var floats []float64
 	for _, s := range tableYanchendao2s {
 		if s.ColmunShuyingzhiD == "" {
@@ -209,7 +209,7 @@ func SortXiaoShu(ctx *gin.Context) {
 		floats = append(floats, num)
 	}
 
-	// 如果有有效值，进行排序
+	//3.如果有有效值，进行排序
 	if len(floats) > 0 {
 		// 对浮点数切片进行排序（从小到大）
 		sort.Float64s(floats)
@@ -226,6 +226,9 @@ func SortXiaoShu(ctx *gin.Context) {
 			tableYanchendao2s[i].ColmunShuyingzhiD = strconv.FormatFloat(floats[floatsIndex], 'f', -1, 64)
 			floatsIndex--
 		}
+	} else {
+		Fail(ctx, apicode.CodeParamInvalid, "没有需要排序数据！")
+		return
 	}
 
 	// 使用事务批量更新数据库
@@ -241,37 +244,47 @@ func SortXiaoShu(ctx *gin.Context) {
 		return
 	}
 
-	// 使用 CASE WHEN 语句批量更新，避免 N 次数据库查询
-	if len(tableYanchendao2s) > 0 {
-		// 构建 CASE WHEN SQL 语句
+	userID := ctx.GetHeader("UserId")
+
+	// 先一次性清空该用户所有记录，避免为每条记录生成 CASE WHEN
+	if err := tx.Model(&models.TableYanchendao2{}).
+		Where("user_id = ? AND deleted_at IS NULL", userID).
+		Update("colmun_shuyingzhi_d", "").Error; err != nil {
+		tx.Rollback()
+		Fail(ctx, apicode.CodeServerError, "批量清空失败: "+err.Error())
+		return
+	}
+
+	// 仅对有排序值的记录做 CASE WHEN 批量更新（通常只有少量记录）
+	var recordsToUpdate []models.TableYanchendao2
+	for _, v := range tableYanchendao2s {
+		if v.ColmunShuyingzhiD != "" {
+			recordsToUpdate = append(recordsToUpdate, v)
+		}
+	}
+
+	if len(recordsToUpdate) > 0 {
 		var caseWhenSQL strings.Builder
-		var ids []interface{}
+		var caseArgs []interface{}
+		var placeholders []string
+		var whereIDs []interface{}
 
 		caseWhenSQL.WriteString("CASE id ")
-		for _, v := range tableYanchendao2s {
+		for _, v := range recordsToUpdate {
 			caseWhenSQL.WriteString("WHEN ? THEN ? ")
-			ids = append(ids, v.ID, v.ColmunShuyingzhiD)
-		}
-		caseWhenSQL.WriteString("END")
-
-		// 构建 WHERE 条件
-		var whereIDs []interface{}
-		var placeholders []string
-		for _, v := range tableYanchendao2s {
+			caseArgs = append(caseArgs, v.ID, v.ColmunShuyingzhiD)
 			placeholders = append(placeholders, "?")
 			whereIDs = append(whereIDs, v.ID)
 		}
+		caseWhenSQL.WriteString("END")
 
-		// 执行批量更新
-		userID := ctx.GetHeader("UserId")
 		sql := fmt.Sprintf(
 			"UPDATE table_yanchendao2 SET colmun_shuyingzhi_d = %s WHERE user_id = ? AND id IN (%s) AND deleted_at IS NULL",
 			caseWhenSQL.String(),
 			strings.Join(placeholders, ","),
 		)
 
-		// 合并所有参数：CASE WHEN 的参数 + user_id + WHERE IN 的参数
-		args := append(ids, userID)
+		args := append(caseArgs, userID)
 		args = append(args, whereIDs...)
 
 		if err := tx.Exec(sql, args...).Error; err != nil {
@@ -297,9 +310,9 @@ func SortXiaoShu(ctx *gin.Context) {
 	}
 
 	Success(ctx, "排序成功", gin.H{
-			"sorted_sequence": sortedSequence,      // 排序后的序列（字符串数组）
-			"count":           len(sortedSequence), // 排序后的数量
-		})
+		"sorted_sequence": sortedSequence,      // 排序后的序列（字符串数组）
+		"count":           len(sortedSequence), // 排序后的数量
+	})
 	//tableYanchendao2s[0].ColmunShuyingzhiD = "测试"
 	//global.Db.Save(&tableYanchendao2s[0])// 总体测试下来，是需要自动生成的id才可以更新
 }
@@ -336,13 +349,13 @@ func DeleteAll(ctx *gin.Context) {
 	// 使用 Unscoped() 跳过软删除机制，执行真正的 DELETE 操作
 	result := global.Db.Unscoped().Where("uid=?", UserId).Delete(&models.TableYanchendao1{})
 	if result.Error != nil {
-		Fail(ctx, apicode.CodeServerError, "删除数据失败: " + result.Error.Error())
+		Fail(ctx, apicode.CodeServerError, "删除数据失败: "+result.Error.Error())
 		return
 	}
 
 	result1 := global.Db.Unscoped().Where("user_id=?", UserId).Delete(&models.TableYanchendao2{})
 	if result1.Error != nil {
-		Fail(ctx, apicode.CodeServerError, "删除数据失败: " + result1.Error.Error())
+		Fail(ctx, apicode.CodeServerError, "删除数据失败: "+result1.Error.Error())
 		return
 	}
 
@@ -407,7 +420,7 @@ func UpdateQiWangValue(ctx *gin.Context) {
 			Fail(ctx, apicode.CodeNotFound, "未找到用户数据，请先初始化")
 			return
 		}
-		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: "+err.Error())
 		return
 	}
 	tableYanchendao1.ColumnMean = *temp.Mean
@@ -472,7 +485,7 @@ func UpdateBenjin(ctx *gin.Context) {
 	}
 	var tableYanchendao1 models.TableYanchendao1
 	if err := global.Db.Where("uid=?", ctx.GetHeader("UserId")).Last(&tableYanchendao1).Error; err != nil {
-		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: "+err.Error())
 		return
 	}
 	tableYanchendao1.ColumnBenjin = *temp.Benjin
@@ -497,7 +510,7 @@ func UpdateZhuangZhanBi(ctx *gin.Context) {
 	}
 	var temp TempValues
 	if err := ctx.ShouldBindJSON(&temp); err != nil {
-		Fail(ctx, apicode.CodeParamInvalid, "参数错误: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "参数错误: "+err.Error())
 		return
 	}
 	if temp.ZhuangZhanBi == nil {
@@ -515,13 +528,13 @@ func UpdateZhuangZhanBi(ctx *gin.Context) {
 			Fail(ctx, apicode.CodeNotFound, "未找到用户数据")
 			return
 		}
-		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: "+err.Error())
 		return
 	}
 	tableYanchendao1.ColumnZhuangZhanBi = *temp.ZhuangZhanBi
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
-		Fail(ctx, apicode.CodeServerError, "更新失败: " + tx.Error.Error())
+		Fail(ctx, apicode.CodeServerError, "更新失败: "+tx.Error.Error())
 		return
 	}
 	Success(ctx, "修改庄占比成功", gin.H{"zhuangZhanBi": tableYanchendao1.ColumnZhuangZhanBi})
@@ -550,7 +563,7 @@ func GetZhuangZhanBi(ctx *gin.Context) {
 			Fail(ctx, apicode.CodeNotFound, "未找到用户数据")
 			return
 		}
-		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: "+err.Error())
 		return
 	}
 
@@ -560,9 +573,9 @@ func GetZhuangZhanBi(ctx *gin.Context) {
 	}
 
 	Success(ctx, "查询成功", gin.H{
-			"zhuangZhanBi": zhuangZhanBi,
-			"user_id":      userIDStr,
-		})
+		"zhuangZhanBi": zhuangZhanBi,
+		"user_id":      userIDStr,
+	})
 }
 
 // 更新用户庄占比（需登录且仅超级管理员；通过 user_id 指定目标用户）
@@ -591,7 +604,7 @@ func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
 	}
 	var temp TempValues
 	if err := ctx.ShouldBindJSON(&temp); err != nil {
-		Fail(ctx, apicode.CodeParamInvalid, "参数错误: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "参数错误: "+err.Error())
 		return
 	}
 	if temp.ZhuangZhanBi == nil {
@@ -610,21 +623,21 @@ func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
 			Fail(ctx, apicode.CodeNotFound, "未找到用户数据")
 			return
 		}
-		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: "+err.Error())
 		return
 	}
 
 	tableYanchendao1.ColumnZhuangZhanBi = *temp.ZhuangZhanBi
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
-		Fail(ctx, apicode.CodeServerError, "更新失败: " + tx.Error.Error())
+		Fail(ctx, apicode.CodeServerError, "更新失败: "+tx.Error.Error())
 		return
 	}
 
 	Success(ctx, "修改庄占比成功", gin.H{
-			"zhuangZhanBi": tableYanchendao1.ColumnZhuangZhanBi,
-			"user_id":      userIDStr,
-		})
+		"zhuangZhanBi": tableYanchendao1.ColumnZhuangZhanBi,
+		"user_id":      userIDStr,
+	})
 }
 
 // GetTable1List 获取 table_yanchendao1 数据列表（需登录；超管可按 user_ids 筛选，普通用户仅本人，支持分页）
@@ -661,14 +674,14 @@ func GetTable1List(ctx *gin.Context) {
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
-		Fail(ctx, apicode.CodeServerError, "查询总数失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询总数失败: "+err.Error())
 		return
 	}
 
 	// 分页查询（按ID正序排列，保持数据库中的顺序）
 	offset := (page - 1) * pageSize
 	if err := query.Order("id ASC").Offset(offset).Limit(pageSize).Find(&tableYanchendao1s).Error; err != nil {
-		Fail(ctx, apicode.CodeServerError, "查询失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询失败: "+err.Error())
 		return
 	}
 
@@ -732,12 +745,12 @@ func GetTable1List(ctx *gin.Context) {
 	}
 
 	Success(ctx, "查询成功", gin.H{
-			"list":                resultList,
-			"total":               total,
-			"page":                page,
-			"page_size":           pageSize,
-			"prev_restart_index":  prevRestartIndex,
-		})
+		"list":               resultList,
+		"total":              total,
+		"page":               page,
+		"page_size":          pageSize,
+		"prev_restart_index": prevRestartIndex,
+	})
 }
 
 // GetTable2List 获取 table_yanchendao2 数据列表（需登录；超管可按 user_ids 筛选，普通用户仅本人，支持分页；App 端历史数据用 LoadMore）
@@ -770,7 +783,7 @@ func GetTable2List(ctx *gin.Context) {
 
 	// 获取总数
 	if err := countQuery.Count(&total).Error; err != nil {
-		Fail(ctx, apicode.CodeServerError, "查询总数失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询总数失败: "+err.Error())
 		return
 	}
 
@@ -787,7 +800,7 @@ func GetTable2List(ctx *gin.Context) {
 			LIMIT ? OFFSET ?;
 			`
 		if err := global.Db.Raw(sql, pageSize, offset).Scan(&tableYanchendao2s).Error; err != nil {
-			Fail(ctx, apicode.CodeServerError, "查询失败: " + err.Error())
+			Fail(ctx, apicode.CodeServerError, "查询失败: "+err.Error())
 			return
 		}
 	} else if len(userScope.UserIDs) == 1 {
@@ -802,7 +815,7 @@ func GetTable2List(ctx *gin.Context) {
 			LIMIT ? OFFSET ?;
 			`
 		if err := global.Db.Raw(sql, userID, pageSize, offset).Scan(&tableYanchendao2s).Error; err != nil {
-			Fail(ctx, apicode.CodeServerError, "查询失败: " + err.Error())
+			Fail(ctx, apicode.CodeServerError, "查询失败: "+err.Error())
 			return
 		}
 	} else {
@@ -818,7 +831,7 @@ func GetTable2List(ctx *gin.Context) {
 			`
 		args = append(args, pageSize, offset)
 		if err := global.Db.Raw(sql, args...).Scan(&tableYanchendao2s).Error; err != nil {
-			Fail(ctx, apicode.CodeServerError, "查询失败: " + err.Error())
+			Fail(ctx, apicode.CodeServerError, "查询失败: "+err.Error())
 			return
 		}
 	}
@@ -859,19 +872,19 @@ func GetTable2List(ctx *gin.Context) {
 			"colmun_shengfulu":    item.ColmunShengfulu,
 			"colmun_zx":           item.ColmunZX,
 			"colmun_remark":       item.ColmunRemark,
-			"column_current_jin":      item.ColumnCurrentJin,
-			"restartStatSnapshot":     item.RestartStatSnapshot,
-			"created_at":              item.CreatedAt,
-			"deleted_at":              item.DeletedAt,
+			"column_current_jin":  item.ColumnCurrentJin,
+			"restartStatSnapshot": item.RestartStatSnapshot,
+			"created_at":          item.CreatedAt,
+			"deleted_at":          item.DeletedAt,
 		})
 	}
 
 	Success(ctx, "查询成功", gin.H{
-			"list":      resultList,
-			"total":     total,
-			"page":      page,
-			"page_size": pageSize,
-		})
+		"list":      resultList,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
 }
 
 // GetTable2ByID 按主键查询单条投注记录（后台检索）。可选 query user_id，与列表接口一致：传入则只在该用户下查找。
@@ -912,7 +925,7 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 	} else {
 		userID, err := strconv.ParseInt(userIDStr, 10, 64)
 		if err != nil {
-			Fail(ctx, apicode.CodeParamInvalid, "用户ID格式错误: " + err.Error())
+			Fail(ctx, apicode.CodeParamInvalid, "用户ID格式错误: "+err.Error())
 			return
 		}
 		sql = `
@@ -928,15 +941,15 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 
 	var item TableYanchendao2WithSeq
 	if err := global.Db.Raw(sql, args...).Scan(&item).Error; err != nil {
-		Fail(ctx, apicode.CodeServerError, "查询失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询失败: "+err.Error())
 		return
 	}
 
 	if item.ID != recordID {
 		Success(ctx, "未找到记录", gin.H{
-				"list":  []gin.H{},
-				"total": 0,
-			})
+			"list":  []gin.H{},
+			"total": 0,
+		})
 		return
 	}
 	if !isSuperAdmin(ctx) && item.UserID != loginUID(ctx) {
@@ -961,16 +974,16 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 		"colmun_shengfulu":    item.ColmunShengfulu,
 		"colmun_zx":           item.ColmunZX,
 		"colmun_remark":       item.ColmunRemark,
-		"column_current_jin":      item.ColumnCurrentJin,
-		"restartStatSnapshot":     item.RestartStatSnapshot,
-		"created_at":              item.CreatedAt,
-		"deleted_at":              item.DeletedAt,
+		"column_current_jin":  item.ColumnCurrentJin,
+		"restartStatSnapshot": item.RestartStatSnapshot,
+		"created_at":          item.CreatedAt,
+		"deleted_at":          item.DeletedAt,
 	}
 
 	Success(ctx, "查询成功", gin.H{
-			"list":  []gin.H{record},
-			"total": 1,
-		})
+		"list":  []gin.H{record},
+		"total": 1,
+	})
 }
 
 // UpdateTable2Config 更新table_yanchendao2的输赢值和消数后输赢值
@@ -983,7 +996,7 @@ func UpdateTable2Config(ctx *gin.Context) {
 
 	var req UpdateTable2ConfigRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		Fail(ctx, apicode.CodeParamInvalid, "参数错误: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "参数错误: "+err.Error())
 		return
 	}
 
@@ -993,7 +1006,7 @@ func UpdateTable2Config(ctx *gin.Context) {
 			Fail(ctx, apicode.CodeNotFound, "记录不存在")
 			return
 		}
-		Fail(ctx, apicode.CodeServerError, "查询失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询失败: "+err.Error())
 		return
 	}
 	if !isSuperAdmin(ctx) && tableYanchendao2.UserID != loginUID(ctx) {
@@ -1011,7 +1024,7 @@ func UpdateTable2Config(ctx *gin.Context) {
 
 	if len(updates) > 0 {
 		if err := global.Db.Model(&tableYanchendao2).Updates(updates).Error; err != nil {
-			Fail(ctx, apicode.CodeServerError, "更新失败: " + err.Error())
+			Fail(ctx, apicode.CodeServerError, "更新失败: "+err.Error())
 			return
 		}
 	}
@@ -1020,10 +1033,10 @@ func UpdateTable2Config(ctx *gin.Context) {
 	global.Db.Where("id = ?", req.ID).First(&tableYanchendao2)
 
 	Success(ctx, "更新成功", gin.H{
-			"id":                  tableYanchendao2.ID,
-			"colmun_shuyingzhi":   tableYanchendao2.ColmunShuyingzhi,
-			"colmun_shuyingzhi_d": tableYanchendao2.ColmunShuyingzhiD,
-		})
+		"id":                  tableYanchendao2.ID,
+		"colmun_shuyingzhi":   tableYanchendao2.ColmunShuyingzhi,
+		"colmun_shuyingzhi_d": tableYanchendao2.ColmunShuyingzhiD,
+	})
 }
 
 // UpdateLastRowRestartStatSnapshot 更新当前用户最后一条投注记录的重启统计快照
@@ -1038,7 +1051,7 @@ func UpdateLastRowRestartStatSnapshot(ctx *gin.Context) {
 		RestartStatSnapshot string `json:"restartStatSnapshot" binding:"required"`
 	}
 	if err := ctx.ShouldBindJSON(&body); err != nil {
-		Fail(ctx, apicode.CodeParamInvalid, "参数错误: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "参数错误: "+err.Error())
 		return
 	}
 
@@ -1048,21 +1061,21 @@ func UpdateLastRowRestartStatSnapshot(ctx *gin.Context) {
 			Fail(ctx, apicode.CodeParamInvalid, "暂无投注记录")
 			return
 		}
-		Fail(ctx, apicode.CodeServerError, "查询失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询失败: "+err.Error())
 		return
 	}
 
 	snapshot := strings.TrimSpace(body.RestartStatSnapshot)
 	if err := global.Db.Model(&row).Update("restart_stat_snapshot", snapshot).Error; err != nil {
-		Fail(ctx, apicode.CodeServerError, "更新失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "更新失败: "+err.Error())
 		return
 	}
 	row.RestartStatSnapshot = snapshot
 
 	Success(ctx, "更新成功", gin.H{
-			"id":                    row.ID,
-			"restartStatSnapshot": row.RestartStatSnapshot,
-		})
+		"id":                  row.ID,
+		"restartStatSnapshot": row.RestartStatSnapshot,
+	})
 }
 
 // 更新 table_yanchendao1 的临时索引和重启位置
@@ -1077,7 +1090,7 @@ func UpdateTable1Config(ctx *gin.Context) {
 
 	var req UpdateTable1ConfigRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		Fail(ctx, apicode.CodeParamInvalid, "参数错误: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "参数错误: "+err.Error())
 		return
 	}
 
@@ -1088,7 +1101,7 @@ func UpdateTable1Config(ctx *gin.Context) {
 			Fail(ctx, apicode.CodeNotFound, "记录不存在")
 			return
 		}
-		Fail(ctx, apicode.CodeServerError, "查询失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询失败: "+err.Error())
 		return
 	}
 	if !isSuperAdmin(ctx) && tableYanchendao1.Uid != loginUID(ctx) {
@@ -1114,7 +1127,7 @@ func UpdateTable1Config(ctx *gin.Context) {
 	// 如果有要更新的字段，执行更新
 	if len(updates) > 0 {
 		if err := global.Db.Model(&tableYanchendao1).Updates(updates).Error; err != nil {
-			Fail(ctx, apicode.CodeServerError, "更新失败: " + err.Error())
+			Fail(ctx, apicode.CodeServerError, "更新失败: "+err.Error())
 			return
 		}
 	}
@@ -1123,12 +1136,12 @@ func UpdateTable1Config(ctx *gin.Context) {
 	global.Db.Where("id = ?", req.ID).First(&tableYanchendao1)
 
 	Success(ctx, "更新成功", gin.H{
-			"id":                   tableYanchendao1.ID,
-			"column_benjin":        tableYanchendao1.ColumnBenjin,
-			"column_mean":          tableYanchendao1.ColumnMean,
-			"temp_index":           tableYanchendao1.TempIndex,
-			"column_restart_index": tableYanchendao1.ColumnRestartIdx,
-		})
+		"id":                   tableYanchendao1.ID,
+		"column_benjin":        tableYanchendao1.ColumnBenjin,
+		"column_mean":          tableYanchendao1.ColumnMean,
+		"temp_index":           tableYanchendao1.TempIndex,
+		"column_restart_index": tableYanchendao1.ColumnRestartIdx,
+	})
 }
 
 // 加载更多历史数据
@@ -1221,7 +1234,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 			// 业务上未初始化：HTTP 仍 200，避免 Dio 报 404
 			Fail(ctx, apicode.CodeParamInvalid, "未找到用户数据，请先初始化")
 		} else {
-			Fail(ctx, apicode.CodeServerError, "查询用户数据失败: " + tx.Error.Error())
+			Fail(ctx, apicode.CodeServerError, "查询用户数据失败: "+tx.Error.Error())
 		}
 		return
 	}
@@ -1233,7 +1246,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	//防止取消局部平衡的时候再次存一次
 	if (tempIndex == -1 && newRecord.TempIndex != tableYanchendao1.TempIndex) || (tempIndex > 2 && newRecord.TempIndex != tableYanchendao1.TempIndex) {
 		if err := global.Db.Save(&newRecord).Error; err != nil {
-			Fail(ctx, apicode.CodeServerError, "保存临时索引失败: " + err.Error())
+			Fail(ctx, apicode.CodeServerError, "保存临时索引失败: "+err.Error())
 			return
 		}
 	}
@@ -1326,7 +1339,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		num, err := strconv.ParseFloat(numStr, 64)
 		if err != nil {
 			fmt.Printf("字符串转换为浮点数出错: %v\n", err)
-			Fail(ctx, apicode.CodeParamInvalid, "统计数据计算失败(净胜解析): " + err.Error())
+			Fail(ctx, apicode.CodeParamInvalid, "统计数据计算失败(净胜解析): "+err.Error())
 			return
 		}
 		// 计算平均值并保留两位小数
@@ -1335,7 +1348,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	f, err := strconv.ParseFloat(statisticalAreas[19], 64)
 	if err != nil {
-		Fail(ctx, apicode.CodeParamInvalid, "数学期望(column_mean)格式错误: " + err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "数学期望(column_mean)格式错误: "+err.Error())
 		return
 	}
 	d := float64(len(tableYanchendao2s)+1) * f //期望一共的值
@@ -1615,7 +1628,7 @@ func GetTodayBettingUsers(ctx *gin.Context) {
 	}
 
 	if err := db.Find(&users).Error; err != nil {
-		Fail(ctx, apicode.CodeServerError, "查询用户列表失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户列表失败: "+err.Error())
 		return
 	}
 
@@ -1693,12 +1706,12 @@ func GetTodayBettingAmount(ctx *gin.Context) {
 	}
 
 	Success(ctx, "查询成功", gin.H{
-			"total_amount": totalAmount,
-			"start_date":   startDateStr,
-			"end_date":     endDateStr,
-			"count":        len(records),
-			"user_id":      userIDStr,
-		})
+		"total_amount": totalAmount,
+		"start_date":   startDateStr,
+		"end_date":     endDateStr,
+		"count":        len(records),
+		"user_id":      userIDStr,
+	})
 }
 
 // 查询下注次数 - 支持日期范围查询
@@ -1745,11 +1758,11 @@ func GetTodayBettingCount(ctx *gin.Context) {
 	}
 
 	Success(ctx, "查询成功", gin.H{
-			"count":      count,
-			"start_date": startDateStr,
-			"end_date":   endDateStr,
-			"user_id":    userIDStr,
-		})
+		"count":      count,
+		"start_date": startDateStr,
+		"end_date":   endDateStr,
+		"user_id":    userIDStr,
+	})
 }
 
 // 查询净胜负和输赢金额 - 支持日期范围查询
@@ -1818,14 +1831,14 @@ func GetBettingStats(ctx *gin.Context) {
 	netWinLoss := zt_y - zt_s
 
 	Success(ctx, "查询成功", gin.H{
-			"net_win_loss": netWinLoss, // 净胜负
-			"profit_loss":  zt_syz,     // 输赢金额
-			"win_count":    zt_y,       // 赢的次数
-			"loss_count":   zt_s,       // 输的次数
-			"start_date":   startDateStr,
-			"end_date":     endDateStr,
-			"user_id":      userIDStr,
-		})
+		"net_win_loss": netWinLoss, // 净胜负
+		"profit_loss":  zt_syz,     // 输赢金额
+		"win_count":    zt_y,       // 赢的次数
+		"loss_count":   zt_s,       // 输的次数
+		"start_date":   startDateStr,
+		"end_date":     endDateStr,
+		"user_id":      userIDStr,
+	})
 }
 
 // 随机庄闲接口
@@ -1844,7 +1857,7 @@ func GetRandomBankerPlayer(ctx *gin.Context) {
 			Fail(ctx, apicode.CodeNotFound, "未找到用户数据，请先初始化")
 			return
 		}
-		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: " + err.Error())
+		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: "+err.Error())
 		return
 	}
 
@@ -1870,10 +1883,10 @@ func GetRandomBankerPlayer(ctx *gin.Context) {
 	fmt.Println(result, zhuangZhanBi)
 	// 返回结果
 	Success(ctx, "获取随机庄闲成功", gin.H{
-			"result":      result,
-			"value":       resultValue,
-			"randomValue": randomValue,  // 实际随机数
-			"biasValue":   zhuangZhanBi, // 庄占比（0-100）
-			"timestamp":   time.Now().Unix(),
-		})
+		"result":      result,
+		"value":       resultValue,
+		"randomValue": randomValue,  // 实际随机数
+		"biasValue":   zhuangZhanBi, // 庄占比（0-100）
+		"timestamp":   time.Now().Unix(),
+	})
 }

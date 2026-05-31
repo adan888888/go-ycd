@@ -52,7 +52,6 @@ func ParseJWT(tokenString string) (string, error) {
 	if len(tokenString) > 7 && tokenString[:7] == TOKEN_PREFIX {
 		tokenString = tokenString[7:]
 	}
-	fmt.Printf("token内容：%#v\n", tokenString)
 	claims := jwt.MapClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
