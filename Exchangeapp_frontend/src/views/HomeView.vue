@@ -37,11 +37,17 @@
                 :class="{ 'quick-date-active': activeQuickDate === 'thisMonth' }" @click="selectQuickDate('thisMonth')">
                 本月
               </el-button>
-              <el-icon class="home-refresh-icon" :class="{ 'is-loading': refreshingHome }"
-                @click="!refreshingHome && refreshHomeData()">
-                <Refresh />
-              </el-icon>
+              <el-button size="small" type="primary" :plain="activeQuickDate !== 'lastMonth'"
+                :class="{ 'quick-date-active': activeQuickDate === 'lastMonth' }" @click="selectQuickDate('lastMonth')">
+                上月
+              </el-button>
             </div>
+          </div>
+          <div class="filter-refresh-action">
+            <el-icon class="home-refresh-icon" :class="{ 'is-loading': refreshingHome }"
+              @click="!refreshingHome && refreshHomeData()">
+              <Refresh />
+            </el-icon>
           </div>
         </div>
       </el-card>
@@ -253,7 +259,7 @@ const netWinLoss = ref<number>(0); // 净胜负
 const profitLoss = ref<number>(0); // 输赢金额
 const zhuangZhanBi = ref<number>(50); // 默认庄占比50
 const dateRange = ref<[string, string] | null>(null); // 日期范围
-type QuickDateType = 'today' | 'yesterday' | 'lastTwoDays' | 'thisWeek' | 'thisMonth';
+type QuickDateType = 'today' | 'yesterday' | 'lastTwoDays' | 'thisWeek' | 'thisMonth' | 'lastMonth';
 const activeQuickDate = ref<QuickDateType | null>(null); // 当前激活的快捷选择
 
 // 返水比例（默认 0.0076，即 0.76%）
@@ -594,6 +600,15 @@ const detectQuickDate = (): QuickDateType | null => {
     return 'thisMonth';
   }
 
+  // 判断是否是上月（上月1日至上月最后一天）
+  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+  const lastMonthStartStr = formatLocalDate(lastMonthStart);
+  const lastMonthEndStr = formatLocalDate(lastMonthEnd);
+  if (start === lastMonthStartStr && end === lastMonthEndStr) {
+    return 'lastMonth';
+  }
+
   return null;
 };
 
@@ -639,6 +654,11 @@ const selectQuickDate = (type: QuickDateType) => {
       // 本月第一天
       startDate = new Date(today.getFullYear(), today.getMonth(), 1);
       endDate = new Date(today);
+      break;
+    case 'lastMonth':
+      // 上月第一天至最后一天
+      startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      endDate = new Date(today.getFullYear(), today.getMonth(), 0);
       break;
     default:
       startDate = new Date(today);
@@ -824,8 +844,15 @@ onMounted(() => {
   color: #ffffff !important;
 }
 
+.filter-refresh-action {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  align-self: flex-end;
+  padding-bottom: 4px;
+}
+
 .home-refresh-icon {
-  margin-left: 16px;
   font-size: 40px;
   color: #409eff;
   cursor: pointer;
