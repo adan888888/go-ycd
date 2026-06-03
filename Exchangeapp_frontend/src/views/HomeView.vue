@@ -52,29 +52,25 @@
         </div>
       </el-card>
 
-      <!-- 庄占比：超管可设置，普通用户只读 -->
-      <el-card class="zhuangzhanbi-card" shadow="hover" v-if="selectedUserId">
+      <!-- 庄占比：超管可拖动滑块设置，普通用户只读 -->
+      <el-card class="zhuangzhanbi-card" shadow="never" v-if="selectedUserId">
         <div class="zhuangzhanbi-content">
-          <span class="zhuangzhanbi-label">{{ authStore.isSuperAdmin ? '庄占比设置：' : '庄占比：' }}</span>
-          <div class="zhuangzhanbi-input-wrapper">
-            <el-input-number v-if="authStore.isSuperAdmin" v-model="zhuangZhanBi" :min="0" :max="100" :precision="0"
-              :step="10" :style="getZhuangZhanBiStyle()" class="zhuangzhanbi-input" placeholder="请输入庄占比(0-100)" />
-            <span v-else class="zhuangzhanbi-readonly" :style="{ color: getZhuangZhanBiColor() }">
-              {{ zhuangZhanBi }}
-            </span>
-            <span class="zhuangzhanbi-unit">%</span>
+          <span class="zhuangzhanbi-label">{{ authStore.isSuperAdmin ? '庄占比' : '庄占比' }}</span>
+          <span class="zhuangzhanbi-value">{{ zhuangZhanBi }}<span class="zhuangzhanbi-unit">%</span></span>
+          <div class="zhuangzhanbi-control">
+            <el-slider v-model="zhuangZhanBi" :min="0" :max="100" :step="2" :disabled="!authStore.isSuperAdmin"
+              :show-tooltip="authStore.isSuperAdmin" class="zhuangzhanbi-slider" />
+            <el-button v-if="authStore.isSuperAdmin" text @click="updateZhuangZhanBi" :loading="loadingZhuangZhanBi"
+              class="save-button" size="small">
+              保存设置
+            </el-button>
           </div>
-          <div class="zhuangzhanbi-gradient-bar" :style="getGradientBarStyle()"></div>
-          <el-button v-if="authStore.isSuperAdmin" type="primary" @click="updateZhuangZhanBi"
-            :loading="loadingZhuangZhanBi" class="save-button" size="default">
-            保存设置
-          </el-button>
         </div>
       </el-card>
 
       <!-- 提示信息：仅超管未单选用户时显示 -->
-      <el-alert v-if="authStore.isSuperAdmin && !selectedUserId" title="提示" type="info" :closable="false"
-        show-icon class="info-alert">
+      <el-alert v-if="authStore.isSuperAdmin && !selectedUserId" title="提示" type="info" :closable="false" show-icon
+        class="info-alert">
         <template #default>
           勾选 1 个用户时可设置庄占比；勾选多个或不选则展示所选/全部用户的综合统计
         </template>
@@ -342,73 +338,6 @@ const formatAmount = (amount: number): string => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
-};
-
-// 根据庄占比值计算 RGB 颜色（0=绿色，50=黄色，100=红色）
-const getZhuangZhanBiColor = (): string => {
-  const value = zhuangZhanBi.value;
-  let r: number, g: number, b: number;
-
-  if (value <= 50) {
-    const ratio = value / 50;
-    r = Math.round(255 * ratio);
-    g = 255;
-    b = 0;
-  } else {
-    const ratio = (value - 50) / 50;
-    r = 255;
-    g = Math.round(255 * (1 - ratio));
-    b = 0;
-  }
-
-  return `rgb(${r}, ${g}, ${b})`;
-};
-
-// 根据庄占比值计算渐变色（0=绿色，50=黄色，100=红色）
-const getZhuangZhanBiStyle = (): Record<string, string> => {
-  const color = getZhuangZhanBiColor();
-  const match = color.match(/\d+/g);
-  const shadowColor = match
-    ? `rgba(${match[0]}, ${match[1]}, ${match[2]}, 0.2)`
-    : 'rgba(0, 255, 0, 0.2)';
-
-  return {
-    '--zhuangzhanbi-color': color,
-    '--zhuangzhanbi-shadow': shadowColor
-  };
-};
-
-// 获取渐变条样式（根据庄占比值变化颜色）
-const getGradientBarStyle = (): Record<string, string> => {
-  const value = zhuangZhanBi.value;
-  let r: number, g: number, b: number;
-
-  if (value <= 50) {
-    // 0-50: 绿色(0,255,0) -> 黄色(255,255,0)
-    const ratio = value / 50;
-    r = Math.round(255 * ratio);
-    g = 255;
-    b = 0;
-  } else {
-    // 50-100: 黄色(255,255,0) -> 红色(255,0,0)
-    const ratio = (value - 50) / 50;
-    r = 255;
-    g = Math.round(255 * (1 - ratio));
-    b = 0;
-  }
-
-  const color = `rgb(${r}, ${g}, ${b})`;
-  // 创建渐变效果（从当前颜色到稍浅的颜色）
-  const lightColor = `rgba(${r}, ${g}, ${b}, 0.3)`;
-
-  return {
-    background: `linear-gradient(90deg, ${color} 0%, ${lightColor} 100%)`,
-    width: '700px',
-    height: '100%',
-    minHeight: '30px',
-    borderRadius: '4px',
-    transition: 'all 0.3s ease'
-  };
 };
 
 // 用户列表由 App.vue 管理，这里不再需要 fetchUserList
@@ -927,70 +856,116 @@ onMounted(() => {
 }
 
 .zhuangzhanbi-card {
-  margin-bottom: 20px;
-  border-radius: 4px;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
+  background: #fafbfc;
 }
 
-.zhuangzhanbi-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+.zhuangzhanbi-card :deep(.el-card__body) {
+  padding: 10px 16px;
 }
 
 .zhuangzhanbi-content {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-}
-
-.zhuangzhanbi-gradient-bar {
-  width: 700px;
-  height: 20px;
-  border-radius: 4px;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 12px;
 }
 
 .zhuangzhanbi-label {
+  font-size: 13px;
+  font-weight: 400;
+  color: #909399;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.zhuangzhanbi-label::after {
+  content: '：';
+}
+
+.zhuangzhanbi-value {
   font-size: 14px;
   font-weight: 500;
-  color: #606266;
-  white-space: nowrap;
-}
-
-.zhuangzhanbi-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.zhuangzhanbi-input {
-  width: 150px;
+  color: #303133;
+  min-width: 40px;
+  flex-shrink: 0;
 }
 
 .zhuangzhanbi-unit {
-  font-size: 16px;
-  font-weight: 600;
-  color: #606266;
+  font-size: 13px;
+  font-weight: 400;
+  color: #909399;
+  margin-left: 1px;
 }
 
-.zhuangzhanbi-readonly {
-  font-size: 28px;
-  font-weight: 600;
-  line-height: 1;
-  min-width: 48px;
-  text-align: center;
+.zhuangzhanbi-control {
+  display: flex;
+  align-items: center;
+  gap: 100px;
+  flex: 1;
+  min-width: 0;
+}
+
+.zhuangzhanbi-slider {
+  flex: 1;
+  min-width: 280px;
+  padding: 0 4px;
+  /* 轨道粗细、滑块大小、组件占位高度，改这里即可 */
+  --slider-track-height: 4px;
+  --slider-thumb-size: 14px;
+  --slider-area-height: 20px;
+}
+
+.zhuangzhanbi-slider :deep(.el-slider) {
+  height: var(--slider-area-height);
+  display: flex;
+  align-items: center;
+}
+
+.zhuangzhanbi-slider :deep(.el-slider__runway) {
+  height: var(--slider-track-height);
+  background-color: #e4e7ed;
+}
+
+.zhuangzhanbi-slider :deep(.el-slider__bar) {
+  height: var(--slider-track-height);
+  background-color: #b3c0d1;
+}
+
+.zhuangzhanbi-slider :deep(.el-slider__button) {
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  border: 2px solid #c0c4cc;
+  background-color: #fff;
+}
+
+.zhuangzhanbi-slider :deep(.el-slider__button:hover),
+.zhuangzhanbi-slider :deep(.el-slider__button.dragging) {
+  border-color: #909399;
+}
+
+.zhuangzhanbi-slider.is-disabled :deep(.el-slider__bar) {
+  background-color: #dcdfe6;
+}
+
+.zhuangzhanbi-slider.is-disabled :deep(.el-slider__button) {
+  border-color: #dcdfe6;
 }
 
 .save-button {
-  min-width: 100px;
-  height: 32px;
-  font-weight: 500;
-  margin-left: auto;
+  flex-shrink: 0;
+  color: #909399;
+  font-size: 13px;
+  font-weight: 400;
+  padding: 4px 8px;
+}
+
+.save-button:hover,
+.save-button:focus {
+  color: #606266;
+  background-color: #f0f2f5;
 }
 
 .info-alert {
@@ -999,23 +974,4 @@ onMounted(() => {
 }
 
 /* 表格相关样式已移至 UserConfigView.vue */
-
-/* 庄占比渐变色样式 - 从绿色(0)到红色(100)的渐变 */
-:deep(.el-input-number) {
-  --zhuangzhanbi-color: rgb(0, 255, 0);
-  --zhuangzhanbi-shadow: rgba(0, 255, 0, 0.2);
-}
-
-:deep(.el-input-number .el-input__inner) {
-  color: var(--zhuangzhanbi-color) !important;
-  border-color: var(--zhuangzhanbi-color) !important;
-  font-weight: 600;
-  font-size: 16px;
-  transition: color 0.3s ease, border-color 0.3s ease;
-}
-
-:deep(.el-input-number .el-input__inner):focus {
-  border-color: var(--zhuangzhanbi-color) !important;
-  box-shadow: 0 0 0 2px var(--zhuangzhanbi-shadow) !important;
-}
 </style>
