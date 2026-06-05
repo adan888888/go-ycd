@@ -1473,7 +1473,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	// 填充第四列数据
 	statisticalAreas[3] = fmt.Sprintf("流水%.0f", runningWater)
 	if len(tableYanchendao2s) > 0 {
-		statisticalAreas[7] = fmt.Sprintf("均利%.2f", zt_syz/float64(len(tableYanchendao2s)))
+		statisticalAreas[7] = fmt.Sprintf("均利%.3f", zt_syz/float64(len(tableYanchendao2s)))
 	}
 	//连胜负
 	statisticalAreas[11] = fmt.Sprintf("%d", countLianShengFu)
