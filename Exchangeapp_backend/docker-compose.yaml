@@ -23,9 +23,10 @@ services:
     container_name: mysql-test
     environment:
       - MYSQL_ROOT_PASSWORD=mima123
+      - TZ=Asia/Tokyo
       # 自动清理 7 天前的 binlog
       - MYSQL_INNODB_LOG_FILE_SIZE=128M
-    command: --binlog-expire-logs-seconds=604800 --max-binlog-size=100M
+    command: --binlog-expire-logs-seconds=604800 --max-binlog-size=100M --default-time-zone=+09:00
     # MySQL 9.1 不再支持 --expire-logs-days，改用 --binlog-expire-logs-seconds
     # 604800 秒 = 7 天
     ports:
