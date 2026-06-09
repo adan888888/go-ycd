@@ -133,11 +133,16 @@ func InsertTable2(ctx *gin.Context) {
 	Success(ctx, "插入数据成功", tableYanchendao2)
 }
 
-// 删除最后一行
+// 删除最后一行（仅当前登录用户）
 func DeleteLast(ctx *gin.Context) {
+	UserId := ctx.GetHeader("UserId")
 	var tableYanchendao2 models.TableYanchendao2
 
-	if err := global.Db.Last(&tableYanchendao2).Error; err != nil {
+	if err := global.Db.Where("user_id=?", UserId).Last(&tableYanchendao2).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(ctx, apicode.CodeNotFound, "暂无投注记录")
+			return
+		}
 		Fail(ctx, apicode.CodeServerError, err.Error())
 		return
 	}
@@ -161,7 +166,7 @@ func Restart(ctx *gin.Context) {
 		Fail(ctx, apicode.CodeServerError, result.Error.Error())
 		return
 	}
-	global.Db.Last(&tableYanchendao2)
+	global.Db.Where("user_id=?", uid).Last(&tableYanchendao2)
 	//E := global.Db.Table("table_yanchendao1").Where("uid = ?", uid).Updates(map[string]interface{}{"column_restart_index": tableYanchendao2.ID})
 	//改变需求，要存起来，不是修改，将来要看的见重启的历史
 	// 从现有记录复制所有字段值，确保新字段也有正确的值
