@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
 import UserConfigView from '../views/UserConfigView.vue';
 import BettingRecord from '../views/BettingRecord.vue';
+import DataStatsView from '../views/DataStatsView.vue';
 import CurrencyExchangeView from '../views/CurrencyExchangeView.vue';
 import PurchaseRecordView from '../views/PurchaseRecordView.vue';
 import NewsView from '../views/NewsView.vue';
@@ -23,6 +24,12 @@ const routes: RouteRecordRaw[] = [
     name: 'BettingRecord',
     component: BettingRecord,
     meta: { requiresAuth: true, title: '投注记录' },
+  },
+  {
+    path: '/data-stats',
+    name: 'DataStats',
+    component: DataStatsView,
+    meta: { requiresAuth: true, title: '数据统计' },
   },
   {
     path: '/exchange',

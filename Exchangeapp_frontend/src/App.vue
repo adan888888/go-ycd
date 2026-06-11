@@ -54,6 +54,12 @@
             </el-icon>
             <span>投注记录</span>
           </el-menu-item>
+          <el-menu-item index="/data-stats">
+            <el-icon>
+              <Document />
+            </el-icon>
+            <span>数据统计</span>
+          </el-menu-item>
           <el-menu-item index="/exchange">
             <el-icon>
               <Switch />
@@ -175,14 +181,15 @@ const selectedUserId = computed(() =>
   selectedUserIds.value.length === 1 ? selectedUserIds.value[0] : null
 );
 const userList = ref<UserInfo[]>([]);
-// 是否显示用户选择框（在首页、操作日志页面和表2页面显示）
+// 是否显示用户选择框（在首页、操作日志、投注记录和数据统计页面显示）
 const showUserSelect = computed(() => {
   if (!authStore.isAuthenticated) return false;
   const routeName = route.name?.toString();
   const routePath = route.path;
   return routeName === 'Home' || routePath === '/' ||
     routeName === 'UserConfig' || routePath === '/user-config' ||
-    routeName === 'BettingRecord' || routePath === '/betting-record';
+    routeName === 'BettingRecord' || routePath === '/betting-record' ||
+    routeName === 'DataStats' || routePath === '/data-stats';
 });
 
 /** 普通用户锁定为本人 uid；Admin 可自由选择或查全部 */

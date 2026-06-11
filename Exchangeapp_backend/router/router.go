@@ -126,40 +126,58 @@ func SetupRouter() *gin.Engine {
 
 }
 
+// mountJsqRoutes 挂载计数器（jsq）相关路由，供 Flutter App 与 Vue 后台共用；需登录且订阅有效。
 func mountJsqRoutes(g *gin.RouterGroup) {
 	g.Use(middlewares.AuthMiddleWare())
 	g.Use(middlewares.JsqSubscriptionMiddleware())
+
+	// 表初始化与基础读写（table1 配置、table2 投注明细）
 	g.POST("/createtable", controllers.CreateTables)
 	g.GET("/table1", controllers.GetTable1)
 	g.GET("/table2", controllers.GetTable2)
 	g.PUT("/inserttable1", controllers.InsertTable1)
 	g.PUT("/inserttable2", controllers.InsertTable2)
 	g.PUT("/updaterestartstatsnapshot", controllers.UpdateLastRowRestartStatSnapshot)
+
+	// 下注流程：删最后一笔、重启、消数、清空等
 	g.DELETE("/deletelast", controllers.DeleteLast)
 	g.POST("/restart", controllers.Restart)
 	g.POST("/sortxiaoshu", controllers.SortXiaoShu)
 	g.POST("/xiaoshu", controllers.Xiaoshu)
 	g.DELETE("/deleteall", controllers.DeleteAll)
 	g.POST("/resetliushui", controllers.ResetLiushui)
+
+	// 参数配置：期望值、赔率、本金
 	g.POST("/updateqiwangvalue", controllers.UpdateQiWangValue)
 	g.POST("/updateodds", controllers.UpdateOdds)
 	g.POST("/updatebenjin", controllers.UpdateBenjin)
+
+	// App 端：用户列表、分页加载、统计区、折线图、消数值清理
 	g.GET("/getusers", controllers.Getusers)
 	g.GET("/loadmore", controllers.LoadMore)
 	g.GET("/getStatisticalAreasData", controllers.GetStatisticalAreasData)
 	g.GET("/linechartData", controllers.LinechartData)
 	g.POST("/cleanDataD", controllers.CleanDataD)
+
+	// 随机庄闲、今日投注概览、按日期区间统计
 	g.GET("/randomBankerPlayer", controllers.GetRandomBankerPlayer)
 	g.GET("/today/users", controllers.GetTodayBettingUsers)
 	g.GET("/today/amount", controllers.GetTodayBettingAmount)
 	g.GET("/today/count", controllers.GetTodayBettingCount)
 	g.GET("/stats", controllers.GetBettingStats)
+
+	// 庄占比查询与更新
 	g.GET("/zhuangzhanbi", controllers.GetZhuangZhanBi)
 	g.POST("/zhuangzhanbi", controllers.UpdateZhuangZhanBiPublic)
 	g.POST("/updatezhuangzhanbi", controllers.UpdateZhuangZhanBi)
+
+	// Vue 后台：table1 列表与配置
 	g.GET("/table1/list", controllers.GetTable1List)
 	g.PUT("/table1/config", controllers.UpdateTable1Config)
+
+	// Vue 后台：投注记录列表、数据统计聚合、按 ID 检索、单条编辑
 	g.GET("/betting-record/list", controllers.GetTable2List)
+	g.GET("/betting-record/data-stats", controllers.GetDataStats)
 	g.GET("/betting-record/by-id", controllers.GetTable2ByID)
 	g.PUT("/betting-record/config", controllers.UpdateTable2Config)
 }
