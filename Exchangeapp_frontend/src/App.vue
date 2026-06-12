@@ -97,7 +97,10 @@
             </el-icon>
             <span>登录</span>
           </el-menu-item>
-          <el-menu-item index="/register" v-if="!authStore.isAuthenticated">
+          <el-menu-item
+            index="/register"
+            v-if="!authStore.isAuthenticated || authStore.isSuperAdmin"
+          >
             <el-icon>
               <Edit />
             </el-icon>

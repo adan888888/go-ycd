@@ -98,6 +98,11 @@ export const useAuthStore = defineStore('auth', () => {
     setSession(t, name || inputUsername, uid, r);
   };
 
+  /** 超管为他人注册：仅创建账号，不切换当前登录会话 */
+  const createAccount = async (inputUsername: string, password: string) => {
+    await axios.post('/auth/register', { username: inputUsername, password });
+  };
+
   const logout = () => {
     setSession(null, '', '', ROLE_USER);
   };
@@ -123,6 +128,7 @@ export const useAuthStore = defineStore('auth', () => {
     loggingOut,
     login,
     register,
+    createAccount,
     logout,
     beginLogout,
     finishLogout,

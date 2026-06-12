@@ -72,6 +72,11 @@ router.beforeEach((to, _from, next) => {
 
   if (isPublic) {
     if (auth.isAuthenticated && !auth.loggingOut && (to.name === 'Login' || to.name === 'Register')) {
+      // 超管登录后仍可进入注册页，为他人创建账号
+      if (to.name === 'Register' && auth.isSuperAdmin) {
+        next();
+        return;
+      }
       next({ path: '/' });
       return;
     }

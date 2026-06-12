@@ -1,6 +1,9 @@
 <template>
   <div class="auth-container">
     <el-form :model="form" class="auth-form" @submit.prevent="register">
+      <p v-if="authStore.isSuperAdmin && authStore.isAuthenticated" class="auth-hint">
+        仅超级管理员可为他人创建新账号，不会退出当前登录。
+      </p>
       <el-form-item label="用户名" label-width="80px">
         <el-input v-model="form.username" placeholder="请输入用户名" />
       </el-form-item>
@@ -29,6 +32,13 @@ const router = useRouter();
 
 const register = async () => {
   try {
+    if (authStore.isSuperAdmin && authStore.isAuthenticated) {
+      await authStore.createAccount(form.value.username, form.value.password);
+      ElMessage.success('账号注册成功');
+      form.value.username = '';
+      form.value.password = '';
+      return;
+    }
     await authStore.register(form.value.username, form.value.password);
     await router.push('/');
   } catch (err) {
@@ -59,6 +69,13 @@ const register = async () => {
   background-color: #fff;  
   border-radius: 4px;  
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  
+}
+
+.auth-hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #909399;
 }
 </style>
 
