@@ -1259,6 +1259,96 @@ func LoadMore(ctx *gin.Context) {
 	Success(ctx, "加载更多成功", tableYanchendao2s)
 }
 
+// table2BetAggregates 投注记录 SQL 聚合结果（总体/局部共用）
+type table2BetAggregates struct {
+	TotalCount  int64   `gorm:"column:total_count"`
+	TotalProfit float64 `gorm:"column:total_profit"`
+	TotalBet    float64 `gorm:"column:total_bet"`
+	ZhuangCount int64   `gorm:"column:zhuang_count"`
+	WinCount    int64   `gorm:"column:win_count"`
+	LossCount   int64   `gorm:"column:loss_count"`
+}
+
+const table2OverallAggSelect = `
+	COUNT(*) AS total_count,
+	COALESCE(SUM(shuyingzhi), 0) AS total_profit,
+	COALESCE(SUM(xiazhujine), 0) AS total_bet,
+	COALESCE(SUM(CASE WHEN zx = '庄' THEN 1 ELSE 0 END), 0) AS zhuang_count,
+	COALESCE(SUM(CASE WHEN remark = '-1' THEN 0 ELSE 1 END), 0) AS win_count,
+	COALESCE(SUM(CASE WHEN remark = '-1' THEN 1 ELSE 0 END), 0) AS loss_count`
+
+const table2PartialAggSelect = `
+	COUNT(*) AS total_count,
+	COALESCE(SUM(shuyingzhi), 0) AS total_profit,
+	COALESCE(SUM(xiazhujine), 0) AS total_bet,
+	COALESCE(SUM(CASE WHEN zx = '庄' THEN 1 ELSE 0 END), 0) AS zhuang_count,
+	COALESCE(SUM(CASE WHEN remark != '' AND remark LIKE '-1%' THEN 0 ELSE 1 END), 0) AS win_count,
+	COALESCE(SUM(CASE WHEN remark != '' AND remark LIKE '-1%' THEN 1 ELSE 0 END), 0) AS loss_count`
+
+const lianShengFuLookback = 20 // 连胜负只统计最近 N 手
+
+func queryTable2BetAggregates(userID, selectSQL, idCompare string, restartID int) (table2BetAggregates, error) {
+	var agg table2BetAggregates
+	query := global.Db.Model(&models.TableYanchendao2{}).
+		Select(selectSQL).
+		Where("user_id = ? AND deleted_at IS NULL", userID)
+	if idCompare == ">" {
+		query = query.Where("id > ?", restartID)
+	} else if idCompare == ">=" {
+		query = query.Where("id >= ?", restartID)
+	}
+	err := query.Scan(&agg).Error
+	return agg, err
+}
+
+func computeLianShengFu(shuyingzhiList []float64) int {
+	countLianShengFu := 1
+	for index, shuyingzhi := range shuyingzhiList {
+		if len(shuyingzhiList) > 1 && index > 0 {
+			prev := shuyingzhiList[index-1]
+			if (shuyingzhi > 0 && prev > 0) || (shuyingzhi < 0 && prev < 0) {
+				countLianShengFu++
+			} else {
+				countLianShengFu = 1
+			}
+		}
+	}
+	return countLianShengFu
+}
+
+func queryRecentShuyingzhi(userID string, limit int) ([]float64, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	var recent []float64
+	err := global.Db.Model(&models.TableYanchendao2{}).
+		Where("user_id = ? AND deleted_at IS NULL", userID).
+		Order("id DESC").
+		Limit(limit).
+		Pluck("shuyingzhi", &recent).Error
+	if err != nil {
+		return nil, err
+	}
+	for i, j := 0, len(recent)-1; i < j; i, j = i+1, j-1 {
+		recent[i], recent[j] = recent[j], recent[i]
+	}
+	return recent, nil
+}
+
+func queryBenUse1(userID string) (int, error) {
+	var minCum *float64
+	err := global.Db.Raw(`
+		SELECT MIN(cum) AS min_cum FROM (
+			SELECT SUM(shuyingzhi) OVER (ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cum
+			FROM table_yanchendao2
+			WHERE user_id = ? AND deleted_at IS NULL
+		) AS t WHERE cum < 0`, userID).Scan(&minCum).Error
+	if err != nil || minCum == nil {
+		return 0, err
+	}
+	return int(*minCum), nil
+}
+
 // tempIndex -10000 app第一次进来
 // tempIndex -1 取消局部平衡/重启...
 // tempIndex -2 确保不会破坏局部平衡-->每次下注记录输赢/改变数据库里面的值等 ...
@@ -1268,7 +1358,6 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	statisticalAreas := make([]string, 32) // 定义一个空的字符串切片，类似于 Dart 中的空字符串列表
 	var restartIndex int64
 	var tableYanchendao1 = models.TableYanchendao1{}
-	var tableYanchendao2s []models.TableYanchendao2
 	UserId := ctx.GetHeader("UserId")
 
 	//从app传过来的 tempIndex
@@ -1308,68 +1397,45 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	CurrentTempIndex = tempIndex
 
-	if err := global.Db.Where("user_id=?", UserId).Find(&tableYanchendao2s).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			Fail(ctx, apicode.CodeParamInvalid, err.Error())
-			return
-		} else {
-			Fail(ctx, apicode.CodeParamInvalid, err.Error())
-		}
+	overallAgg, err := queryTable2BetAggregates(UserId, table2OverallAggSelect, "", 0)
+	if err != nil {
+		Fail(ctx, apicode.CodeServerError, "查询总体统计失败: "+err.Error())
 		return
 	}
+
+	recentShuyingzhi, err := queryRecentShuyingzhi(UserId, lianShengFuLookback)
+	if err != nil {
+		Fail(ctx, apicode.CodeServerError, "查询最近输赢失败: "+err.Error())
+		return
+	}
+	benUse1, err := queryBenUse1(UserId)
+	if err != nil {
+		Fail(ctx, apicode.CodeServerError, "查询本金使用失败: "+err.Error())
+		return
+	}
+
+	totalCount := int(overallAgg.TotalCount)
+	zt_y := int(overallAgg.WinCount)
+	zt_s := -int(overallAgg.LossCount)
+	zt_syz := overallAgg.TotalProfit
+	runningWater := overallAgg.TotalBet
+	zhuangCount := int(overallAgg.ZhuangCount)
+	countLianShengFu := computeLianShengFu(recentShuyingzhi)
+
 	statisticalAreas[0] = FormatDecimal(tableYanchendao1.Benjin)
-	statisticalAreas[1] = strconv.Itoa(len(tableYanchendao2s)) //一共打多少手
+	statisticalAreas[1] = strconv.Itoa(totalCount) //一共打多少手
 	statisticalAreas[19] = FormatDecimal(tableYanchendao1.Mean) //期望值
 
-	//总体
-	var zt_y = 0 //总体赢的次数
-	var zt_s = 0 //总体输的次数
-	var zt_syz = 0.0
-	var runningWater = 0.0
-	var countLianShengFu = 1
-	var zhuangCount = 0
-	var benUse1 = 0
-	for index, element := range tableYanchendao2s {
-		shuyingzhi := element.Shuyingzhi
-		zt_syz += shuyingzhi
-		if zt_syz < 0 && zt_syz < float64(benUse1) {
-			benUse1 = int(zt_syz)
-		}
-
-		runningWater += element.Xiazhujine
-
-		// 根据备注判断 zt_s 和 zt_y
-		if element.Remark != "" && element.Remark == "-1" {
-			zt_s--
-		} else {
-			zt_y++
-		}
-
-		// 连胜负计算
-		if len(tableYanchendao2s) > 1 && index-1 >= 0 {
-			prevShuyingzhi := tableYanchendao2s[index-1].Shuyingzhi
-			if (shuyingzhi > 0 && prevShuyingzhi > 0) || (shuyingzhi < 0 && prevShuyingzhi < 0) {
-				countLianShengFu++
-			} else {
-				countLianShengFu = 1
-			}
-		}
-
-		// 庄个数统计
-		if element.ZX == "庄" {
-			zhuangCount++
-		}
-	}
 	statisticalAreas[5] = strconv.Itoa(zt_y)
 	//胜
-	if len(tableYanchendao2s) == 0 {
+	if totalCount == 0 {
 		statisticalAreas[9] = ""
 	} else {
-		statisticalAreas[9] = fmt.Sprintf("%.2f%%", float64(zt_y)/float64(len(tableYanchendao2s))*100) //胜率 ,保留两位小数点. %%两个表示一个
+		statisticalAreas[9] = fmt.Sprintf("%.2f%%", float64(zt_y)/float64(totalCount)*100) //胜率 ,保留两位小数点. %%两个表示一个
 	}
 	//winRate := float64(jb_y) / float64(jb_count) * 100
 
-	statisticalAreas[13] = fmt.Sprintf("%d", IntAbs(zt_y)-IntAbs(zt_s)) //净胜~须多少手回到50%
+	statisticalAreas[13] = strconv.Itoa(IntAbs(zt_y)-IntAbs(zt_s)) //净胜~须多少手回到50%
 	statisticalAreas[17] = fmt.Sprintf("%.2f", zt_syz)                  //一共输赢多少钱
 
 	//计算平均赢
@@ -1394,7 +1460,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		Fail(ctx, apicode.CodeParamInvalid, "数学期望(mean)格式错误: "+err.Error())
 		return
 	}
-	d := float64(len(tableYanchendao2s)+1) * f //期望一共的值
+	d := float64(totalCount+1) * f //期望一共的值
 	p := IntAbs(IntAbs(zt_y) - IntAbs(zt_s))
 	var result string
 	if statisticalAreas[13] == "0" {
@@ -1412,7 +1478,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	statisticalAreas[25] = result //还需要多少 加到50%的时候
 	// 处理重启位置
-	if len(tableYanchendao2s) > 0 {
+	if totalCount > 0 {
 		//statisticalAreas[29] = tableYanchendao1.RestartIdx
 		statisticalAreas[29] = "" //不要这个值了吧
 	}
@@ -1437,37 +1503,21 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	fmt.Println("===========CurrentTempIndex", CurrentTempIndex)
 
-	jb_y := 0
-	jb_s := 0
-	jb_syz := 0.0
-	jb_count := 0
-	// 遍历 table2List 计算局部数据
-	for i := 0; i < len(tableYanchendao2s); i++ {
-		if CurrentTempIndex == -2 /*正常打*/ || CurrentTempIndex == -1 /*重启*/ {
-			///不是局部平衡的时候，要从重启的位置的下一行计算
-			if tableYanchendao2s[i].ID > int(restartIndex) {
-				jb_count++
-				jb_syz += tableYanchendao2s[i].Shuyingzhi
-				if tableYanchendao2s[i].Remark != "" && strings.HasPrefix(tableYanchendao2s[i].Remark, "-1") {
-					jb_s--
-				} else {
-					jb_y++
-				}
-			}
-		} else {
-			///有局部平衡标志的时候（点某一行的时候）要从当前行计算
-			if tableYanchendao2s[i].ID >= int(restartIndex) {
-				jb_count++
-				jb_syz += tableYanchendao2s[i].Shuyingzhi
-				if tableYanchendao2s[i].Remark != "" && strings.HasPrefix(tableYanchendao2s[i].Remark, "-1") {
-					jb_s--
-				} else {
-					jb_y++
-				}
-			}
-		}
-
+	idCompare := ">="
+	if CurrentTempIndex == -2 || CurrentTempIndex == -1 {
+		idCompare = ">"
 	}
+	partialAgg, err := queryTable2BetAggregates(UserId, table2PartialAggSelect, idCompare, int(restartIndex))
+	if err != nil {
+		Fail(ctx, apicode.CodeServerError, "查询局部统计失败: "+err.Error())
+		return
+	}
+
+	jb_count := int(partialAgg.TotalCount)
+	jb_y := int(partialAgg.WinCount)
+	jb_s := -int(partialAgg.LossCount)
+	jb_syz := partialAgg.TotalProfit
+
 	// 计算一共打多少手
 	statisticalAreas[2] = strconv.Itoa(jb_count)
 	// 填充局部统计数据到 totalValue
@@ -1509,16 +1559,16 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	// 填充第四列数据
 	statisticalAreas[3] = fmt.Sprintf("流水%.0f", runningWater)
-	if len(tableYanchendao2s) > 0 {
-		statisticalAreas[7] = fmt.Sprintf("均利%.3f", zt_syz/float64(len(tableYanchendao2s)))
+	if totalCount > 0 {
+		statisticalAreas[7] = fmt.Sprintf("均利%.3f", zt_syz/float64(totalCount))
 	}
 	//连胜负
 	statisticalAreas[11] = fmt.Sprintf("%d", countLianShengFu)
-	xianCount := len(tableYanchendao2s) - zhuangCount
+	xianCount := totalCount - zhuangCount
 	statisticalAreas[15] = fmt.Sprintf("%d/%d/%d", zhuangCount, xianCount, zhuangCount-xianCount) //统计庄闲差
 	// 保存佣金值，用于后续计算
 	var yongJinValue string
-	if len(tableYanchendao2s) > 0 {
+	if totalCount > 0 {
 		yongJinValue = FormatDecimal(tableYanchendao1.YongJin) //扣水（庄扣5%）
 	}
 	// 计算期望值（原27的值），直接放到23位置
