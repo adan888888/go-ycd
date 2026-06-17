@@ -43,38 +43,38 @@
                 {{ row.username || '-' }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_xiazhujine" label="下注金额" width="100" align="center" show-overflow-tooltip>
+            <el-table-column prop="xiazhujine" label="下注金额" width="100" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                ¥{{ formatAmount(parseFloat(row.column_xiazhujine || 0)) }}
+                ¥{{ formatAmount(parseFloat(row.xiazhujine || 0)) }}
               </template>
             </el-table-column>
-            <el-table-column prop="colmun_shuyingzhi" label="输赢值" width="100" align="center" show-overflow-tooltip>
+            <el-table-column prop="shuyingzhi" label="输赢值" width="100" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                <span :style="{ color: parseFloat(row.colmun_shuyingzhi || 0) >= 0 ? '#f56c6c' : '#67c23a' }">
-                  {{ parseFloat(row.colmun_shuyingzhi || 0) >= 0 ? '+' : '' }}{{
-                    formatAmount(parseFloat(row.colmun_shuyingzhi || 0)) }}
+                <span :style="{ color: parseFloat(row.shuyingzhi || 0) >= 0 ? '#f56c6c' : '#67c23a' }">
+                  {{ parseFloat(row.shuyingzhi || 0) >= 0 ? '+' : '' }}{{
+                    formatAmount(parseFloat(row.shuyingzhi || 0)) }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="colmun_shuyingzhi_d" label="消数值" width="120" align="center" show-overflow-tooltip>
+            <el-table-column prop="shuyingzhi_xiaoshu" label="消数值" width="120" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                <span :style="{ color: parseFloat(row.colmun_shuyingzhi_d || 0) >= 0 ? '#f56c6c' : '#67c23a' }">
-                  {{ row.colmun_shuyingzhi_d ? (parseFloat(row.colmun_shuyingzhi_d) >= 0 ? '+' : '') +
-                    formatAmount(parseFloat(row.colmun_shuyingzhi_d)) : '-' }}
+                <span :style="{ color: parseFloat(row.shuyingzhi_xiaoshu || 0) >= 0 ? '#f56c6c' : '#67c23a' }">
+                  {{ row.shuyingzhi_xiaoshu ? (parseFloat(row.shuyingzhi_xiaoshu) >= 0 ? '+' : '') +
+                    formatAmount(parseFloat(row.shuyingzhi_xiaoshu)) : '-' }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="colmun_shengfulu" label="胜负路" width="66" align="center" show-overflow-tooltip />
-            <el-table-column prop="colmun_zx" label="开奖" width="60" align="center">
+            <el-table-column prop="shengfulu" label="胜负路" width="66" align="center" show-overflow-tooltip />
+            <el-table-column prop="zx" label="开奖" width="60" align="center">
               <template #default="{ row }">
-                <el-tag :type="row.colmun_zx === '庄' ? 'warning' : 'success'" size="small">
-                  {{ row.colmun_zx || '-' }}
+                <el-tag :type="row.zx === '庄' ? 'warning' : 'success'" size="small">
+                  {{ row.zx || '-' }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="column_current_jin" label="当前金额" width="100" align="center" show-overflow-tooltip>
+            <el-table-column prop="current_jin" label="当前金额" width="100" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                ¥{{ formatAmount(parseFloat(row.column_current_jin || 0)) }}
+                ¥{{ formatAmount(parseFloat(row.current_jin || 0)) }}
               </template>
             </el-table-column>
             <el-table-column prop="restartStatSnapshot" label="重启快照" width="140" align="center" show-overflow-tooltip>
@@ -117,10 +117,10 @@
           <el-input v-model="editForm.id" disabled />
         </el-form-item>
         <el-form-item label="输赢值">
-          <el-input v-model="editForm.colmun_shuyingzhi" placeholder="请输入输赢值" clearable />
+          <el-input v-model="editForm.shuyingzhi" placeholder="请输入输赢值" clearable />
         </el-form-item>
         <el-form-item label="消数后输赢值">
-          <el-input v-model="editForm.colmun_shuyingzhi_d" placeholder="请输入消数后输赢值" clearable />
+          <el-input v-model="editForm.shuyingzhi_xiaoshu" placeholder="请输入消数后输赢值" clearable />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -176,12 +176,12 @@ const editDialogVisible = ref<boolean>(false);
 const saving = ref<boolean>(false);
 const editForm = ref<{
   id: number | null;
-  colmun_shuyingzhi: string;
-  colmun_shuyingzhi_d: string;
+  shuyingzhi: string;
+  shuyingzhi_xiaoshu: string;
 }>({
   id: null,
-  colmun_shuyingzhi: '',
-  colmun_shuyingzhi_d: ''
+  shuyingzhi: '',
+  shuyingzhi_xiaoshu: ''
 });
 
 // 格式化金额
@@ -419,8 +419,8 @@ const handleBettingPageChange = (page: number) => {
 const handleEdit = (row: any) => {
   editForm.value = {
     id: row.id,
-    colmun_shuyingzhi: row.colmun_shuyingzhi || '',
-    colmun_shuyingzhi_d: row.colmun_shuyingzhi_d || ''
+    shuyingzhi: row.shuyingzhi || '',
+    shuyingzhi_xiaoshu: row.shuyingzhi_xiaoshu || ''
   };
   editDialogVisible.value = true;
 };
@@ -433,7 +433,7 @@ const handleSaveEdit = async () => {
   }
 
   // 验证至少有一个字段需要更新
-  if (!editForm.value.colmun_shuyingzhi && !editForm.value.colmun_shuyingzhi_d) {
+  if (!editForm.value.shuyingzhi && !editForm.value.shuyingzhi_xiaoshu) {
     ElMessage.warning('请至少填写一个字段');
     return;
   }
@@ -442,8 +442,8 @@ const handleSaveEdit = async () => {
   try {
     const response = await axios.put('/jsq/betting-record/config', {
       id: editForm.value.id,
-      colmun_shuyingzhi: editForm.value.colmun_shuyingzhi,
-      colmun_shuyingzhi_d: editForm.value.colmun_shuyingzhi_d
+      shuyingzhi: editForm.value.shuyingzhi,
+      shuyingzhi_xiaoshu: editForm.value.shuyingzhi_xiaoshu
     });
 
     if (response.data.code === 0) {

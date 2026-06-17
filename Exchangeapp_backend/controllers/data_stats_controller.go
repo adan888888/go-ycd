@@ -20,10 +20,10 @@ const (
 
 type dataStatsRecord struct {
 	UserID           int64     `gorm:"column:user_id"`
-	ColmunZX         string    `gorm:"column:colmun_zx"`
-	ColmunShengfulu  string    `gorm:"column:colmun_shengfulu"`
-	ColmunRemark     string    `gorm:"column:colmun_remark"`
-	ColmunShuyingzhi string    `gorm:"column:colmun_shuyingzhi"`
+	ZX         string    `gorm:"column:zx"`
+	Shengfulu  string    `gorm:"column:shengfulu"`
+	Remark     string    `gorm:"column:remark"`
+	Shuyingzhi float64   `gorm:"column:shuyingzhi"`
 	CreatedAt        time.Time `gorm:"column:created_at"`
 }
 
@@ -85,7 +85,7 @@ func GetDataStats(ctx *gin.Context) {
 	}
 
 	query := global.Db.Model(&models.TableYanchendao2{}).
-		Select("user_id, colmun_zx, colmun_shengfulu, colmun_remark, colmun_shuyingzhi, created_at").
+		Select("user_id, zx, shengfulu, remark, shuyingzhi, created_at").
 		Where("deleted_at IS NULL").
 		Order("created_at ASC")
 	query = applyUserScope(query, userScope, "user_id")
@@ -114,21 +114,22 @@ func GetDataStats(ctx *gin.Context) {
 		acc := ensureUser(record.UserID)
 		acc.total++
 
-		zx := strings.TrimSpace(record.ColmunZX)
-		if zx == "庄" {
+		zx := strings.TrimSpace(record.ZX)
+		switch zx {
+		case "庄":
 			acc.drawZhuang++
-		} else if zx == "闲" {
+		case "闲":
 			acc.drawXian++
 		}
 
-		switch deriveRandomZx(zx, record.ColmunShengfulu, record.ColmunRemark) {
+		switch deriveRandomZx(zx, record.Shengfulu, record.Remark) {
 		case "庄":
 			acc.randomZhuang++
 		case "闲":
 			acc.randomXian++
 		}
 
-		switch parseShuyingzhiOutcome(record.ColmunShuyingzhi) {
+		switch parseShuyingzhiOutcome(record.Shuyingzhi) {
 		case 1:
 			acc.winCount++
 			win++
@@ -219,15 +220,11 @@ func deriveRandomZx(zx, sfl, remark string) string {
 	return "庄"
 }
 
-func parseShuyingzhiOutcome(value string) int {
-	n, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
-	if err != nil {
-		return 0
-	}
-	if n > 0 {
+func parseShuyingzhiOutcome(value float64) int {
+	if value > 0 {
 		return 1
 	}
-	if n < 0 {
+	if value < 0 {
 		return -1
 	}
 	return 0

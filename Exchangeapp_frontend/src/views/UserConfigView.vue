@@ -28,26 +28,26 @@
                 {{ row.username || '-' }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_benjin" label="本金" width="90" align="center" show-overflow-tooltip>
+            <el-table-column prop="benjin" label="本金" width="90" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                {{ formatAmount(parseFloat(row.column_benjin || 0)) }}
+                {{ formatAmount(parseFloat(row.benjin || 0)) }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_yongJin" label="俑金" width="60" align="center" show-overflow-tooltip>
+            <el-table-column prop="yongjin" label="俑金" width="60" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                {{ formatAmount(parseFloat(row.column_yongJin || 0)) }}
+                {{ formatAmount(parseFloat(row.yongjin || 0)) }}
               </template>
             </el-table-column>
-            <el-table-column prop="column_mean" label="期望" width="60" align="center" show-overflow-tooltip>
+            <el-table-column prop="mean" label="期望" width="60" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                <span :style="{ color: parseFloat(row.column_mean || 0) >= 0 ? '#67c23a' : '#f56c6c' }">
-                  {{ formatAmount(parseFloat(row.column_mean || 0)) }}
+                <span :style="{ color: parseFloat(row.mean || 0) >= 0 ? '#67c23a' : '#f56c6c' }">
+                  {{ formatAmount(parseFloat(row.mean || 0)) }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="column_restart_index" label="重启位置" width="90" align="center" show-overflow-tooltip>
+            <el-table-column prop="restart_index" label="重启位置" width="90" align="center" show-overflow-tooltip>
               <template #default="{ row }">
-                {{ row.column_restart_index || '-' }}
+                {{ row.restart_index || '-' }}
               </template>
             </el-table-column>
             <el-table-column label="回合手数" width="100" align="center" show-overflow-tooltip>
@@ -56,11 +56,11 @@
               </template>
             </el-table-column>
             <el-table-column prop="temp_index" label="临时索引" width="90" align="center" show-overflow-tooltip />
-            <el-table-column prop="column_liushui_index" label="流水位置" width="90" align="center" show-overflow-tooltip />
-            <el-table-column prop="column_zhuang_zhan_bi" label="庄占比" width="80" align="center">
+            <el-table-column prop="liushui_index" label="流水位置" width="90" align="center" show-overflow-tooltip />
+            <el-table-column prop="zhuang_zhan_bi" label="庄占比" width="80" align="center">
               <template #default="{ row }">
-                <el-tag :type="row.column_zhuang_zhan_bi >= 50 ? 'warning' : 'success'" size="small">
-                  {{ row.column_zhuang_zhan_bi || 50 }}%
+                <el-tag :type="row.zhuang_zhan_bi >= 50 ? 'warning' : 'success'" size="small">
+                  {{ row.zhuang_zhan_bi || 50 }}%
                 </el-tag>
               </template>
             </el-table-column>
@@ -96,10 +96,10 @@
           <el-input v-model="editForm.id" disabled />
         </el-form-item>
         <el-form-item label="本金">
-          <el-input v-model="editForm.column_benjin" placeholder="请输入本金" clearable />
+          <el-input v-model="editForm.benjin" placeholder="请输入本金" clearable />
         </el-form-item>
         <el-form-item label="数学期望">
-          <el-input v-model="editForm.column_mean" placeholder="请输入数学期望" clearable />
+          <el-input v-model="editForm.mean" placeholder="请输入数学期望" clearable />
         </el-form-item>
         <el-form-item label="临时索引">
           <el-input v-model="editForm.temp_index" placeholder="请输入临时索引" clearable />
@@ -161,14 +161,14 @@ const editDialogVisible = ref<boolean>(false);
 const saving = ref<boolean>(false);
 const editForm = ref<{
   id: number | null;
-  column_benjin: string;
-  column_mean: string;
+  benjin: string;
+  mean: string;
   temp_index: string;
   restart_index: string;
 }>({
   id: null,
-  column_benjin: '',
-  column_mean: '',
+  benjin: '',
+  mean: '',
   temp_index: '',
   restart_index: ''
 });
@@ -185,7 +185,7 @@ const formatRestartDelta = (curRaw: string, prevRaw: string): string => {
 
 /** 本次重启位置 − 上一条记录的重启位置（同页上一行；本页第一行用上一页最后一条） */
 const restartSpacing = (row: any, index: number): string => {
-  const curRaw = String(row.column_restart_index ?? '').trim();
+  const curRaw = String(row.restart_index ?? '').trim();
   if (!curRaw) return '-';
 
   const list = table1List.value;
@@ -193,7 +193,7 @@ const restartSpacing = (row: any, index: number): string => {
   if (index > 0) {
     const prevRow = list[index - 1];
     if (!prevRow) return '-';
-    prevRaw = String(prevRow.column_restart_index ?? '').trim();
+    prevRaw = String(prevRow.restart_index ?? '').trim();
   } else {
     prevRaw = String(prevPageRestartIndex.value ?? '').trim();
   }
@@ -382,10 +382,10 @@ const handleTable1PageChange = (page: number) => {
 const handleEdit = (row: any) => {
   editForm.value = {
     id: row.id,
-    column_benjin: row.column_benjin || '',
-    column_mean: row.column_mean || '',
+    benjin: row.benjin || '',
+    mean: row.mean || '',
     temp_index: row.temp_index || '',
-    restart_index: row.column_restart_index || ''
+    restart_index: row.restart_index || ''
   };
   editDialogVisible.value = true;
 };
@@ -399,8 +399,8 @@ const handleSaveEdit = async () => {
 
   // 验证至少有一个字段需要更新
   if (
-    !editForm.value.column_benjin &&
-    !editForm.value.column_mean &&
+    !editForm.value.benjin &&
+    !editForm.value.mean &&
     !editForm.value.temp_index &&
     !editForm.value.restart_index
   ) {
@@ -412,8 +412,8 @@ const handleSaveEdit = async () => {
   try {
     const response = await axios.put('/jsq/table1/config', {
       id: editForm.value.id,
-      column_benjin: editForm.value.column_benjin,
-      column_mean: editForm.value.column_mean,
+      benjin: editForm.value.benjin,
+      mean: editForm.value.mean,
       temp_index: editForm.value.temp_index,
       restart_index: editForm.value.restart_index
     });

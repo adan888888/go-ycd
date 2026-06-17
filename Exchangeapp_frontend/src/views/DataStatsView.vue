@@ -4,7 +4,7 @@
       <div>
         <h2>数据统计</h2>
         <p>
-          随机庄闲与开奖庄闲分开统计：随机由胜负路（正打/反打）反推；开奖取投注记录「开奖」字段（colmun_zx）。
+          随机庄闲与开奖庄闲分开统计：随机由胜负路（正打/反打）反推；开奖取投注记录「开奖」字段（zx）。
         </p>
       </div>
       <el-button type="primary" :icon="Refresh" :loading="loading" @click="loadStats">刷新</el-button>

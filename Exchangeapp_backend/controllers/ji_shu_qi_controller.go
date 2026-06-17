@@ -34,13 +34,13 @@ func CreateTables(ctx *gin.Context) {
 	}
 
 	var table1 = models.TableYanchendao1{
-		ColumnBenjin:       "5000",
-		ColumnYongJin:      "0.95",
-		ColumnMean:         "0.08",
-		ColumnRestartIdx:   "1",
-		ColumnLiushuiIdx:   "1",
-		ColumnZhuangZhanBi: 50, // 默认庄占比50%
-		Uid:                uid,
+		Benjin:       5000,
+		YongJin:      0.95,
+		Mean:         0.08,
+		RestartIdx:   1,
+		LiushuiIdx:   1,
+		ZhuangZhanBi: 50,
+		Uid:          uid,
 	}
 	var table2 models.TableYanchendao2
 
@@ -112,12 +112,41 @@ func InsertTable1(ctx *gin.Context) {
 // 优化：移除了全局锁，依赖MySQL数据库的ACID特性和并发控制机制
 // MySQL的InnoDB引擎提供了行级锁和事务隔离，可以安全地处理并发插入
 func InsertTable2(ctx *gin.Context) {
-	var tableYanchendao2 models.TableYanchendao2
+	type insertTable2Request struct {
+		Xiazhujine          FlexDecimal         `json:"xiazhujine"`
+		Shuyingzhi          FlexDecimal         `json:"shuyingzhi"`
+		ShuyingzhiXiaoshu   NullableFlexDecimal `json:"shuyingzhi_xiaoshu"`
+		Shengfulu           string              `json:"shengfulu"`
+		ZX                  string              `json:"zx"`
+		Remark              string              `json:"remark"`
+		CurrentJin          FlexDecimal         `json:"current_jin"`
+		RestartStatSnapshot string              `json:"restartStatSnapshot"`
+		UserID              int64               `json:"user_id"`
+		LegacyUserID        int64               `json:"UserID"`
+	}
 
-	// JSON解析（不需要锁保护）
-	if err := ctx.ShouldBindJSON(&tableYanchendao2); err != nil {
+	var req insertTable2Request
+	if err := ctx.ShouldBindJSON(&req); err != nil {
 		Fail(ctx, apicode.CodeParamInvalid, err.Error())
 		return
+	}
+
+	tableYanchendao2 := models.TableYanchendao2{
+		Xiazhujine:          req.Xiazhujine.Float64(),
+		Shuyingzhi:          req.Shuyingzhi.Float64(),
+		ShuyingzhiXiaoshu:   req.ShuyingzhiXiaoshu.Value,
+		Shengfulu:           req.Shengfulu,
+		ZX:                  req.ZX,
+		Remark:              req.Remark,
+		CurrentJin:          req.CurrentJin.Float64(),
+		RestartStatSnapshot: req.RestartStatSnapshot,
+		UserID:              req.UserID,
+	}
+	if tableYanchendao2.UserID == 0 {
+		tableYanchendao2.UserID = req.LegacyUserID
+	}
+	if uid, err := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64); err == nil && uid > 0 {
+		tableYanchendao2.UserID = uid
 	}
 	fmt.Printf("测试%+v\n", tableYanchendao2)
 	tableYanchendao2.ID = 0 //解决运行的过程中会自动给赋值
@@ -158,28 +187,28 @@ func Restart(ctx *gin.Context) {
 	uid, _ := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64)
 	var tableYanchendao1 models.TableYanchendao1
 	var tableYanchendao2 models.TableYanchendao2
-	// 重启时，清除消数列数据（colmun_shuyingzhi_d=""）
-	// 将当前用户所有未删除记录的 colmun_shuyingzhi_d 列清空为空字符串
+	// 重启时，清除消数列数据（shuyingzhi_xiaoshu=""）
+	// 将当前用户所有未删除记录的 shuyingzhi_xiaoshu 列清空为空字符串
 	// GORM 会自动添加 deleted_at IS NULL 条件，无需手动添加
-	result := global.Db.Model(&tableYanchendao2).Where("user_id = ?", uid).Update("colmun_shuyingzhi_d", "")
+	result := global.Db.Model(&tableYanchendao2).Where("user_id = ?", uid).Update("shuyingzhi_xiaoshu", nil)
 	if result.Error != nil {
 		Fail(ctx, apicode.CodeServerError, result.Error.Error())
 		return
 	}
 	global.Db.Where("user_id=?", uid).Last(&tableYanchendao2)
-	//E := global.Db.Table("table_yanchendao1").Where("uid = ?", uid).Updates(map[string]interface{}{"column_restart_index": tableYanchendao2.ID})
+	//E := global.Db.Table("table_yanchendao1").Where("uid = ?", uid).Updates(map[string]interface{}{"restart_index": tableYanchendao2.ID})
 	//改变需求，要存起来，不是修改，将来要看的见重启的历史
 	// 从现有记录复制所有字段值，确保新字段也有正确的值
 	if err := global.Db.Where("uid=?", uid).Last(&tableYanchendao1).Error; err != nil {
 		// 如果查询失败，使用默认值
-		tableYanchendao1.ColumnZhuangZhanBi = 50 // 默认庄占比50%
+		tableYanchendao1.ZhuangZhanBi = 50 // 默认庄占比50%
 	}
 	tableYanchendao1.Uid = uid
 	tableYanchendao1.TempIndex = "-1"
-	tableYanchendao1.ColumnRestartIdx = strconv.Itoa(tableYanchendao2.ID)
+	tableYanchendao1.RestartIdx = tableYanchendao2.ID
 	// 如果新字段是0（旧数据没有这个字段），使用默认值
-	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
-		tableYanchendao1.ColumnZhuangZhanBi = 50
+	if tableYanchendao1.ZhuangZhanBi == 0 {
+		tableYanchendao1.ZhuangZhanBi = 50
 	}
 	E := global.Db.Table("table_yanchendao1").Omit("id", "created_at").Create(tableYanchendao1) //.Omit忽略id和创建时间，插入时使用数据库当前时间
 	if E.Error != nil {
@@ -200,35 +229,27 @@ func SortXiaoShu(ctx *gin.Context) {
 		}
 	}
 
-	//2.提取 colmun_shuyingzhi_d 列的有效数据（非空且能转换为浮点数）
+	//2.提取 shuyingzhi_xiaoshu 列的有效数据
 	var floats []float64
 	for _, s := range tableYanchendao2s {
-		if s.ColmunShuyingzhiD == "" {
-			continue // 跳过空值
-		}
-		num, err := strconv.ParseFloat(s.ColmunShuyingzhiD, 64)
-		if err != nil {
-			fmt.Println("Error converting string to float:", err)
+		if !HasDecimalPtr(s.ShuyingzhiXiaoshu) {
 			continue
 		}
-		floats = append(floats, num)
+		floats = append(floats, *s.ShuyingzhiXiaoshu)
 	}
 
 	//3.如果有有效值，进行排序
 	if len(floats) > 0 {
-		// 对浮点数切片进行排序（从小到大）
 		sort.Float64s(floats)
 
-		// 先清空所有记录的 colmun_shuyingzhi_d
 		for i := range tableYanchendao2s {
-			tableYanchendao2s[i].ColmunShuyingzhiD = ""
+			tableYanchendao2s[i].ShuyingzhiXiaoshu = nil
 		}
 
-		// 从最新的记录（数组最后）开始，倒序写入排序后的值
-		// 例如：如果有100条记录，其中50条有值，排序后的值应该写入到索引50-99（最新的50条记录）
-		floatsIndex := len(floats) - 1 // 从排序后的最后一个值开始
+		floatsIndex := len(floats) - 1
 		for i := len(tableYanchendao2s) - 1; i >= 0 && floatsIndex >= 0; i-- {
-			tableYanchendao2s[i].ColmunShuyingzhiD = strconv.FormatFloat(floats[floatsIndex], 'f', -1, 64)
+			val := floats[floatsIndex]
+			tableYanchendao2s[i].ShuyingzhiXiaoshu = &val
 			floatsIndex--
 		}
 	} else {
@@ -254,7 +275,7 @@ func SortXiaoShu(ctx *gin.Context) {
 	// 先一次性清空该用户所有记录，避免为每条记录生成 CASE WHEN
 	if err := tx.Model(&models.TableYanchendao2{}).
 		Where("user_id = ? AND deleted_at IS NULL", userID).
-		Update("colmun_shuyingzhi_d", "").Error; err != nil {
+		Update("shuyingzhi_xiaoshu", nil).Error; err != nil {
 		tx.Rollback()
 		Fail(ctx, apicode.CodeServerError, "批量清空失败: "+err.Error())
 		return
@@ -263,7 +284,7 @@ func SortXiaoShu(ctx *gin.Context) {
 	// 仅对有排序值的记录做 CASE WHEN 批量更新（通常只有少量记录）
 	var recordsToUpdate []models.TableYanchendao2
 	for _, v := range tableYanchendao2s {
-		if v.ColmunShuyingzhiD != "" {
+		if HasDecimalPtr(v.ShuyingzhiXiaoshu) {
 			recordsToUpdate = append(recordsToUpdate, v)
 		}
 	}
@@ -277,14 +298,14 @@ func SortXiaoShu(ctx *gin.Context) {
 		caseWhenSQL.WriteString("CASE id ")
 		for _, v := range recordsToUpdate {
 			caseWhenSQL.WriteString("WHEN ? THEN ? ")
-			caseArgs = append(caseArgs, v.ID, v.ColmunShuyingzhiD)
+			caseArgs = append(caseArgs, v.ID, DecimalPtrValue(v.ShuyingzhiXiaoshu))
 			placeholders = append(placeholders, "?")
 			whereIDs = append(whereIDs, v.ID)
 		}
 		caseWhenSQL.WriteString("END")
 
 		sql := fmt.Sprintf(
-			"UPDATE table_yanchendao2 SET colmun_shuyingzhi_d = %s WHERE user_id = ? AND id IN (%s) AND deleted_at IS NULL",
+			"UPDATE table_yanchendao2 SET shuyingzhi_xiaoshu = %s WHERE user_id = ? AND id IN (%s) AND deleted_at IS NULL",
 			caseWhenSQL.String(),
 			strings.Join(placeholders, ","),
 		)
@@ -318,7 +339,7 @@ func SortXiaoShu(ctx *gin.Context) {
 		"sorted_sequence": sortedSequence,      // 排序后的序列（字符串数组）
 		"count":           len(sortedSequence), // 排序后的数量
 	})
-	//tableYanchendao2s[0].ColmunShuyingzhiD = "测试"
+	//tableYanchendao2s[0].ShuyingzhiXiaoshu = "测试"
 	//global.Db.Save(&tableYanchendao2s[0])// 总体测试下来，是需要自动生成的id才可以更新
 }
 
@@ -338,9 +359,9 @@ func Xiaoshu(ctx *gin.Context) {
 		Fail(ctx, apicode.CodeServerError, "输入数据错误")
 		return
 	}
-	if tableYanchendao2.ColmunShuyingzhiD == "" && tableYanchendao2.ColumnXiazhujine != "" {
-		// 只更新colmun_shuyingzhi_d这一列，传入的是空字符串""也会起效
-		global.Db.Model(&tableYanchendao2).Select("colmun_shuyingzhi_d").Where("id=?", tableYanchendao2.ID).Updates(tableYanchendao2)
+	if !HasDecimalPtr(tableYanchendao2.ShuyingzhiXiaoshu) && tableYanchendao2.Xiazhujine != 0 {
+		tableYanchendao2.ShuyingzhiXiaoshu = nil
+		global.Db.Model(&tableYanchendao2).Select("shuyingzhi_xiaoshu").Where("id=?", tableYanchendao2.ID).Updates(map[string]interface{}{"shuyingzhi_xiaoshu": nil})
 		Success(ctx, "消数据成功", gin.H{})
 	}
 
@@ -391,10 +412,10 @@ func ResetLiushui(ctx *gin.Context) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 		}
 	}
-	tableYanchendao1.ColumnLiushuiIdx = strconv.Itoa(*temp.ResetIndex)
+	tableYanchendao1.LiushuiIdx = *temp.ResetIndex
 	// 如果新字段是0（旧数据没有这个字段），使用默认值，避免覆盖
-	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
-		tableYanchendao1.ColumnZhuangZhanBi = 50
+	if tableYanchendao1.ZhuangZhanBi == 0 {
+		tableYanchendao1.ZhuangZhanBi = 50
 	}
 	tx := global.Db.Save(&tableYanchendao1) //Save 会保存所有的字段，即使字段是零值.必须要保证有主键id，否则是新增数据
 	if tx.Error != nil {
@@ -428,12 +449,17 @@ func UpdateQiWangValue(ctx *gin.Context) {
 		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: "+err.Error())
 		return
 	}
-	tableYanchendao1.ColumnMean = *temp.Mean
-	// 如果新字段是0（旧数据没有这个字段），使用默认值，避免覆盖
-	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
-		tableYanchendao1.ColumnZhuangZhanBi = 50
+	mean, err := ParseDecimalString(*temp.Mean)
+	if err != nil {
+		Fail(ctx, apicode.CodeParamInvalid, "期望值格式错误")
+		return
 	}
-	/*UPDATE `table_yanchendao1` SET `column_benjin`='5000',`column_yongjin`='0.95',`column_mean`='1',`column_restart_index`='0',`column_liushui_index`='26',`created_at`='2025-03-26 15:11:32' WHERE `id` = 1*/
+	tableYanchendao1.Mean = mean
+	// 如果新字段是0（旧数据没有这个字段），使用默认值，避免覆盖
+	if tableYanchendao1.ZhuangZhanBi == 0 {
+		tableYanchendao1.ZhuangZhanBi = 50
+	}
+	/*UPDATE `table_yanchendao1` SET `benjin`='5000',`yongjin`='0.95',`mean`='1',`restart_index`='0',`liushui_index`='26',`created_at`='2025-03-26 15:11:32' WHERE `id` = 1*/
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
 		panic(tx.Error)
@@ -457,14 +483,19 @@ func UpdateOdds(ctx *gin.Context) {
 		fmt.Println("Benjin 是结构体默认值")
 	}
 	var tableYanchendao1 models.TableYanchendao1
-	if err := global.Db.Where("user_id=?", ctx.GetHeader("UserId")).Last(&tableYanchendao1).Error; err != nil {
+	if err := global.Db.Where("uid=?", ctx.GetHeader("UserId")).Last(&tableYanchendao1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 		}
 	}
-	tableYanchendao1.ColumnYongJin = *temp.Odds
+	odds, err := ParseDecimalString(*temp.Odds)
+	if err != nil {
+		Fail(ctx, apicode.CodeParamInvalid, "赔率格式错误")
+		return
+	}
+	tableYanchendao1.YongJin = odds
 	// 如果新字段是0（旧数据没有这个字段），使用默认值，避免覆盖
-	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
-		tableYanchendao1.ColumnZhuangZhanBi = 50
+	if tableYanchendao1.ZhuangZhanBi == 0 {
+		tableYanchendao1.ZhuangZhanBi = 50
 	}
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
@@ -493,10 +524,15 @@ func UpdateBenjin(ctx *gin.Context) {
 		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: "+err.Error())
 		return
 	}
-	tableYanchendao1.ColumnBenjin = *temp.Benjin
+	benjin, err := ParseDecimalString(*temp.Benjin)
+	if err != nil {
+		Fail(ctx, apicode.CodeParamInvalid, "本金格式错误")
+		return
+	}
+	tableYanchendao1.Benjin = benjin
 	// 如果新字段是0（旧数据没有这个字段），使用默认值，避免覆盖
-	if tableYanchendao1.ColumnZhuangZhanBi == 0 {
-		tableYanchendao1.ColumnZhuangZhanBi = 50
+	if tableYanchendao1.ZhuangZhanBi == 0 {
+		tableYanchendao1.ZhuangZhanBi = 50
 	}
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
@@ -536,13 +572,13 @@ func UpdateZhuangZhanBi(ctx *gin.Context) {
 		Fail(ctx, apicode.CodeServerError, "查询用户数据失败: "+err.Error())
 		return
 	}
-	tableYanchendao1.ColumnZhuangZhanBi = *temp.ZhuangZhanBi
+	tableYanchendao1.ZhuangZhanBi = *temp.ZhuangZhanBi
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
 		Fail(ctx, apicode.CodeServerError, "更新失败: "+tx.Error.Error())
 		return
 	}
-	Success(ctx, "修改庄占比成功", gin.H{"zhuangZhanBi": tableYanchendao1.ColumnZhuangZhanBi})
+	Success(ctx, "修改庄占比成功", gin.H{"zhuangZhanBi": tableYanchendao1.ZhuangZhanBi})
 }
 
 // 获取用户庄占比（需登录；超管可指定 user_id，普通用户仅可查本人）
@@ -572,7 +608,7 @@ func GetZhuangZhanBi(ctx *gin.Context) {
 		return
 	}
 
-	zhuangZhanBi := tableYanchendao1.ColumnZhuangZhanBi
+	zhuangZhanBi := tableYanchendao1.ZhuangZhanBi
 	if zhuangZhanBi == 0 {
 		zhuangZhanBi = 50 // 默认值
 	}
@@ -632,7 +668,7 @@ func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
 		return
 	}
 
-	tableYanchendao1.ColumnZhuangZhanBi = *temp.ZhuangZhanBi
+	tableYanchendao1.ZhuangZhanBi = *temp.ZhuangZhanBi
 	tx := global.Db.Save(&tableYanchendao1)
 	if tx.Error != nil {
 		Fail(ctx, apicode.CodeServerError, "更新失败: "+tx.Error.Error())
@@ -640,7 +676,7 @@ func UpdateZhuangZhanBiPublic(ctx *gin.Context) {
 	}
 
 	Success(ctx, "修改庄占比成功", gin.H{
-		"zhuangZhanBi": tableYanchendao1.ColumnZhuangZhanBi,
+		"zhuangZhanBi": tableYanchendao1.ZhuangZhanBi,
 		"user_id":      userIDStr,
 	})
 }
@@ -717,11 +753,11 @@ func GetTable1List(ctx *gin.Context) {
 	}
 
 	// 跨页「回合手数」：当前页第一条需对比上一页最后一条的重启位置
-	var prevRestartIndex string
+	var prevRestartIndex *int
 	if offset > 0 {
 		var prevItem models.TableYanchendao1
 		if err := query.Session(&gorm.Session{}).Order("id ASC").Offset(offset - 1).Limit(1).First(&prevItem).Error; err == nil {
-			prevRestartIndex = prevItem.ColumnRestartIdx
+			prevRestartIndex = &prevItem.RestartIdx
 		}
 	}
 
@@ -737,12 +773,12 @@ func GetTable1List(ctx *gin.Context) {
 			"id":                    item.ID,
 			"uid":                   strconv.FormatInt(item.Uid, 10), // 确保 uid 是字符串
 			"username":              username,
-			"column_benjin":         item.ColumnBenjin,
-			"column_yongJin":        item.ColumnYongJin,
-			"column_mean":           item.ColumnMean,
-			"column_restart_index":  item.ColumnRestartIdx,
-			"column_liushui_index":  item.ColumnLiushuiIdx,
-			"column_zhuang_zhan_bi": item.ColumnZhuangZhanBi,
+			"benjin":         item.Benjin,
+			"yongjin":        item.YongJin,
+			"mean":           item.Mean,
+			"restart_index":  item.RestartIdx,
+			"liushui_index":  item.LiushuiIdx,
+			"zhuang_zhan_bi": item.ZhuangZhanBi,
 			"temp_index":            item.TempIndex,
 			"created_at":            item.CreatedAt,
 			"deleted_at":            item.DeletedAt,
@@ -871,13 +907,13 @@ func GetTable2List(ctx *gin.Context) {
 			"seq":                 item.Seq,                           // 每个用户自己的序号（从1开始）
 			"user_id":             strconv.FormatInt(item.UserID, 10), // 确保 user_id 是字符串
 			"username":            uidMap[item.UserID],
-			"column_xiazhujine":   item.ColumnXiazhujine,
-			"colmun_shuyingzhi":   item.ColmunShuyingzhi,
-			"colmun_shuyingzhi_d": item.ColmunShuyingzhiD,
-			"colmun_shengfulu":    item.ColmunShengfulu,
-			"colmun_zx":           item.ColmunZX,
-			"colmun_remark":       item.ColmunRemark,
-			"column_current_jin":  item.ColumnCurrentJin,
+			"xiazhujine":   item.Xiazhujine,
+			"shuyingzhi":   item.Shuyingzhi,
+			"shuyingzhi_xiaoshu": item.ShuyingzhiXiaoshu,
+			"shengfulu":    item.Shengfulu,
+			"zx":           item.ZX,
+			"remark":       item.Remark,
+			"current_jin":  item.CurrentJin,
 			"restartStatSnapshot": item.RestartStatSnapshot,
 			"created_at":          item.CreatedAt,
 			"deleted_at":          item.DeletedAt,
@@ -973,13 +1009,13 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 		"seq":                 item.Seq,
 		"user_id":             strconv.FormatInt(item.UserID, 10),
 		"username":            username,
-		"column_xiazhujine":   item.ColumnXiazhujine,
-		"colmun_shuyingzhi":   item.ColmunShuyingzhi,
-		"colmun_shuyingzhi_d": item.ColmunShuyingzhiD,
-		"colmun_shengfulu":    item.ColmunShengfulu,
-		"colmun_zx":           item.ColmunZX,
-		"colmun_remark":       item.ColmunRemark,
-		"column_current_jin":  item.ColumnCurrentJin,
+		"xiazhujine":   item.Xiazhujine,
+		"shuyingzhi":   item.Shuyingzhi,
+		"shuyingzhi_xiaoshu": item.ShuyingzhiXiaoshu,
+		"shengfulu":    item.Shengfulu,
+		"zx":           item.ZX,
+		"remark":       item.Remark,
+		"current_jin":  item.CurrentJin,
 		"restartStatSnapshot": item.RestartStatSnapshot,
 		"created_at":          item.CreatedAt,
 		"deleted_at":          item.DeletedAt,
@@ -995,8 +1031,8 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 func UpdateTable2Config(ctx *gin.Context) {
 	type UpdateTable2ConfigRequest struct {
 		ID                int    `json:"id" binding:"required"` // 记录ID
-		ColmunShuyingzhi  string `json:"colmun_shuyingzhi"`     // 输赢值
-		ColmunShuyingzhiD string `json:"colmun_shuyingzhi_d"`   // 消数后输赢值
+		Shuyingzhi  string `json:"shuyingzhi"`     // 输赢值
+		ShuyingzhiXiaoshu string `json:"shuyingzhi_xiaoshu"`   // 消数后输赢值
 	}
 
 	var req UpdateTable2ConfigRequest
@@ -1020,11 +1056,15 @@ func UpdateTable2Config(ctx *gin.Context) {
 	}
 
 	updates := make(map[string]interface{})
-	if req.ColmunShuyingzhi != "" {
-		updates["colmun_shuyingzhi"] = req.ColmunShuyingzhi
+	if req.Shuyingzhi != "" {
+		if v, err := ParseDecimalString(req.Shuyingzhi); err == nil {
+			updates["shuyingzhi"] = v
+		}
 	}
-	if req.ColmunShuyingzhiD != "" {
-		updates["colmun_shuyingzhi_d"] = req.ColmunShuyingzhiD
+	if req.ShuyingzhiXiaoshu != "" {
+		if v, err := ParseDecimalString(req.ShuyingzhiXiaoshu); err == nil {
+			updates["shuyingzhi_xiaoshu"] = v
+		}
 	}
 
 	if len(updates) > 0 {
@@ -1039,8 +1079,8 @@ func UpdateTable2Config(ctx *gin.Context) {
 
 	Success(ctx, "更新成功", gin.H{
 		"id":                  tableYanchendao2.ID,
-		"colmun_shuyingzhi":   tableYanchendao2.ColmunShuyingzhi,
-		"colmun_shuyingzhi_d": tableYanchendao2.ColmunShuyingzhiD,
+		"shuyingzhi":   tableYanchendao2.Shuyingzhi,
+		"shuyingzhi_xiaoshu": tableYanchendao2.ShuyingzhiXiaoshu,
 	})
 }
 
@@ -1087,10 +1127,10 @@ func UpdateLastRowRestartStatSnapshot(ctx *gin.Context) {
 func UpdateTable1Config(ctx *gin.Context) {
 	type UpdateTable1ConfigRequest struct {
 		ID           int    `json:"id" binding:"required"` // 记录ID
-		ColumnBenjin string `json:"column_benjin"`         // 本金
-		ColumnMean   string `json:"column_mean"`           // 数学期望
+		Benjin string `json:"benjin"`         // 本金
+		Mean   string `json:"mean"`           // 数学期望
 		TempIndex    string `json:"temp_index"`            // 临时索引
-		RestartIndex string `json:"restart_index"`         // 重启位置
+		RestartIndex *int   `json:"restart_index"`         // 重启位置
 	}
 
 	var req UpdateTable1ConfigRequest
@@ -1116,17 +1156,21 @@ func UpdateTable1Config(ctx *gin.Context) {
 
 	// 更新字段（只更新传入的字段）
 	updates := make(map[string]interface{})
-	if req.ColumnBenjin != "" {
-		updates["column_benjin"] = req.ColumnBenjin
+	if req.Benjin != "" {
+		if v, err := ParseDecimalString(req.Benjin); err == nil {
+			updates["benjin"] = v
+		}
 	}
-	if req.ColumnMean != "" {
-		updates["column_mean"] = req.ColumnMean
+	if req.Mean != "" {
+		if v, err := ParseDecimalString(req.Mean); err == nil {
+			updates["mean"] = v
+		}
 	}
 	if req.TempIndex != "" {
 		updates["temp_index"] = req.TempIndex
 	}
-	if req.RestartIndex != "" {
-		updates["column_restart_index"] = req.RestartIndex
+	if req.RestartIndex != nil {
+		updates["restart_index"] = *req.RestartIndex
 	}
 
 	// 如果有要更新的字段，执行更新
@@ -1142,10 +1186,10 @@ func UpdateTable1Config(ctx *gin.Context) {
 
 	Success(ctx, "更新成功", gin.H{
 		"id":                   tableYanchendao1.ID,
-		"column_benjin":        tableYanchendao1.ColumnBenjin,
-		"column_mean":          tableYanchendao1.ColumnMean,
+		"benjin":        tableYanchendao1.Benjin,
+		"mean":          tableYanchendao1.Mean,
 		"temp_index":           tableYanchendao1.TempIndex,
-		"column_restart_index": tableYanchendao1.ColumnRestartIdx,
+		"restart_index": tableYanchendao1.RestartIdx,
 	})
 }
 
@@ -1273,9 +1317,9 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		}
 		return
 	}
-	statisticalAreas[0] = tableYanchendao1.ColumnBenjin
+	statisticalAreas[0] = FormatDecimal(tableYanchendao1.Benjin)
 	statisticalAreas[1] = strconv.Itoa(len(tableYanchendao2s)) //一共打多少手
-	statisticalAreas[19] = tableYanchendao1.ColumnMean         //期望值
+	statisticalAreas[19] = FormatDecimal(tableYanchendao1.Mean) //期望值
 
 	//总体
 	var zt_y = 0 //总体赢的次数
@@ -1286,21 +1330,16 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	var zhuangCount = 0
 	var benUse1 = 0
 	for index, element := range tableYanchendao2s {
-		// 累加输赢值
-		shuyingzhiStr := fmt.Sprintf("%v", element.ColmunShuyingzhi)
-		shuyingzhi, _ := strconv.ParseFloat(shuyingzhiStr, 64)
+		shuyingzhi := element.Shuyingzhi
 		zt_syz += shuyingzhi
 		if zt_syz < 0 && zt_syz < float64(benUse1) {
 			benUse1 = int(zt_syz)
 		}
 
-		// 累加下注金额
-		xiazhujineStr := fmt.Sprintf("%v", element.ColumnXiazhujine)
-		xiazhujine, _ := strconv.ParseFloat(xiazhujineStr, 64)
-		runningWater += xiazhujine
+		runningWater += element.Xiazhujine
 
 		// 根据备注判断 zt_s 和 zt_y
-		if element.ColmunRemark != "" && element.ColmunRemark == "-1" {
+		if element.Remark != "" && element.Remark == "-1" {
 			zt_s--
 		} else {
 			zt_y++
@@ -1308,8 +1347,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 
 		// 连胜负计算
 		if len(tableYanchendao2s) > 1 && index-1 >= 0 {
-			prevShuyingzhiStr := fmt.Sprintf("%v", tableYanchendao2s[index-1].ColmunShuyingzhi)
-			prevShuyingzhi, _ := strconv.ParseFloat(prevShuyingzhiStr, 64)
+			prevShuyingzhi := tableYanchendao2s[index-1].Shuyingzhi
 			if (shuyingzhi > 0 && prevShuyingzhi > 0) || (shuyingzhi < 0 && prevShuyingzhi < 0) {
 				countLianShengFu++
 			} else {
@@ -1318,7 +1356,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 		}
 
 		// 庄个数统计
-		if element.ColmunZX == "庄" {
+		if element.ZX == "庄" {
 			zhuangCount++
 		}
 	}
@@ -1353,7 +1391,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	f, err := strconv.ParseFloat(statisticalAreas[19], 64)
 	if err != nil {
-		Fail(ctx, apicode.CodeParamInvalid, "数学期望(column_mean)格式错误: "+err.Error())
+		Fail(ctx, apicode.CodeParamInvalid, "数学期望(mean)格式错误: "+err.Error())
 		return
 	}
 	d := float64(len(tableYanchendao2s)+1) * f //期望一共的值
@@ -1375,7 +1413,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	statisticalAreas[25] = result //还需要多少 加到50%的时候
 	// 处理重启位置
 	if len(tableYanchendao2s) > 0 {
-		//statisticalAreas[29] = tableYanchendao1.ColumnRestartIdx
+		//statisticalAreas[29] = tableYanchendao1.RestartIdx
 		statisticalAreas[29] = "" //不要这个值了吧
 	}
 	// 处理本金使用
@@ -1395,9 +1433,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	if CurrentTempIndex > 2 {
 		restartIndex = CurrentTempIndex
 	} else {
-		if restartIdx, err := strconv.ParseInt(tableYanchendao1.ColumnRestartIdx, 10, 64); err == nil {
-			restartIndex = restartIdx
-		}
+		restartIndex = int64(tableYanchendao1.RestartIdx)
 	}
 	fmt.Println("===========CurrentTempIndex", CurrentTempIndex)
 
@@ -1411,10 +1447,8 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 			///不是局部平衡的时候，要从重启的位置的下一行计算
 			if tableYanchendao2s[i].ID > int(restartIndex) {
 				jb_count++
-				shuyingzhiStr := fmt.Sprintf("%v", tableYanchendao2s[i].ColmunShuyingzhi)
-				shuyingzhi, _ := strconv.ParseFloat(shuyingzhiStr, 64)
-				jb_syz += shuyingzhi
-				if tableYanchendao2s[i].ColmunRemark != "" && strings.HasPrefix(tableYanchendao2s[i].ColmunRemark, "-1") {
+				jb_syz += tableYanchendao2s[i].Shuyingzhi
+				if tableYanchendao2s[i].Remark != "" && strings.HasPrefix(tableYanchendao2s[i].Remark, "-1") {
 					jb_s--
 				} else {
 					jb_y++
@@ -1424,10 +1458,8 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 			///有局部平衡标志的时候（点某一行的时候）要从当前行计算
 			if tableYanchendao2s[i].ID >= int(restartIndex) {
 				jb_count++
-				shuyingzhiStr := fmt.Sprintf("%v", tableYanchendao2s[i].ColmunShuyingzhi)
-				shuyingzhi, _ := strconv.ParseFloat(shuyingzhiStr, 64)
-				jb_syz += shuyingzhi
-				if tableYanchendao2s[i].ColmunRemark != "" && strings.HasPrefix(tableYanchendao2s[i].ColmunRemark, "-1") {
+				jb_syz += tableYanchendao2s[i].Shuyingzhi
+				if tableYanchendao2s[i].Remark != "" && strings.HasPrefix(tableYanchendao2s[i].Remark, "-1") {
 					jb_s--
 				} else {
 					jb_y++
@@ -1487,7 +1519,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	// 保存佣金值，用于后续计算
 	var yongJinValue string
 	if len(tableYanchendao2s) > 0 {
-		yongJinValue = tableYanchendao1.ColumnYongJin //扣水（庄扣5%）
+		yongJinValue = FormatDecimal(tableYanchendao1.YongJin) //扣水（庄扣5%）
 	}
 	// 计算期望值（原27的值），直接放到23位置
 	if statisticalAreas[14] == "0" {
@@ -1551,9 +1583,16 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 
 // 折线图数据
 func LinechartData(ctx *gin.Context) {
+	var amounts []float64
+	uid, _ := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64)
+	global.Db.Model(&models.TableYanchendao2{}).Where("user_id=?", uid).Order("id DESC").Limit(75).Pluck("current_jin", &amounts)
 	var arr [75]string
-	uid, _ := strconv.ParseInt(ctx.GetHeader("UserId"), 10, 64) //第二个参数 10 表示字符串是十进制格式。第三个参数 64 表示转换结果的类型为 int64。
-	global.Db.Model(&models.TableYanchendao2{}).Where("user_id=?", uid).Order("id DESC").Limit(75).Pluck("column_current_jin", &arr)
+	for i, v := range amounts {
+		if i >= len(arr) {
+			break
+		}
+		arr[i] = FormatDecimal(v)
+	}
 
 	//// 反转切片
 	//reversedArr := make([]string, len(arr))
@@ -1566,7 +1605,7 @@ func LinechartData(ctx *gin.Context) {
 // 清除数据（消数列数据全部清除）
 func CleanDataD(ctx *gin.Context) {
 	UserId := ctx.GetHeader("UserId")
-	result := global.Db.Model(&models.TableYanchendao2{}).Where("user_id = ?", UserId).Update("colmun_shuyingzhi_d", "")
+	result := global.Db.Model(&models.TableYanchendao2{}).Where("user_id = ?", UserId).Update("shuyingzhi_xiaoshu", nil)
 	if result.Error != nil {
 		return
 	}
@@ -1702,12 +1741,10 @@ func GetTodayBettingAmount(ctx *gin.Context) {
 		return
 	}
 
-	// 计算总金额（column_xiazhujine 是字符串，需要转换）
+	// 计算总金额（xiazhujine 是字符串，需要转换）
 	var totalAmount float64
 	for _, record := range records {
-		if amount, err := strconv.ParseFloat(record.ColumnXiazhujine, 64); err == nil {
-			totalAmount += amount
-		}
+		totalAmount += record.Xiazhujine
 	}
 
 	Success(ctx, "查询成功", gin.H{
@@ -1820,12 +1857,12 @@ func GetBettingStats(ctx *gin.Context) {
 
 	for _, element := range records {
 		// 累加输赢值
-		shuyingzhiStr := fmt.Sprintf("%v", element.ColmunShuyingzhi)
+		shuyingzhiStr := fmt.Sprintf("%v", element.Shuyingzhi)
 		shuyingzhi, _ := strconv.ParseFloat(shuyingzhiStr, 64)
 		zt_syz += shuyingzhi
 
 		// 根据备注判断 zt_s 和 zt_y
-		if element.ColmunRemark != "" && element.ColmunRemark == "-1" {
+		if element.Remark != "" && element.Remark == "-1" {
 			zt_s++
 		} else {
 			zt_y++
@@ -1867,7 +1904,7 @@ func GetRandomBankerPlayer(ctx *gin.Context) {
 	}
 
 	// 获取庄占比，如果为0则使用默认值50
-	zhuangZhanBi := tableYanchendao1.ColumnZhuangZhanBi
+	zhuangZhanBi := tableYanchendao1.ZhuangZhanBi
 	if zhuangZhanBi == 0 {
 		zhuangZhanBi = 50
 	}
