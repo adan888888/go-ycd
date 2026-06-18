@@ -770,18 +770,18 @@ func GetTable1List(ctx *gin.Context) {
 			fmt.Printf("GetTable1List 返回数据: uid=%d, username=%s, 查询的user_id=%s\n", item.Uid, username, userIDStr)
 		}
 		resultList = append(resultList, gin.H{
-			"id":                    item.ID,
-			"uid":                   strconv.FormatInt(item.Uid, 10), // 确保 uid 是字符串
-			"username":              username,
+			"id":             item.ID,
+			"uid":            strconv.FormatInt(item.Uid, 10), // 确保 uid 是字符串
+			"username":       username,
 			"benjin":         item.Benjin,
 			"yongjin":        item.YongJin,
 			"mean":           item.Mean,
 			"restart_index":  item.RestartIdx,
 			"liushui_index":  item.LiushuiIdx,
 			"zhuang_zhan_bi": item.ZhuangZhanBi,
-			"temp_index":            item.TempIndex,
-			"created_at":            item.CreatedAt,
-			"deleted_at":            item.DeletedAt,
+			"temp_index":     item.TempIndex,
+			"created_at":     item.CreatedAt,
+			"deleted_at":     item.DeletedAt,
 		})
 	}
 
@@ -907,13 +907,13 @@ func GetTable2List(ctx *gin.Context) {
 			"seq":                 item.Seq,                           // 每个用户自己的序号（从1开始）
 			"user_id":             strconv.FormatInt(item.UserID, 10), // 确保 user_id 是字符串
 			"username":            uidMap[item.UserID],
-			"xiazhujine":   item.Xiazhujine,
-			"shuyingzhi":   item.Shuyingzhi,
-			"shuyingzhi_xiaoshu": item.ShuyingzhiXiaoshu,
-			"shengfulu":    item.Shengfulu,
-			"zx":           item.ZX,
-			"remark":       item.Remark,
-			"current_jin":  item.CurrentJin,
+			"xiazhujine":          item.Xiazhujine,
+			"shuyingzhi":          item.Shuyingzhi,
+			"shuyingzhi_xiaoshu":  item.ShuyingzhiXiaoshu,
+			"shengfulu":           item.Shengfulu,
+			"zx":                  item.ZX,
+			"remark":              item.Remark,
+			"current_jin":         item.CurrentJin,
 			"restartStatSnapshot": item.RestartStatSnapshot,
 			"created_at":          item.CreatedAt,
 			"deleted_at":          item.DeletedAt,
@@ -1009,13 +1009,13 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 		"seq":                 item.Seq,
 		"user_id":             strconv.FormatInt(item.UserID, 10),
 		"username":            username,
-		"xiazhujine":   item.Xiazhujine,
-		"shuyingzhi":   item.Shuyingzhi,
-		"shuyingzhi_xiaoshu": item.ShuyingzhiXiaoshu,
-		"shengfulu":    item.Shengfulu,
-		"zx":           item.ZX,
-		"remark":       item.Remark,
-		"current_jin":  item.CurrentJin,
+		"xiazhujine":          item.Xiazhujine,
+		"shuyingzhi":          item.Shuyingzhi,
+		"shuyingzhi_xiaoshu":  item.ShuyingzhiXiaoshu,
+		"shengfulu":           item.Shengfulu,
+		"zx":                  item.ZX,
+		"remark":              item.Remark,
+		"current_jin":         item.CurrentJin,
 		"restartStatSnapshot": item.RestartStatSnapshot,
 		"created_at":          item.CreatedAt,
 		"deleted_at":          item.DeletedAt,
@@ -1031,8 +1031,8 @@ SELECT * FROM ranked WHERE id = ? LIMIT 1`
 func UpdateTable2Config(ctx *gin.Context) {
 	type UpdateTable2ConfigRequest struct {
 		ID                int    `json:"id" binding:"required"` // 记录ID
-		Shuyingzhi  string `json:"shuyingzhi"`     // 输赢值
-		ShuyingzhiXiaoshu string `json:"shuyingzhi_xiaoshu"`   // 消数后输赢值
+		Shuyingzhi        string `json:"shuyingzhi"`            // 输赢值
+		ShuyingzhiXiaoshu string `json:"shuyingzhi_xiaoshu"`    // 消数后输赢值
 	}
 
 	var req UpdateTable2ConfigRequest
@@ -1078,8 +1078,8 @@ func UpdateTable2Config(ctx *gin.Context) {
 	global.Db.Where("id = ?", req.ID).First(&tableYanchendao2)
 
 	Success(ctx, "更新成功", gin.H{
-		"id":                  tableYanchendao2.ID,
-		"shuyingzhi":   tableYanchendao2.Shuyingzhi,
+		"id":                 tableYanchendao2.ID,
+		"shuyingzhi":         tableYanchendao2.Shuyingzhi,
 		"shuyingzhi_xiaoshu": tableYanchendao2.ShuyingzhiXiaoshu,
 	})
 }
@@ -1127,8 +1127,8 @@ func UpdateLastRowRestartStatSnapshot(ctx *gin.Context) {
 func UpdateTable1Config(ctx *gin.Context) {
 	type UpdateTable1ConfigRequest struct {
 		ID           int    `json:"id" binding:"required"` // 记录ID
-		Benjin string `json:"benjin"`         // 本金
-		Mean   string `json:"mean"`           // 数学期望
+		Benjin       string `json:"benjin"`                // 本金
+		Mean         string `json:"mean"`                  // 数学期望
 		TempIndex    string `json:"temp_index"`            // 临时索引
 		RestartIndex *int   `json:"restart_index"`         // 重启位置
 	}
@@ -1185,10 +1185,10 @@ func UpdateTable1Config(ctx *gin.Context) {
 	global.Db.Where("id = ?", req.ID).First(&tableYanchendao1)
 
 	Success(ctx, "更新成功", gin.H{
-		"id":                   tableYanchendao1.ID,
+		"id":            tableYanchendao1.ID,
 		"benjin":        tableYanchendao1.Benjin,
 		"mean":          tableYanchendao1.Mean,
-		"temp_index":           tableYanchendao1.TempIndex,
+		"temp_index":    tableYanchendao1.TempIndex,
 		"restart_index": tableYanchendao1.RestartIdx,
 	})
 }
@@ -1259,14 +1259,14 @@ func LoadMore(ctx *gin.Context) {
 	Success(ctx, "加载更多成功", tableYanchendao2s)
 }
 
-// table2BetAggregates 投注记录 SQL 聚合结果（总体/局部共用）
+// table2BetAggregates 投注记录 SQL 聚合结果（总体/局部共用），由 queryTable2BetAggregates 扫描填入。
 type table2BetAggregates struct {
-	TotalCount  int64   `gorm:"column:total_count"`
-	TotalProfit float64 `gorm:"column:total_profit"`
-	TotalBet    float64 `gorm:"column:total_bet"`
-	ZhuangCount int64   `gorm:"column:zhuang_count"`
-	WinCount    int64   `gorm:"column:win_count"`
-	LossCount   int64   `gorm:"column:loss_count"`
+	TotalCount  int64   `gorm:"column:total_count"`  // 总局数
+	TotalProfit float64 `gorm:"column:total_profit"` // 输赢累计 SUM(shuyingzhi)
+	TotalBet    float64 `gorm:"column:total_bet"`    // 下注流水 SUM(xiazhujine)
+	ZhuangCount int64   `gorm:"column:zhuang_count"` // 下注「庄」的次数
+	WinCount    int64   `gorm:"column:win_count"`    // 胜局数（remark 非负标记）
+	LossCount   int64   `gorm:"column:loss_count"`   // 负局数（remark 为 -1）
 }
 
 const table2OverallAggSelect = `
@@ -1292,9 +1292,10 @@ func queryTable2BetAggregates(userID, selectSQL, idCompare string, restartID int
 	query := global.Db.Model(&models.TableYanchendao2{}).
 		Select(selectSQL).
 		Where("user_id = ? AND deleted_at IS NULL", userID)
-	if idCompare == ">" {
+	switch idCompare {
+	case ">":
 		query = query.Where("id > ?", restartID)
-	} else if idCompare == ">=" {
+	case ">=":
 		query = query.Where("id >= ?", restartID)
 	}
 	err := query.Scan(&agg).Error
@@ -1335,6 +1336,8 @@ func queryRecentShuyingzhi(userID string, limit int) ([]float64, error) {
 	return recent, nil
 }
 
+// queryBenUse1 计算「本金使用」：按 id 对 shuyingzhi 做累计和，取历史上累计仍为负时的最小值（最大回撤深度）。
+// 返回值 ≤0；展示时用 IntAbs 取绝对值写入 statisticalAreas[8]。全程未亏损则返回 0。
 func queryBenUse1(userID string) (int, error) {
 	var minCum *float64
 	err := global.Db.Raw(`
@@ -1423,7 +1426,7 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	countLianShengFu := computeLianShengFu(recentShuyingzhi)
 
 	statisticalAreas[0] = FormatDecimal(tableYanchendao1.Benjin)
-	statisticalAreas[1] = strconv.Itoa(totalCount) //一共打多少手
+	statisticalAreas[1] = strconv.Itoa(totalCount)              //一共打多少手
 	statisticalAreas[19] = FormatDecimal(tableYanchendao1.Mean) //期望值
 
 	statisticalAreas[5] = strconv.Itoa(zt_y)
@@ -1435,8 +1438,8 @@ func GetStatisticalAreasData(ctx *gin.Context) {
 	}
 	//winRate := float64(jb_y) / float64(jb_count) * 100
 
-	statisticalAreas[13] = strconv.Itoa(IntAbs(zt_y)-IntAbs(zt_s)) //净胜~须多少手回到50%
-	statisticalAreas[17] = fmt.Sprintf("%.2f", zt_syz)                  //一共输赢多少钱
+	statisticalAreas[13] = strconv.Itoa(IntAbs(zt_y) - IntAbs(zt_s)) //净胜~须多少手回到50%
+	statisticalAreas[17] = fmt.Sprintf("%.2f", zt_syz)               //一共输赢多少钱
 
 	//计算平均赢
 	if statisticalAreas[13] == "0" {
