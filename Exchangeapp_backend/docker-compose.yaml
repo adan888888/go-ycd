@@ -1,3 +1,9 @@
+# 一键启动前后端（任意目录均可执行）：
+# cd ~/GolandProjects/Web003Gin-01_gingormtutorials/Exchangeapp_backend && docker compose up -d --build && cd ~/GolandProjects/Web003Gin-01_gingormtutorials/Exchangeapp_frontend && docker compose up -d --build
+
+
+# 仅本目录：docker compose up -d --build
+
 name: exchangeapp-backend # docker-compose 项目组名称（Docker Desktop 里显示的名字）
 services:
   #放可执行文件不是目录

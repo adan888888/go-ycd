@@ -1,6 +1,10 @@
 # 与后端 docker-compose.yaml（name: exchangeapp-backend）同机：网络一般为 exchangeapp-backend_default
-# 先保证后端已 up：cd Exchangeapp_backend && docker compose up -d
-# 再启动前端：cd Exchangeapp_frontend && docker compose -f docker-compose.frontend.yaml up -d --build
+#
+# 一键启动（任意目录均可执行，须先后端再前端）：
+# cd /Users/a123123/GolandProjects/Web003Gin-01_gingormtutorials/Exchangeapp_backend && docker compose up -d --build && \
+# cd /Users/a123123/GolandProjects/Web003Gin-01_gingormtutorials/Exchangeapp_frontend && docker compose up -d --build
+#
+# 仅本目录：docker compose up -d --build
 #
 # 容器名：exchangeapp-frontend（本文件） / exchangeapp-backend（后端 app 服务）
 # Nginx 反代使用 compose 服务名 app:3000（不是 container_name）
