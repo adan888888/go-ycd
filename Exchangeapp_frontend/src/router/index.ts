@@ -11,6 +11,7 @@ import LoginView from '../views/LoginView.vue';
 import RegisterView from '../views/RegisterView.vue';
 import UserManageView from '../views/UserManageView.vue';
 import RoleManageView from '../views/RoleManageView.vue';
+import BaccaratSimulationView from '../views/BaccaratSimulationView.vue';
 import { useAuthStore } from '../store/auth';
 import { ElMessage } from 'element-plus';
 
@@ -56,6 +57,12 @@ const routes: RouteRecordRaw[] = [
     name: 'UserManage',
     component: UserManageView,
     meta: { requiresAuth: true, requiresSuperAdmin: true, title: '用户管理' },
+  },
+  {
+    path: '/baccarat-simulation',
+    name: 'BaccaratSimulation',
+    component: BaccaratSimulationView,
+    meta: { requiresAuth: true, title: '百家乐模拟' },
   },
   { path: '/login', name: 'Login', component: LoginView, meta: { requiresAuth: false } },
   { path: '/register', name: 'Register', component: RegisterView, meta: { requiresAuth: false } },

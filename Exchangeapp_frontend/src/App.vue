@@ -78,6 +78,12 @@
             </el-icon>
             <span>查看新闻</span>
           </el-menu-item>
+          <el-menu-item v-if="authStore.isAuthenticated" index="/baccarat-simulation">
+            <el-icon>
+              <VideoPlay />
+            </el-icon>
+            <span>模拟测试</span>
+          </el-menu-item>
 
           <el-menu-item v-if="authStore.isSuperAdmin" index="/user-manage">
             <el-icon>
@@ -123,7 +129,7 @@
 import { ref, watch, provide, computed, type Ref, type ComputedRef } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from './store/auth';
-import { House, Money, Document, User, Edit, ArrowDown, Switch, Tickets, ShoppingCart, Setting, Key } from '@element-plus/icons-vue';
+import { House, Money, Document, User, Edit, ArrowDown, Switch, Tickets, ShoppingCart, Setting, Key, VideoPlay } from '@element-plus/icons-vue';
 import axios from './axios';
 
 interface UserInfo {

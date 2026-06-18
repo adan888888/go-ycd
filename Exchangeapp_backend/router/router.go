@@ -90,7 +90,18 @@ func SetupRouter() *gin.Engine {
 		buyRecords.DELETE("/:id", controllers.DeleteBuyRecord) // 删除买币记录
 	}
 
-	// 第6组：密码本管理（需登录且专业版及以上）
+	// 第6组：百家乐开奖模拟（需登录）
+	baccaratGroup := r.Group("/api/baccarat")
+	baccaratGroup.Use(middlewares.AuthMiddleWare())
+	{
+		baccaratGroup.GET("/state", controllers.GetBaccaratState)
+		baccaratGroup.POST("/shuffle", controllers.ShuffleBaccaratShoe)
+		baccaratGroup.POST("/cut-card", controllers.CutBaccaratCard)
+		baccaratGroup.POST("/deal", controllers.DealBaccaratHand)
+		baccaratGroup.POST("/reset", controllers.ResetBaccaratSession)
+	}
+
+	// 第7组：密码本管理（需登录且专业版及以上）
 	passwordBook := r.Group("/api/password-book")
 	passwordBook.Use(middlewares.AuthMiddleWare())
 	passwordBook.Use(middlewares.ProOrAboveMiddleware())
@@ -103,7 +114,7 @@ func SetupRouter() *gin.Engine {
 		passwordBook.POST("/batch-delete", controllers.BatchDeletePasswordItems) // 批量删除密码项
 	}
 
-	// 第7组：数据库备份管理（无需认证）
+	// 第8组：数据库备份管理（无需认证）
 	backupController := controllers.NewBackupController()
 	backup := r.Group("/api/backup")
 	{
