@@ -99,6 +99,8 @@ func SetupRouter() *gin.Engine {
 		baccaratGroup.POST("/cut-card", controllers.CutBaccaratCard)
 		baccaratGroup.POST("/deal", controllers.DealBaccaratHand)
 		baccaratGroup.POST("/reset", controllers.ResetBaccaratSession)
+		baccaratGroup.POST("/bulk-simulate", controllers.BulkSimulateBaccarat)
+		baccaratGroup.POST("/bulk-collision", controllers.BulkCollisionSimulate)
 	}
 
 	// 第7组：密码本管理（需登录且专业版及以上）

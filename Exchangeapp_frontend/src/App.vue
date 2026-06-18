@@ -34,7 +34,8 @@
     <el-container class="admin-body">
       <!-- 左侧边栏 -->
       <el-aside width="150px" class="admin-aside">
-        <el-menu v-if="menuReady" :key="menuActivePath" router :default-active="menuActivePath" class="admin-menu"
+        <el-menu v-if="menuReady" :key="menuActivePath" router :default-active="menuActivePath"
+          :default-openeds="menuDefaultOpeneds" class="admin-menu"
           background-color="#304156" text-color="#bfcbd9" active-text-color="#409eff" @select="handleSelect">
           <el-menu-item index="/">
             <el-icon>
@@ -78,12 +79,16 @@
             </el-icon>
             <span>查看新闻</span>
           </el-menu-item>
-          <el-menu-item v-if="authStore.isAuthenticated" index="/baccarat-simulation">
-            <el-icon>
-              <VideoPlay />
-            </el-icon>
-            <span>模拟测试</span>
-          </el-menu-item>
+          <el-sub-menu v-if="authStore.isAuthenticated" index="baccarat-test">
+            <template #title>
+              <el-icon>
+                <VideoPlay />
+              </el-icon>
+              <span>模拟测试</span>
+            </template>
+            <el-menu-item index="/baccarat-simulation">逐局模拟</el-menu-item>
+            <el-menu-item index="/baccarat-bulk">千靴统计</el-menu-item>
+          </el-sub-menu>
 
           <el-menu-item v-if="authStore.isSuperAdmin" index="/user-manage">
             <el-icon>
@@ -156,6 +161,15 @@ const menuActivePath = computed(() => {
   // 刷新首帧 route.path 可能短暂为 /，地址栏已是目标页，避免先亮「首页」
   if (path === '/' && loc !== '/') return loc;
   return path || loc || '/';
+});
+
+/** 模拟测试子菜单：在百家乐相关页面时默认展开 */
+const menuDefaultOpeneds = computed(() => {
+  const path = menuActivePath.value;
+  if (path.startsWith('/baccarat')) {
+    return ['baccarat-test'];
+  }
+  return [];
 });
 
 /** 等路由就绪后再挂载菜单，避免 default-active 在错误路径上初始化 */
