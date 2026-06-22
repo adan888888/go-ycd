@@ -90,7 +90,7 @@
         </div>
       </template>
       <el-table :data="collisionTableWithTotal" :row-class-name="tableRowClassName" size="small" stripe border class="collision-history-table">
-        <el-table-column prop="label" label="次数" width="88" fixed />
+        <el-table-column prop="label" label="次数" width="88" />
         <el-table-column prop="shoeCount" label="靴数" width="80" align="right" />
         <el-table-column prop="winCount" label="赢" min-width="88" align="right" />
         <el-table-column prop="lossCount" label="输" min-width="88" align="right" />
@@ -198,23 +198,6 @@ const netWinClass = (n: number) => {
   if (n < 0) return 'diff-player';
   return 'diff-even';
 };
-
-const collisionNetClass = computed(() => {
-  if (!result.value?.collision) return '';
-  return netWinClass(result.value.collision.netWin);
-});
-
-const randomDiffClass = computed(() => {
-  if (!result.value?.collision) return '';
-  return netWinClass(result.value.collision.randomBankerPlayerDiff);
-});
-
-const randomPer10kText = computed(() => {
-  if (!result.value?.collision) return '0';
-  const diff = result.value.collision.randomBankerMinusPlayerPer10k;
-  const sign = diff > 0 ? '+' : '';
-  return `${sign}${diff.toFixed(1)} 次`;
-});
 
 const formatRandomPer10k = (diff: number, banker: number, player: number) => {
   const total = banker + player;
@@ -618,69 +601,13 @@ const tableRows = computed(() =>
   margin-top: 8px;
 }
 
-.collision-card {
-  flex-shrink: 0;
-  width: 100%;
-}
-
-.collision-card :deep(.el-card__header) {
-  padding: clamp(8px, 1.2vw, 12px) clamp(12px, 1.5vw, 16px);
-  font-size: clamp(12px, 0.8vw + 10px, 14px);
-}
-
-.collision-card :deep(.el-card__body) {
-  padding: clamp(10px, 1.2vw, 14px) clamp(12px, 1.5vw, 16px);
-}
-
-.collision-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 130px), 1fr));
-  gap: clamp(6px, 1vw, 10px);
-}
-
-.collision-item {
-  text-align: center;
-  padding: clamp(6px, 1vw, 10px) clamp(4px, 0.8vw, 8px);
-  border-radius: 6px;
-  background: #f5f7fa;
-  min-width: 0;
-}
-
-.collision-item.win {
-  background: #f0f9eb;
-}
-
-.collision-item.win .collision-value {
-  color: #67c23a;
-}
-
-.collision-value {
-  font-size: clamp(12px, 1vw + 10px, 16px);
-  font-weight: 700;
-  color: #303133;
-  word-break: break-word;
-}
-
-.collision-label {
-  margin-top: clamp(2px, 0.4vw, 4px);
-  font-size: clamp(9px, 0.5vw + 7px, 11px);
-  color: #909399;
-  line-height: 1.3;
-}
-
-.collision-hint {
-  margin: clamp(6px, 1vw, 10px) 0 0;
-  font-size: clamp(9px, 0.5vw + 7px, 11px);
-  color: #909399;
-}
-
 .collision-history-card {
   flex-shrink: 0;
 }
 
 .collision-history-table :deep(.total-row) {
   font-weight: 700;
-  background: linear-gradient(135deg, #e0f7fa 0%, #e1bee7 100%);
+  background: linear-gradient(90deg, transparent 0%, #f1f8e9 20%, #f3e5f5 50%, #f1f8e9 80%, transparent 100%);
   color: #424242;
 }
 
