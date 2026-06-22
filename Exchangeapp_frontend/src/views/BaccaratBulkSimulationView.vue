@@ -79,56 +79,7 @@
         </el-table>
       </el-card>
 
-      <el-card v-if="result.collision" class="collision-card" shadow="never">
-        <template #header>
-          <div class="stats-header">
-            <span>随机庄闲碰撞胜率</span>
-            <el-tag type="success" size="small">庄占比 {{ result.collision.zhuangZhanBi }}%</el-tag>
-          </div>
-        </template>
-        <div class="collision-grid">
-          <div class="collision-item win">
-            <div class="collision-value">{{ result.collision.winRate.toFixed(2) }}%</div>
-            <div class="collision-label">胜率</div>
-          </div>
-          <div class="collision-item">
-            <div class="collision-value">{{ result.collision.winCount.toLocaleString() }}</div>
-            <div class="collision-label">赢</div>
-          </div>
-          <div class="collision-item">
-            <div class="collision-value">{{ result.collision.lossCount.toLocaleString() }}</div>
-            <div class="collision-label">输</div>
-          </div>
-          <div class="collision-item" :class="collisionNetClass">
-            <div class="collision-value">{{ formatSigned(result.collision.netWin) }}</div>
-            <div class="collision-label">净胜（赢-输）</div>
-          </div>
-          <div class="collision-item">
-            <div class="collision-value">{{ result.collision.tieCount.toLocaleString() }}</div>
-            <div class="collision-label">和局（走水）</div>
-          </div>
-          <div class="collision-item">
-            <div class="collision-value">{{ result.collision.randomBanker.toLocaleString() }}</div>
-            <div class="collision-label">随机庄</div>
-          </div>
-          <div class="collision-item">
-            <div class="collision-value">{{ result.collision.randomPlayer.toLocaleString() }}</div>
-            <div class="collision-label">随机闲</div>
-          </div>
-          <div class="collision-item" :class="randomDiffClass">
-            <div class="collision-value">{{ formatSigned(result.collision.randomBankerPlayerDiff) }}</div>
-            <div class="collision-label">随机的庄闲差</div>
-          </div>
-          <div class="collision-item" :class="randomDiffClass">
-            <div class="collision-value">{{ randomPer10kText }}</div>
-            <div class="collision-label">平均每万次随机庄比闲多</div>
-          </div>
-        </div>
-        <p class="collision-hint">
-          有效局 {{ result.collision.settledCount.toLocaleString() }} 局（不含和局走水）；
-          用户 {{ result.collision.userId }}
-        </p>
-      </el-card>
+
     </template>
 
     <el-card v-if="collisionHistory.length" class="collision-history-card" shadow="never">
@@ -138,7 +89,7 @@
           <el-button size="small" text type="danger" @click="clearCollisionHistory">清空</el-button>
         </div>
       </template>
-      <el-table :data="collisionTableWithTotal" size="small" stripe border class="collision-history-table">
+      <el-table :data="collisionTableWithTotal" :row-class-name="tableRowClassName" size="small" stripe border class="collision-history-table">
         <el-table-column prop="label" label="次数" width="88" fixed />
         <el-table-column prop="shoeCount" label="靴数" width="80" align="right" />
         <el-table-column prop="winCount" label="赢" min-width="88" align="right" />
@@ -347,7 +298,7 @@ const collisionTableWithTotal = computed(() => {
     }
   );
 
-  rows.push({
+  rows.unshift({
     label: '累计',
     shoeCount: total.shoeCount,
     winRate: formatRate(total.winCount, total.settledCount),
@@ -376,6 +327,10 @@ const collisionTableWithTotal = computed(() => {
 
 const clearCollisionHistory = () => {
   collisionHistory.value = [];
+};
+
+const tableRowClassName = ({ row }: { row: any }) => {
+  return row.isTotal ? 'total-row' : '';
 };
 
 const runSimulate = async (excludeTie: boolean) => {
@@ -723,9 +678,26 @@ const tableRows = computed(() =>
   flex-shrink: 0;
 }
 
-.collision-history-table :deep(.el-table__row:last-child) {
+.collision-history-table :deep(.total-row) {
   font-weight: 700;
-  background: #fafafa;
+  background: linear-gradient(135deg, #e0f7fa 0%, #e1bee7 100%);
+  color: #424242;
+}
+
+.collision-history-table :deep(.total-row .cell) {
+  color: #424242;
+}
+
+.collision-history-table :deep(.total-row .diff-banker) {
+  color: #e57373;
+}
+
+.collision-history-table :deep(.total-row .diff-player) {
+  color: #66bb6a;
+}
+
+.collision-history-table :deep(.total-row .diff-even) {
+  color: #78909c;
 }
 
 @media (max-width: 768px) {
