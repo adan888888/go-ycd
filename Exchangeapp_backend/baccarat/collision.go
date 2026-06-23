@@ -16,6 +16,12 @@ type CollisionStats struct {
 	RandomPlayer                   int     `json:"randomPlayer"`
 	RandomBankerPlayerDiff         int     `json:"randomBankerPlayerDiff"`
 	RandomBankerMinusPlayerPer10k  float64 `json:"randomBankerMinusPlayerPer10k"`
+	MaxWinStreak  int `json:"maxWinStreak"`
+	MaxLossStreak int `json:"maxLossStreak"`
+	// 临时字段，用于计算
+	lastWasWin      bool `json:"-"`
+	currentWinStreak int `json:"-"`
+	currentLossStreak int `json:"-"`
 }
 
 // PickRandomBankerPlayer 与 GetRandomBankerPlayer 相同规则：1~100 随机数 <= 庄占比则为庄
@@ -59,12 +65,36 @@ func recordCollision(stats *CollisionStats, pick, actual string) {
 	} else {
 		stats.RandomPlayer++
 	}
+
 	switch actual {
 	case "和":
 		stats.TieCount++
+		// 和局不影响连赢连输
 	case pick:
 		stats.WinCount++
+		// 连赢逻辑
+		if !stats.lastWasWin {
+			stats.currentWinStreak = 1
+		} else {
+			stats.currentWinStreak++
+		}
+		stats.lastWasWin = true
+		if stats.currentWinStreak > stats.MaxWinStreak {
+			stats.MaxWinStreak = stats.currentWinStreak
+		}
+		stats.currentLossStreak = 0
 	default:
 		stats.LossCount++
+		// 连输逻辑
+		if stats.lastWasWin {
+			stats.currentLossStreak = 1
+		} else {
+			stats.currentLossStreak++
+		}
+		stats.lastWasWin = false
+		if stats.currentLossStreak > stats.MaxLossStreak {
+			stats.MaxLossStreak = stats.currentLossStreak
+		}
+		stats.currentWinStreak = 0
 	}
 }
