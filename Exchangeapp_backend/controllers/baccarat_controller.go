@@ -163,6 +163,19 @@ func loadUserZhuangZhanBi(uid int64) (int, error) {
 	return table.ZhuangZhanBi, nil
 }
 
+func saveUserZhuangZhanBi(uid int64, zhuangZhanBi int) error {
+	var table models.TableYanchendao1
+	err := global.Db.Where("uid = ?", uid).Last(&table).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return errors.New("未找到用户庄占比配置")
+	}
+	if err != nil {
+		return err
+	}
+	table.ZhuangZhanBi = zhuangZhanBi
+	return global.Db.Save(&table).Error
+}
+
 // BulkCollisionSimulate 千靴开奖与用户随机庄闲碰撞测胜率
 // @Summary 百家乐随机庄闲碰撞
 // @Tags baccarat
@@ -204,4 +217,68 @@ func BulkCollisionSimulate(ctx *gin.Context) {
 
 	result := baccarat.SimulateShoes(input.ShoeCount, false, uid, zhuangZhanBi)
 	Success(ctx, "碰撞统计完成", result)
+}
+
+// BulkMeanReversionSimulate 均值回归策略碰撞：按净胜动态庄占比，并写回用户配置
+// @Summary 百家乐均值回归策略碰撞
+// @Tags baccarat
+// @Router /api/baccarat/bulk-mean-reversion [post]
+func BulkMeanReversionSimulate(ctx *gin.Context) {
+	if loginUID(ctx) == 0 {
+		Fail(ctx, apicode.CodeUnauthorized, "无法识别当前登录用户")
+		return
+	}
+
+	var input struct {
+		ShoeCount     int    `json:"shoeCount"`
+		UserID        string `json:"userId"`
+		InitialNetWin int    `json:"initialNetWin"`
+	}
+	_ = ctx.ShouldBindJSON(&input)
+	if input.ShoeCount <= 0 {
+		input.ShoeCount = 1000
+	}
+	if input.ShoeCount > 10000 {
+		Fail(ctx, apicode.CodeParamInvalid, "单次最多模拟 10000 靴")
+		return
+	}
+
+	uid := defaultCollisionUserID
+	if input.UserID != "" {
+		parsed, err := strconv.ParseInt(input.UserID, 10, 64)
+		if err != nil {
+			Fail(ctx, apicode.CodeParamInvalid, "用户ID格式错误")
+			return
+		}
+		uid = parsed
+	}
+
+	result := baccarat.SimulateShoesMeanReversion(input.ShoeCount, uid, input.InitialNetWin)
+
+	finalNetWin := input.InitialNetWin
+	if result.Collision != nil {
+		finalNetWin += result.Collision.NetWin
+	}
+	finalZhuangZhanBi := baccarat.MeanReversionZhuangZhanBi(finalNetWin)
+	if err := saveUserZhuangZhanBi(uid, finalZhuangZhanBi); err != nil {
+		Fail(ctx, apicode.CodeServerError, "更新庄占比失败: "+err.Error())
+		return
+	}
+	if result.Collision != nil {
+		result.Collision.ZhuangZhanBi = finalZhuangZhanBi
+	}
+
+	Success(ctx, "均值回归策略碰撞完成", gin.H{
+		"shoeCount":               result.ShoeCount,
+		"totalHands":              result.TotalHands,
+		"effectiveHands":          result.EffectiveHands,
+		"excludeTie":              result.ExcludeTie,
+		"stats":                   result.Stats,
+		"bankerMinusPlayerPer10k": result.BankerMinusPlayerPer10k,
+		"netWin":                  result.NetWin,
+		"collision":               result.Collision,
+		"initialNetWin":           input.InitialNetWin,
+		"finalNetWin":             finalNetWin,
+		"updatedZhuangZhanBi":     finalZhuangZhanBi,
+	})
 }

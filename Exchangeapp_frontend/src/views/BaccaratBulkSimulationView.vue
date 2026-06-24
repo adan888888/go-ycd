@@ -21,8 +21,10 @@
         <el-button type="success" size="large" :loading="collisionLoading" @click="runCollision">
           庄闲碰撞测胜率
         </el-button>
+        <el-button type="info" size="large" :loading="meanReversionLoading" @click="runMeanReversion">
+          均值回归策略
+        </el-button>
       </div>
-      <p class="desc-sub">碰撞测试用户 ID：{{ collisionUserId }}（按该用户庄占比随机庄闲，与开奖结果逐局比对）</p>
     </el-card>
 
     <template v-if="result">
@@ -87,54 +89,47 @@
           <el-button size="small" text type="danger" @click="clearCollisionHistory">清空</el-button>
         </div>
       </template>
-      <el-table 
-        :data="collisionTableWithTotal" 
-        :row-class-name="tableRowClassName"
-        :height="tableHeight"
-        size="small" 
-        stripe 
-        border 
-        class="collision-history-table"
-      >
-      <el-table-column prop="label" label="次数" width="88" />
-      <el-table-column prop="shoeCount" label="靴数" width="80" align="right" />
-      <el-table-column prop="winCount" label="赢" min-width="88" align="right" />
-      <el-table-column prop="lossCount" label="输" min-width="88" align="right" />
-      <el-table-column prop="settledCount" label="有效局" min-width="96" align="right" />
-      <el-table-column prop="winRate" label="胜率" width="88" align="right" />
-      <el-table-column prop="netWin" label="净胜" min-width="88" align="right">
-        <template #default="{ row }">
-          <span :class="netWinClass(row.netWinRaw)">{{ row.netWin }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="avgNetWinPer1k" label="每千次赢输差值" min-width="100" align="right">
-        <template #default="{ row }">
-          <span :class="netWinClass(row.avgNetWinPer1kRaw)">{{ row.avgNetWinPer1k }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="maxWinStreak" label="连赢最高" min-width="88" align="right">
-        <template #default="{ row }">
-          <span :style="{ color: row.maxWinStreak > 0 ? '#67c23a' : '' }">{{ row.maxWinStreak }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="maxLossStreak" label="连输最高" min-width="88" align="right">
-        <template #default="{ row }">
-          <span :style="{ color: row.maxLossStreak > 0 ? '#f56c6c' : '' }">{{ row.maxLossStreak }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="randomBanker" label="随机庄" min-width="96" align="right" />
-      <el-table-column prop="randomPlayer" label="随机闲" min-width="96" align="right" />
-      <el-table-column prop="randomBankerPlayerDiff" label="随机庄闲差" min-width="108" align="right">
-        <template #default="{ row }">
-          <span :class="netWinClass(row.randomDiffRaw)">{{ row.randomBankerPlayerDiff }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="randomPer10k" label="每万次随机庄多" min-width="120" align="right" />
-    </el-table>
-  </el-card>
+      <el-table :data="collisionTableWithTotal" :row-class-name="tableRowClassName" :height="tableHeight" size="small"
+        stripe border class="collision-history-table">
+        <el-table-column prop="label" label="次数" width="88" />
+        <el-table-column prop="shoeCount" label="靴数" width="80" align="right" />
+        <el-table-column prop="winCount" label="赢" min-width="88" align="right" />
+        <el-table-column prop="lossCount" label="输" min-width="88" align="right" />
+        <el-table-column prop="settledCount" label="有效局" min-width="96" align="right" />
+        <el-table-column prop="winRate" label="胜率" width="88" align="right" />
+        <el-table-column prop="netWin" label="净胜" min-width="88" align="right">
+          <template #default="{ row }">
+            <span :class="netWinClass(row.netWinRaw)">{{ row.netWin }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="avgNetWinPer1k" label="每千次赢输差值" min-width="100" align="right">
+          <template #default="{ row }">
+            <span :class="netWinClass(row.avgNetWinPer1kRaw)">{{ row.avgNetWinPer1k }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="maxWinStreak" label="连赢最高" min-width="88" align="right">
+          <template #default="{ row }">
+            <span :style="{ color: row.maxWinStreak > 0 ? '#67c23a' : '' }">{{ row.maxWinStreak }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="maxLossStreak" label="连输最高" min-width="88" align="right">
+          <template #default="{ row }">
+            <span :style="{ color: row.maxLossStreak > 0 ? '#f56c6c' : '' }">{{ row.maxLossStreak }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="randomBanker" label="随机庄" min-width="96" align="right" />
+        <el-table-column prop="randomPlayer" label="随机闲" min-width="96" align="right" />
+        <el-table-column prop="randomBankerPlayerDiff" label="随机庄闲差" min-width="108" align="right">
+          <template #default="{ row }">
+            <span :class="netWinClass(row.randomDiffRaw)">{{ row.randomBankerPlayerDiff }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="randomPer10k" label="每万次随机庄多" min-width="120" align="right" />
+      </el-table>
+    </el-card>
 
-  <el-empty v-if="!result && !loading && !collisionLoading && !collisionHistory.length"
-    description="设置靴数后点击上方按钮开始模拟" />
+    <el-empty v-if="!result && !loading && !collisionLoading && !meanReversionLoading && !collisionHistory.length"
+      description="设置靴数后点击上方按钮开始模拟" />
   </div>
 </template>
 
@@ -193,6 +188,7 @@ const collisionUserId = '1907650735441448960';
 const shoeCount = ref(130);
 const loading = ref(false);
 const collisionLoading = ref(false);
+const meanReversionLoading = ref(false);
 const result = ref<BulkResult | null>(null);
 const collisionHistory = ref<CollisionHistoryItem[]>([]);
 const tableHeight = ref(400);
@@ -372,6 +368,42 @@ const runSimulate = async (excludeTie: boolean) => {
   }
 };
 
+const cumulativeNetWin = computed(() =>
+  collisionHistory.value.reduce((acc, row) => acc + row.netWinRaw, 0)
+);
+
+const runMeanReversion = async () => {
+  const count = resolveShoeCount();
+  if (count === null) return;
+
+  meanReversionLoading.value = true;
+  try {
+    const res = await axios.post(
+      '/baccarat/bulk-mean-reversion',
+      {
+        shoeCount: count,
+        userId: collisionUserId,
+        initialNetWin: cumulativeNetWin.value,
+      },
+      { timeout: requestTimeout.value }
+    );
+    if (res.data?.data) {
+      result.value = res.data.data;
+      const c = res.data.data.collision;
+      if (c) {
+        collisionHistory.value.push(toHistoryRow(c, count, collisionHistory.value.length + 1));
+        ElMessage.success(
+          `第 ${collisionHistory.value.length} 次均值回归完成，胜率 ${c.winRate.toFixed(2)}%`
+        );
+      } else {
+        ElMessage.success('均值回归策略完成');
+      }
+    }
+  } finally {
+    meanReversionLoading.value = false;
+  }
+};
+
 const runCollision = async () => {
   const count = resolveShoeCount();
   if (count === null) return;
@@ -525,12 +557,6 @@ onUnmounted(() => {
   color: #909399;
 }
 
-.desc-sub {
-  margin: 12px 0 0;
-  color: #909399;
-  font-size: 12px;
-}
-
 .action-row {
   display: flex;
   flex-wrap: wrap;
@@ -659,12 +685,14 @@ onUnmounted(() => {
   top: 180px;
   z-index: 99;
 }
+
 .collision-history-table :deep(.total-row) {
   font-weight: 700;
   position: sticky;
   top: 0;
   z-index: 10;
 }
+
 .collision-history-table :deep(.total-row td) {
   background: linear-gradient(90deg, rgba(241, 248, 233, 0.9) 0%, rgba(243, 229, 245, 0.9) 50%, rgba(241, 248, 233, 0.9) 100%);
   color: #424242;
