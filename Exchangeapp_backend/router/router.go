@@ -102,6 +102,7 @@ func SetupRouter() *gin.Engine {
 		baccaratGroup.POST("/bulk-simulate", controllers.BulkSimulateBaccarat)
 		baccaratGroup.POST("/bulk-collision", controllers.BulkCollisionSimulate)
 		baccaratGroup.POST("/bulk-mean-reversion", controllers.BulkMeanReversionSimulate)
+		baccaratGroup.POST("/bulk-cable", controllers.BulkCableSimulate)
 	}
 
 	// 第7组：密码本管理（需登录且专业版及以上）

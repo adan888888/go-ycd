@@ -282,3 +282,47 @@ func BulkMeanReversionSimulate(ctx *gin.Context) {
 		"updatedZhuangZhanBi":     finalZhuangZhanBi,
 	})
 }
+
+// BulkCableSimulate 十三太保缆法 + 八副牌 + 庄闲碰撞模拟
+// @Summary 十三太保缆法模拟
+// @Tags baccarat
+// @Router /api/baccarat/bulk-cable [post]
+func BulkCableSimulate(ctx *gin.Context) {
+	if loginUID(ctx) == 0 {
+		Fail(ctx, apicode.CodeUnauthorized, "无法识别当前登录用户")
+		return
+	}
+
+	var input struct {
+		ShoeCount  int    `json:"shoeCount"`
+		UserID     string `json:"userId"`
+		MaxDetails int    `json:"maxDetails"`
+	}
+	_ = ctx.ShouldBindJSON(&input)
+	if input.ShoeCount <= 0 {
+		input.ShoeCount = 130
+	}
+	if input.ShoeCount > 10000 {
+		Fail(ctx, apicode.CodeParamInvalid, "单次最多模拟 10000 靴")
+		return
+	}
+
+	uid := defaultCollisionUserID
+	if input.UserID != "" {
+		parsed, err := strconv.ParseInt(input.UserID, 10, 64)
+		if err != nil {
+			Fail(ctx, apicode.CodeParamInvalid, "用户ID格式错误")
+			return
+		}
+		uid = parsed
+	}
+
+	zhuangZhanBi, err := loadUserZhuangZhanBi(uid)
+	if err != nil {
+		Fail(ctx, apicode.CodeServerError, "查询用户庄占比失败: "+err.Error())
+		return
+	}
+
+	result := baccarat.SimulateCableMethod(input.ShoeCount, uid, zhuangZhanBi, input.MaxDetails)
+	Success(ctx, "缆法模拟完成", result)
+}

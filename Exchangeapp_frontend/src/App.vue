@@ -88,6 +88,7 @@
             </template>
             <el-menu-item index="/baccarat-simulation">逐局模拟</el-menu-item>
             <el-menu-item index="/baccarat-bulk">千靴统计</el-menu-item>
+            <el-menu-item index="/baccarat-cable">十三太保缆法</el-menu-item>
           </el-sub-menu>
 
           <el-menu-item v-if="authStore.isSuperAdmin" index="/user-manage">

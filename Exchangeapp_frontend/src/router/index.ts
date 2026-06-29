@@ -13,6 +13,7 @@ import UserManageView from '../views/UserManageView.vue';
 import RoleManageView from '../views/RoleManageView.vue';
 import BaccaratSimulationView from '../views/BaccaratSimulationView.vue';
 import BaccaratBulkSimulationView from '../views/BaccaratBulkSimulationView.vue';
+import BaccaratCableSimulationView from '../views/BaccaratCableSimulationView.vue';
 import { useAuthStore } from '../store/auth';
 import { ElMessage } from 'element-plus';
 
@@ -70,6 +71,12 @@ const routes: RouteRecordRaw[] = [
     name: 'BaccaratBulk',
     component: BaccaratBulkSimulationView,
     meta: { requiresAuth: true, title: '千靴统计' },
+  },
+  {
+    path: '/baccarat-cable',
+    name: 'BaccaratCable',
+    component: BaccaratCableSimulationView,
+    meta: { requiresAuth: true, title: '十三太保缆法' },
   },
   { path: '/login', name: 'Login', component: LoginView, meta: { requiresAuth: false } },
   { path: '/register', name: 'Register', component: RegisterView, meta: { requiresAuth: false } },
