@@ -6,6 +6,7 @@
         使用项目八副牌规则发牌，投注方向采用批量靴模拟中的「庄闲碰撞」（随机庄/闲 vs 实际开奖）。
         和局视为走水：缆法层列不变、不计盈亏。庄赢按 5% 抽水，净赢为下注额的 0.95（返 1.95）。
         每次点击追加一次模拟，下方统计卡片为多次测试累计；明细显示最近一次结果。
+        流水为有效下注合计（中/不中），和局走水不计入。
       </p>
       <div class="config-row">
         <span class="config-label">模拟靴数</span>
@@ -115,6 +116,10 @@
           <div class="summary-label">缆法累计盈亏（单位）</div>
         </el-card>
         <el-card shadow="never" class="summary-card">
+          <div class="summary-value">{{ cumulativeStats.turnover.toLocaleString() }}</div>
+          <div class="summary-label">累计流水（不含和）</div>
+        </el-card>
+        <el-card shadow="never" class="summary-card">
           <div class="summary-value">{{ cumulativeStats.maxLayer }}</div>
           <div class="summary-label">到达最高层</div>
         </el-card>
@@ -151,6 +156,79 @@
         </el-card>
       </div>
 
+      <el-card class="chart-card" shadow="never">
+        <template #header>
+          <div class="stats-header">
+            <span>累计盈亏曲线</span>
+            <el-radio-group v-model="chartMode" size="small">
+              <el-radio-button value="shoes">按累计靴数</el-radio-button>
+              <el-radio-button value="per1000">每 1000 靴</el-radio-button>
+              <el-radio-button value="runs">按测试次数</el-radio-button>
+            </el-radio-group>
+          </div>
+        </template>
+        <div v-if="chartRender" class="chart-wrap">
+          <svg
+            class="profit-chart"
+            :viewBox="`0 0 ${chartRender.width} ${chartRender.height}`"
+            preserveAspectRatio="none"
+          >
+            <!-- 网格与零轴 -->
+            <line
+              v-for="(gy, i) in chartRender.gridYs"
+              :key="'g' + i"
+              :x1="chartRender.pad.left"
+              :y1="gy"
+              :x2="chartRender.width - chartRender.pad.right"
+              :y2="gy"
+              class="chart-grid"
+            />
+            <line
+              :x1="chartRender.pad.left"
+              :y1="chartRender.zeroY"
+              :x2="chartRender.width - chartRender.pad.right"
+              :y2="chartRender.zeroY"
+              class="chart-zero-line"
+            />
+            <!-- 折线 -->
+            <path :d="chartRender.pathD" class="chart-line" />
+            <!-- 数据点 -->
+            <g v-for="(pt, i) in chartRender.plotPoints" :key="'p' + i">
+              <circle :cx="pt.cx" :cy="pt.cy" r="4" class="chart-dot">
+                <title>{{ pt.label }}：{{ formatProfit(pt.y) }}</title>
+              </circle>
+            </g>
+            <!-- Y 轴标签 -->
+            <text
+              v-for="(label, i) in chartRender.yLabels"
+              :key="'y' + i"
+              :x="chartRender.pad.left - 8"
+              :y="label.y"
+              class="chart-axis-label"
+              text-anchor="end"
+              dominant-baseline="middle"
+            >
+              {{ label.text }}
+            </text>
+            <!-- X 轴标签 -->
+            <text
+              v-for="(label, i) in chartRender.xLabels"
+              :key="'x' + i"
+              :x="label.x"
+              :y="chartRender.height - 8"
+              class="chart-axis-label"
+              text-anchor="middle"
+            >
+              {{ label.text }}
+            </text>
+          </svg>
+          <div class="chart-footnote">
+            {{ chartFootnote }}
+          </div>
+        </div>
+        <el-empty v-else description="至少完成 1 次模拟后显示曲线" :image-size="64" />
+      </el-card>
+
       <el-card class="history-card" shadow="never">
         <template #header>
           <div class="stats-header">
@@ -167,6 +245,7 @@
               <span :class="profitClass(row.totalProfitRaw)">{{ row.totalProfit }}</span>
             </template>
           </el-table-column>
+          <el-table-column prop="turnover" label="流水" min-width="96" align="right" />
           <el-table-column prop="maxLayer" label="最高层" width="80" align="center" />
           <el-table-column prop="burstCount" label="爆缆" width="72" align="center" />
           <el-table-column prop="winHands" label="碰撞赢" min-width="88" align="right" />
@@ -222,6 +301,7 @@ interface CableSummary {
   winHands: number;
   lossHands: number;
   totalBetUnits: number;
+  turnover: number;
 }
 
 interface CableHandDetail {
@@ -272,6 +352,7 @@ interface RunHistoryItem {
   shoeCount: number;
   totalHands: number;
   totalProfit: number;
+  turnover: number;
   maxLayer: number;
   burstCount: number;
   winHands: number;
@@ -279,7 +360,14 @@ interface RunHistoryItem {
   tieHands: number;
   winRate: number;
   collisionNetWin: number;
+  shoeSummaries: CableShoeSummary[];
   isTotal?: boolean;
+}
+
+interface ChartPoint {
+  x: number;
+  y: number;
+  label: string;
 }
 
 const defaultCableTable: CableTableRow[] = [
@@ -304,6 +392,7 @@ const maxDetails = ref(500);
 const loading = ref(false);
 const latestResult = ref<CableResult | null>(null);
 const runHistory = ref<RunHistoryItem[]>([]);
+const chartMode = ref<'shoes' | 'per1000' | 'runs'>('shoes');
 const detailTableHeight = ref(420);
 const currentHighlight = ref<{ layer: number; col: number } | null>(null);
 
@@ -320,6 +409,7 @@ const cumulativeStats = computed(() => {
       shoeCount: acc.shoeCount + row.shoeCount,
       totalHands: acc.totalHands + row.totalHands,
       totalProfit: acc.totalProfit + row.totalProfit,
+      turnover: acc.turnover + row.turnover,
       maxLayer: Math.max(acc.maxLayer, row.maxLayer),
       burstCount: acc.burstCount + row.burstCount,
       winHands: acc.winHands + row.winHands,
@@ -331,6 +421,7 @@ const cumulativeStats = computed(() => {
       shoeCount: 0,
       totalHands: 0,
       totalProfit: 0,
+      turnover: 0,
       maxLayer: 0,
       burstCount: 0,
       winHands: 0,
@@ -352,6 +443,7 @@ const toHistoryRow = (data: CableResult, index: number): RunHistoryItem => ({
   shoeCount: data.shoeCount,
   totalHands: data.totalHands,
   totalProfit: data.cable.totalProfit,
+  turnover: data.cable.turnover ?? data.cable.totalBetUnits,
   maxLayer: data.cable.maxLayer,
   burstCount: data.cable.burstCount,
   winHands: data.cable.winHands,
@@ -359,6 +451,7 @@ const toHistoryRow = (data: CableResult, index: number): RunHistoryItem => ({
   tieHands: data.cable.tieHands,
   winRate: data.collision?.winRate ?? 0,
   collisionNetWin: data.collision?.netWin ?? 0,
+  shoeSummaries: data.shoeSummaries ?? [],
 });
 
 const historyTableRows = computed(() => {
@@ -366,6 +459,7 @@ const historyTableRows = computed(() => {
     ...row,
     totalProfitRaw: row.totalProfit,
     totalProfit: formatProfit(row.totalProfit),
+    turnover: row.turnover.toLocaleString(),
     totalHands: row.totalHands.toLocaleString(),
     shoeCount: row.shoeCount.toLocaleString(),
     winHands: row.winHands.toLocaleString(),
@@ -384,6 +478,7 @@ const historyTableRows = computed(() => {
     totalHands: c.totalHands.toLocaleString(),
     totalProfitRaw: c.totalProfit,
     totalProfit: formatProfit(c.totalProfit),
+    turnover: c.turnover.toLocaleString(),
     maxLayer: c.maxLayer,
     burstCount: c.burstCount,
     winHands: c.winHands.toLocaleString(),
@@ -392,6 +487,7 @@ const historyTableRows = computed(() => {
     winRate: `${c.winRate.toFixed(2)}%`,
     collisionNetWinRaw: c.collisionNetWin,
     collisionNetWin: formatSigned(c.collisionNetWin),
+    shoeSummaries: [],
     isTotal: true,
   });
 
@@ -423,6 +519,149 @@ const profitClass = (n: number) => {
   if (n < 0) return 'diff-player';
   return 'diff-even';
 };
+
+const formatCompact = (n: number) => {
+  const abs = Math.abs(n);
+  if (abs >= 10000) return `${(n / 10000).toFixed(1)}万`;
+  if (Number.isInteger(n)) return String(n);
+  return n.toFixed(0);
+};
+
+const buildShoeLevelPoints = (): ChartPoint[] => {
+  const hasShoeDetail = runHistory.value.some((r) => r.shoeSummaries.length > 0);
+  if (!hasShoeDetail) {
+    const points: ChartPoint[] = [{ x: 0, y: 0, label: '0 靴' }];
+    let cumShoes = 0;
+    let cumProfit = 0;
+    for (const run of runHistory.value) {
+      cumShoes += run.shoeCount;
+      cumProfit += run.totalProfit;
+      points.push({ x: cumShoes, y: cumProfit, label: `${cumShoes.toLocaleString()} 靴` });
+    }
+    return points;
+  }
+
+  const points: ChartPoint[] = [{ x: 0, y: 0, label: '0 靴' }];
+  let globalShoe = 0;
+  let cumulative = 0;
+  for (const run of runHistory.value) {
+    for (const shoe of run.shoeSummaries) {
+      globalShoe += 1;
+      cumulative += shoe.profit;
+      points.push({ x: globalShoe, y: cumulative, label: `${globalShoe.toLocaleString()} 靴` });
+    }
+  }
+  return points;
+};
+
+const downsamplePoints = (points: ChartPoint[], maxPoints = 400): ChartPoint[] => {
+  if (points.length <= maxPoints) return points;
+  const result: ChartPoint[] = [points[0]];
+  const step = Math.ceil((points.length - 1) / (maxPoints - 1));
+  for (let i = step; i < points.length - 1; i += step) {
+    result.push(points[i]);
+  }
+  result.push(points[points.length - 1]);
+  return result;
+};
+
+const profitChartPoints = computed((): ChartPoint[] => {
+  if (runHistory.value.length === 0) return [];
+
+  if (chartMode.value === 'runs') {
+    const points: ChartPoint[] = [{ x: 0, y: 0, label: '起点' }];
+    let cumulative = 0;
+    runHistory.value.forEach((run, index) => {
+      cumulative += run.totalProfit;
+      points.push({ x: index + 1, y: cumulative, label: run.label });
+    });
+    return points;
+  }
+
+  let points = buildShoeLevelPoints();
+  if (chartMode.value === 'per1000') {
+    points = points.filter((p, index) => p.x === 0 || p.x % 1000 === 0 || index === points.length - 1);
+  } else if (points.length > 400) {
+    points = downsamplePoints(points);
+  }
+  return points;
+});
+
+const chartFootnote = computed(() => {
+  const pts = profitChartPoints.value;
+  if (pts.length < 2) return '';
+  const last = pts[pts.length - 1];
+  const first = pts[0];
+  const delta = last.y - first.y;
+  const xUnit = chartMode.value === 'runs' ? '次测试' : '靴';
+  return `共 ${pts.length} 个采样点，${chartMode.value === 'runs' ? '测试' : '累计'} ${last.x.toLocaleString()} ${xUnit}，盈亏 ${formatProfit(last.y)}（${delta >= 0 ? '上行' : '下行'} ${formatProfit(delta)}）`;
+});
+
+const chartRender = computed(() => {
+  const points = profitChartPoints.value;
+  if (points.length < 2) return null;
+
+  const width = 960;
+  const height = 300;
+  const pad = { top: 20, right: 28, bottom: 36, left: 76 };
+  const innerW = width - pad.left - pad.right;
+  const innerH = height - pad.top - pad.bottom;
+
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const xMax = Math.max(...xs, 1);
+  const yMin = Math.min(0, ...ys);
+  const yMax = Math.max(0, ...ys);
+  const yPad = (yMax - yMin) * 0.08 || 1;
+  const yLo = yMin - yPad;
+  const yHi = yMax + yPad;
+  const yRange = yHi - yLo || 1;
+
+  const scaleX = (x: number) => pad.left + (x / xMax) * innerW;
+  const scaleY = (y: number) => pad.top + innerH - ((y - yLo) / yRange) * innerH;
+
+  const pathD = points
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(p.x).toFixed(1)} ${scaleY(p.y).toFixed(1)}`)
+    .join(' ');
+
+  const plotPoints = points.map((p) => ({
+    cx: scaleX(p.x),
+    cy: scaleY(p.y),
+    x: p.x,
+    y: p.y,
+    label: p.label,
+  }));
+
+  const gridCount = 4;
+  const gridYs: number[] = [];
+  const yLabels: { y: number; text: string }[] = [];
+  for (let i = 0; i <= gridCount; i++) {
+    const val = yLo + (yRange * i) / gridCount;
+    const y = scaleY(val);
+    gridYs.push(y);
+    yLabels.push({ y, text: formatCompact(val) });
+  }
+
+  const xLabelCount = Math.min(6, points.length);
+  const xLabels: { x: number; text: string }[] = [];
+  for (let i = 0; i < xLabelCount; i++) {
+    const idx = Math.round((i / Math.max(xLabelCount - 1, 1)) * (points.length - 1));
+    const p = points[idx];
+    xLabels.push({ x: scaleX(p.x), text: p.x.toLocaleString() });
+  }
+
+  return {
+    width,
+    height,
+    pad,
+    pathD,
+    plotPoints,
+    gridYs,
+    yLabels,
+    xLabels,
+    zeroY: scaleY(0),
+  };
+});
 
 const outcomeLabel = (o: string) => {
   if (o === 'win') return '中';
@@ -626,7 +865,7 @@ onUnmounted(() => {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 16px;
   flex-shrink: 0;
 }
@@ -679,6 +918,57 @@ onUnmounted(() => {
 
 .burst-tag {
   margin-left: 4px;
+}
+
+.chart-card {
+  flex-shrink: 0;
+}
+
+.chart-wrap {
+  width: 100%;
+}
+
+.profit-chart {
+  width: 100%;
+  height: 300px;
+  display: block;
+}
+
+.chart-grid {
+  stroke: #ebeef5;
+  stroke-width: 1;
+}
+
+.chart-zero-line {
+  stroke: #909399;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.chart-line {
+  fill: none;
+  stroke: #409eff;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart-dot {
+  fill: #409eff;
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+.chart-axis-label {
+  fill: #909399;
+  font-size: 11px;
+}
+
+.chart-footnote {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
+  text-align: center;
 }
 
 .history-card :deep(.total-row) {

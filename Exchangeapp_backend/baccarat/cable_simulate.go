@@ -30,14 +30,15 @@ type CableShoeSummary struct {
 
 // CableSummary 缆法模拟汇总
 type CableSummary struct {
-	TotalProfit   float64 `json:"totalProfit"`
-	MaxLayer       int `json:"maxLayer"`
-	BurstCount     int `json:"burstCount"`
-	SettledHands   int `json:"settledHands"`
-	TieHands       int `json:"tieHands"`
-	WinHands       int `json:"winHands"`
-	LossHands      int `json:"lossHands"`
-	TotalBetUnits  int `json:"totalBetUnits"`
+	TotalProfit  float64 `json:"totalProfit"`
+	MaxLayer     int     `json:"maxLayer"`
+	BurstCount   int     `json:"burstCount"`
+	SettledHands int     `json:"settledHands"`
+	TieHands     int     `json:"tieHands"`
+	WinHands     int     `json:"winHands"`
+	LossHands    int     `json:"lossHands"`
+	TotalBetUnits int    `json:"totalBetUnits"`
+	Turnover     int     `json:"turnover"` // 流水：中/不中局下注合计，和局不计
 }
 
 // CableSimulateResult 缆法 + 八副牌 + 庄闲碰撞模拟结果
@@ -174,6 +175,7 @@ func SimulateCableMethod(shoeCount int, collisionUserID int64, collisionZhuangZh
 	}
 
 	result.Cable.TotalProfit = cumulative
+	result.Cable.Turnover = result.Cable.TotalBetUnits
 	result.BankerMinusPlayerPer10k = calcBankerMinusPlayerPer10k(
 		result.Stats.Banker,
 		result.Stats.Player,
