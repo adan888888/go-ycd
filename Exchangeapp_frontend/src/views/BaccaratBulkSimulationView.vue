@@ -12,17 +12,33 @@
         <span class="config-hint">1～10000 靴</span>
       </div>
       <div class="action-row">
-        <el-button type="primary" size="large" :loading="loading" @click="runSimulate(false)">
-          开始模拟
+        <el-button type="primary" size="large" class="bulk-action-btn" :class="{ 'is-busy': loading }"
+          :disabled="loading" @click="runSimulate(false)">
+          <span class="bulk-action-btn__label">开始模拟</span>
+          <el-icon v-if="loading" class="bulk-action-btn__loading">
+            <Loading />
+          </el-icon>
         </el-button>
-        <el-button type="warning" size="large" :loading="loading" @click="runSimulate(true)">
-          去掉和局
+        <el-button type="warning" size="large" class="bulk-action-btn" :class="{ 'is-busy': loading }"
+          :disabled="loading" @click="runSimulate(true)">
+          <span class="bulk-action-btn__label">去掉和局</span>
+          <el-icon v-if="loading" class="bulk-action-btn__loading">
+            <Loading />
+          </el-icon>
         </el-button>
-        <el-button type="success" size="large" :loading="collisionLoading" @click="runCollision">
-          庄闲碰撞测胜率
+        <el-button type="success" size="large" class="bulk-action-btn" :class="{ 'is-busy': collisionLoading }"
+          :disabled="collisionLoading" @click="runCollision">
+          <span class="bulk-action-btn__label">庄闲碰撞测胜率</span>
+          <el-icon v-if="collisionLoading" class="bulk-action-btn__loading">
+            <Loading />
+          </el-icon>
         </el-button>
-        <el-button type="info" size="large" :loading="meanReversionLoading" @click="runMeanReversion">
-          均值回归策略
+        <el-button type="info" size="large" class="bulk-action-btn" :class="{ 'is-busy': meanReversionLoading }"
+          :disabled="meanReversionLoading" @click="runMeanReversion">
+          <span class="bulk-action-btn__label">均值回归策略</span>
+          <el-icon v-if="meanReversionLoading" class="bulk-action-btn__loading">
+            <Loading />
+          </el-icon>
         </el-button>
       </div>
     </el-card>
@@ -135,6 +151,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { Loading } from '@element-plus/icons-vue';
 import axios from '../axios';
 import { ElMessage } from 'element-plus';
 
@@ -561,6 +578,32 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.action-row :deep(.bulk-action-btn) {
+  position: relative;
+}
+
+.action-row :deep(.bulk-action-btn.is-busy .bulk-action-btn__label) {
+  visibility: hidden;
+}
+
+.action-row :deep(.bulk-action-btn__loading) {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: 18px;
+  animation: bulk-btn-rotating 1.5s linear infinite;
+}
+
+@keyframes bulk-btn-rotating {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
 }
 
 .stats-header {
