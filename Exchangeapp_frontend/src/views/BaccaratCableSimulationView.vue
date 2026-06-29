@@ -26,77 +26,79 @@
       </div>
     </el-card>
 
-    <el-card class="table-card" shadow="never">
-      <template #header>
-        <span>十三太保缆法表</span>
-      </template>
-      <el-table :data="cableTableRows" size="small" stripe border class="cable-table" style="width: 320px">
-        <el-table-column prop="layer" label="层" width="48" align="center" />
-        <el-table-column prop="col1" label="第1列" width="72" align="center">
-          <template #default="{ row }">
-            <span :class="cellClass(row.layer, 1)">{{ row.col1 }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="col2" label="第2列 必打" width="96" align="center">
-          <template #default="{ row }">
-            <span v-if="row.col2" :class="cellClass(row.layer, 2)">{{ row.col2 }}</span>
-            <span v-else class="empty-cell">—</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="col3" label="第3列 选打" width="96" align="center">
-          <template #default="{ row }">
-            <span v-if="row.col3" :class="cellClass(row.layer, 3)">{{ row.col3 }}</span>
-            <span v-else class="empty-cell">—</span>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
-
-    <div class="detail-area">
-      <el-card class="detail-card" shadow="never">
+    <div class="main-layout">
+      <el-card class="table-card" shadow="never">
         <template #header>
-          <div class="stats-header">
-            <span>
-              逐局明细（最近一次）
-              <template v-if="latestResult">
-                （{{ detailCount }} 条{{ latestResult.detailTruncated ? '，已截断' : '' }}）
-              </template>
-            </span>
-          </div>
+          <span>十三太保缆法表</span>
         </template>
-        <el-table v-if="latestResult && detailRows.length" :data="detailRows" size="small" stripe border
-          :height="detailTableHeight" class="detail-table">
-          <el-table-column prop="handIndex" label="#" min-width="72" align="right" />
-          <el-table-column prop="shoeIndex" label="靴" min-width="64" align="center" />
-          <el-table-column prop="layer" label="层" min-width="56" align="center" />
-          <el-table-column prop="col" label="列" min-width="56" align="center" />
-          <el-table-column prop="bet" label="下注" min-width="72" align="right" />
-          <el-table-column prop="actual" label="开奖" min-width="64" align="center" />
-          <el-table-column prop="pick" label="随机" min-width="64" align="center" />
-          <el-table-column prop="outcome" label="结果" min-width="80" align="center">
+        <el-table :data="cableTableRows" size="small" stripe border class="cable-table" style="width: 320px">
+          <el-table-column prop="layer" label="层" width="48" align="center" />
+          <el-table-column prop="col1" label="第1列" width="72" align="center">
             <template #default="{ row }">
-              <el-tag :type="outcomeTagType(row.outcome)" size="small">{{ outcomeLabel(row.outcome) }}</el-tag>
+              <span :class="cellClass(row.layer, 1)">{{ row.col1 }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="profit" label="盈亏" min-width="88" align="right">
+          <el-table-column prop="col2" label="第2列 必打" width="96" align="center">
             <template #default="{ row }">
-              <span :class="profitClass(row.profit)">{{ formatProfit(row.profit) }}</span>
+              <span v-if="row.col2" :class="cellClass(row.layer, 2)">{{ row.col2 }}</span>
+              <span v-else class="empty-cell">—</span>
             </template>
           </el-table-column>
-          <el-table-column label="下一位置" min-width="120" align="center">
+          <el-table-column prop="col3" label="第3列 选打" width="96" align="center">
             <template #default="{ row }">
-              {{ row.nextLayer }}层{{ row.nextCol }}列
-              <el-tag v-if="row.bursted" type="danger" size="small" class="burst-tag">爆缆</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="cumulativeProfit" label="累计盈亏" min-width="100" align="right">
-            <template #default="{ row }">
-              <span :class="profitClass(row.cumulativeProfit)">{{ formatProfit(row.cumulativeProfit) }}</span>
+              <span v-if="row.col3" :class="cellClass(row.layer, 3)">{{ row.col3 }}</span>
+              <span v-else class="empty-cell">—</span>
             </template>
           </el-table-column>
         </el-table>
-        <el-empty v-else description="模拟完成后在此显示逐局明细" :image-size="80" />
       </el-card>
+
+      <div class="detail-area">
+        <el-card class="detail-card" shadow="never">
+          <template #header>
+            <div class="stats-header">
+              <span>
+                逐局明细（最近一次）
+                <template v-if="latestResult">
+                  （{{ detailCount }} 条{{ latestResult.detailTruncated ? '，已截断' : '' }}）
+                </template>
+              </span>
+            </div>
+          </template>
+          <el-table v-if="latestResult && detailRows.length" :data="detailRows" size="small" stripe border
+            :height="detailTableHeight" class="detail-table">
+            <el-table-column prop="handIndex" label="#" min-width="72" align="right" />
+            <el-table-column prop="shoeIndex" label="靴" min-width="64" align="center" />
+            <el-table-column prop="layer" label="层" min-width="56" align="center" />
+            <el-table-column prop="col" label="列" min-width="56" align="center" />
+            <el-table-column prop="bet" label="下注" min-width="72" align="right" />
+            <el-table-column prop="actual" label="开奖" min-width="64" align="center" />
+            <el-table-column prop="pick" label="随机" min-width="64" align="center" />
+            <el-table-column prop="outcome" label="结果" min-width="80" align="center">
+              <template #default="{ row }">
+                <el-tag :type="outcomeTagType(row.outcome)" size="small">{{ outcomeLabel(row.outcome) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="profit" label="盈亏" min-width="88" align="right">
+              <template #default="{ row }">
+                <span :class="profitClass(row.profit)">{{ formatProfit(row.profit) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="下一位置" min-width="120" align="center">
+              <template #default="{ row }">
+                {{ row.nextLayer }}层{{ row.nextCol }}列
+                <el-tag v-if="row.bursted" type="danger" size="small" class="burst-tag">爆缆</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="cumulativeProfit" label="累计盈亏" min-width="100" align="right">
+              <template #default="{ row }">
+                <span :class="profitClass(row.cumulativeProfit)">{{ formatProfit(row.cumulativeProfit) }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-else description="模拟完成后在此显示逐局明细" :image-size="80" />
+        </el-card>
+      </div>
     </div>
 
     <template v-if="cumulativeStats">
@@ -807,6 +809,14 @@ onUnmounted(() => {
   gap: 12px;
 }
 
+.main-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  min-height: 360px;
+  flex-shrink: 0;
+}
+
 .table-card {
   flex-shrink: 0;
   width: fit-content;
@@ -826,11 +836,16 @@ onUnmounted(() => {
 }
 
 .detail-area {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .detail-card {
+  flex: 1;
   width: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -980,11 +995,15 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
   .table-card {
     width: 100%;
   }
 
-  .cable-table {
+  .detail-area {
     width: 100%;
   }
 
